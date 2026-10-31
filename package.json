@@ -1,0 +1,13 @@
+{
+  "name": "skyshift",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SkyShift: SPHEREx sky time-lapse explorer (NASA Space Apps 2026, Planet X and SPHEREx)",
+  "type": "module",
+  "scripts": {
+    "start": "python3 server.py",
+    "test": "node --test tests/unit.test.mjs",
+    "test:e2e": "node tests/e2e.mjs"
+  },
+  "license": "MIT"
+}
