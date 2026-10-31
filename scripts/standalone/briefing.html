@@ -1,0 +1,91 @@
+  <section class="briefing" id="briefing" aria-labelledby="briefing-title">
+    <h2 id="briefing-title">Team briefing</h2>
+    <p class="lede">Challenge: <strong>Planet X and SPHEREx</strong> (Advanced). The brief asks for a public web tool: enter a patch of sky by RA/Dec, get a short video of NASA SPHEREx images, and make moving objects easy to spot. Hackathon: 14–15 November 2026. Submit by 11:59 pm Saudi time on 15 November.</p>
+
+    <div class="brief-grid">
+      <article class="brief-card brief-wide">
+        <h3>Read first: Rule 01 <span class="state risk">Decision needed</span></h3>
+        <p>The Participant Guide says building only starts on 14 November, and early work can get a team disqualified. This prototype was written on 31 October. We need to choose one option together:</p>
+        <ol>
+          <li><strong>Safest:</strong> treat this as research. Create a fresh repo on 14 November and rebuild it over the weekend using what we learned.</li>
+          <li>Ask our city's Local Lead, or post in Space Apps Connect, whether disclosed earlier code is allowed. Then follow their answer.</li>
+        </ol>
+      </article>
+
+      <article class="brief-card">
+        <h3>Try it above</h3>
+        <ul>
+          <li>Press <strong>play</strong>. Barnard's Star moves north along the cyan predicted track.</li>
+          <li>Tick <strong>Difference vs. median sky</strong>. Still stars fade out, and anything that moved becomes a blue/orange pair.</li>
+          <li><strong>Click the moving star.</strong> Its spectrum and light curve appear on the right.</li>
+          <li>Set <strong>Show → Every exposure</strong> and scrub to visit 3 to catch the asteroid crossing the field.</li>
+          <li>Try the other test targets with the chips under the search box.</li>
+        </ul>
+      </article>
+
+      <article class="brief-card">
+        <h3>Status</h3>
+        <ul>
+          <li>Image alignment, stacking, difference mode, photometry <span class="state ok">Tested</span></li>
+          <li>Coordinate maths matches astropy to &lt;0.001″ <span class="state ok">Tested</span></li>
+          <li>Phone layout, embed mode <span class="state ok">Tested</span></li>
+          <li>Live NASA IRSA queries and cutouts <span class="state todo">Unverified</span></li>
+          <li>Gaia overlay, Aladin sky map <span class="state todo">Unverified</span></li>
+          <li>Spectrum wavelengths use each image's band centre <span class="state todo">Approximate</span></li>
+        </ul>
+      </article>
+
+      <article class="brief-card">
+        <h3>Where the real data comes from</h3>
+        <ul>
+          <li><strong>NASA SPHEREx</strong> Level-2 images from IRSA (SIA v2 search plus cutout service). This is the core of the tool.</li>
+          <li><strong>ESA Gaia DR3</strong> via CDS VizieR, for star motions.</li>
+          <li><strong>CDS Sesame / SIMBAD</strong> to look up object names.</li>
+          <li><strong>2MASS, AllWISE, DSS2</strong> background maps through Aladin Lite.</li>
+        </ul>
+      </article>
+
+      <article class="brief-card">
+        <h3>Day-1 checks on the live archive</h3>
+        <ul>
+          <li>IRSA search returns rows for collection <code>spherex_qr</code>, or we find the current name.</li>
+          <li>The rows contain <code>access_url</code>, <code>t_min</code> and <code>em_min</code>/<code>em_max</code>.</li>
+          <li>The cutout link <code>?center=RA,DEC&amp;size=0.1</code> returns the IMAGE, FLAGS and ZODI planes.</li>
+          <li>Barnard's Star shifts about 1 pixel per visit. WISE 0855 appears only at 4–5 µm.</li>
+        </ul>
+      </article>
+
+      <article class="brief-card brief-wide">
+        <h3>Weekend roles</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Role</th><th>Saturday 14 Nov</th><th>Sunday 15 Nov</th></tr></thead>
+            <tbody>
+              <tr><td>Data lead</td><td>Confirm the live IRSA collection, columns and cutout format</td><td>Run all five test targets and note the results</td></tr>
+              <tr><td>Builder 1</td><td>Image pipeline: read, align, stack</td><td>Photometry and exact per-pixel wavelengths</td></tr>
+              <tr><td>Builder 2</td><td>Viewer, playback, video export</td><td>Share links, embed, Gaia overlay, hosting</td></tr>
+              <tr><td>Designer</td><td>Interface polish and phone layout</td><td>Slide visuals and video edit</td></tr>
+              <tr><td>Storyteller</td><td>Project page text and references</td><td>30-second video and two pitch rehearsals</td></tr>
+              <tr><td>Team Owner</td><td>Public repo and team membership</td><td>Submit early, then re-submit before 11:59 pm</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="brief-card brief-wide">
+        <h3>30-second video plan</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>Shot</th></tr></thead>
+            <tbody>
+              <tr><td>0–5 s</td><td>All-sky SPHEREx image. Caption: “A billion objects. Some of them are moving.”</td></tr>
+              <tr><td>5–12 s</td><td>Click Barnard's Star. The movie plays and the star slides along its predicted track.</td></tr>
+              <tr><td>12–18 s</td><td>Turn on Difference. The still sky disappears and the mover lights up.</td></tr>
+              <tr><td>18–24 s</td><td>Click it to show the spectrum, then load WISE 0855 at 3.8–5 µm.</td></tr>
+              <tr><td>24–30 s</td><td>The same movie embedded in a school web page. “SkyShift: NASA SPHEREx for everyone.”</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+  </section>

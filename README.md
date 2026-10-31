@@ -46,6 +46,8 @@ python3 server.py
 
 Then open <http://localhost:8000>. The app also works as static files (for example on GitHub Pages) wherever the archives allow cross-origin requests.
 
+**Single-file version:** `dist/skyshift.html` contains the whole app and the team briefing in one file, so you can email it or double-click it. Rebuild it with `python3 scripts/build_standalone.py`.
+
 To try it offline, choose **Data source → Simulated demo**. This generates realistic SPHEREx-like FITS files (TAN-SIP WCS, FLAGS, ZODI) containing a fast brown dwarf, a variable star and an asteroid. Every frame is watermarked **SIMULATED DATA**.
 
 ### Tests
