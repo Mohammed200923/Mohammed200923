@@ -178,7 +178,7 @@ async function run() {
     state.measurements = [];
     rebuildSequence();
     $('empty').hidden = true;
-    history.replaceState(null, '', shareUrl());
+    try { history.replaceState(null, '', shareUrl()); } catch { /* sandboxed frames may refuse */ }
     setStatus(`${state.target.name}: ${frames.length} exposures → ${state.seq.length} frames` +
       (failed ? ` (${failed} cutouts failed)` : '') + (provider.simulated ? ' — SIMULATED data' : ''));
     if ($('ov-gaia').checked) loadGaia();
