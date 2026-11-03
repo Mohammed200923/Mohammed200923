@@ -31,6 +31,7 @@ PRAYERS = ("fajr", "dhuhr", "asr", "maghrib", "isha")
 HMAX = 15
 BLANK = 30
 KINDS = ("forecast", "hidden", "hidden-future", "missing")
+FC_DROP = set()  # forecast features to leave out
 KNOWN = None  # cameras seen on training days; plaza totals use only these, because
               # cameras I-M switch on at 14:00 on test days and would make totals jump
 
@@ -59,6 +60,21 @@ def prayer_times(day):
     asr_alt = math.degrees(math.atan(1 / (1 + math.tan(abs(lat - dec)))))
     sunset = noon + ha(-0.833)
     return np.array([noon - ha(-18.5), noon + 1, noon + ha(asr_alt), sunset + 1, sunset + 91])
+
+
+CANON_DAY = "2026-09-15"
+
+
+def warp(day):
+    """Prayer-aligned time: each minute of `day` mapped piecewise-linearly so the
+    five prayer times land on those of CANON_DAY. Crowd timing moves with the
+    prayers (about 7 minutes earlier per week in September), not with the clock."""
+    a, c = prayer_times(day), prayer_times(CANON_DAY)
+    m = np.arange(1440, dtype=float)
+    w = np.interp(m, a, c)
+    w = np.where(m < a[0], m + c[0] - a[0], w)
+    w = np.where(m > a[-1], m + c[-1] - a[-1], w)
+    return w
 
 
 def nanroll(X, lo, hi):
@@ -154,10 +170,10 @@ def build_profile(recs, U):
         for key in (r.weekday, "all"):
             if key not in s:
                 s[key] = [np.zeros((1440, U)), np.zeros((1440, U))]
-            m = r.first + np.arange(r.T)
+            m = np.clip(np.round(warp(r.day)[r.first + np.arange(r.T)]).astype(int), 0, 1439)
             ok = ~np.isnan(r.Y)
-            s[key][0][m] += np.nan_to_num(r.Y)
-            s[key][1][m] += ok
+            np.add.at(s[key][0], m, np.nan_to_num(r.Y))
+            np.add.at(s[key][1], m, ok)
     prof = {}
     for key, (a, c) in s.items():
         with np.errstate(invalid="ignore"):
@@ -238,6 +254,7 @@ class Feat:
         self.fri = float(rec.weekday.startswith("Fri"))
         self.prof = prof.get(rec.weekday, prof["all"])
         self.pt = prayer_times(rec.day)
+        self.warp = warp(rec.day)
         self.li = ffill_idx(M)
         self.ri = bfill_idx(M)
         self.tm = {w: nanroll(M, -w + 1, 0) for w in (3, 5, 10, 15, 30)}
@@ -254,12 +271,15 @@ class Feat:
         near = d[np.arange(len(d)), np.abs(d).argmin(1)]
         cols = {f"d_{p}": d[:, k] for k, p in enumerate(PRAYERS)}
         cols["d_near"] = near
-        cols["mod"] = np.asarray(mod, float)
+        cols["wmod"] = self.W(mod)
         cols["fri"] = np.full(len(d), self.fri)
         return cols
 
+    def W(self, mod):
+        return self.warp[np.clip(np.asarray(mod), 0, 1439)]
+
     def P(self, mod, u):
-        return self.prof[np.clip(np.asarray(mod), 0, 1439), u]
+        return self.prof[np.clip(np.round(self.W(mod)).astype(int), 0, 1439), u]
 
     def last(self, now, u):
         i = self.li[now, u]
@@ -284,9 +304,9 @@ class Feat:
         for v in range(self.U):
             f[f"tr_{v}"] = self.tm[5][now, v] / (self.tm[30][now, v] + 1)
         f.update(self.pfeat(mt))
-        f["mod_now"] = mn
+        f["wmod_now"] = self.W(mn)
         f["h"] = h
-        X = pd.DataFrame(f)
+        X = pd.DataFrame(f).drop(columns=[c for c in FC_DROP if c in f])
         base = np.where(np.isnan(last), f["ratio_pred"], last)
         base = np.where(np.isnan(base), pt, base)
         return X, base
@@ -334,7 +354,7 @@ class Feat:
         f["p_now"], f["p_tgt"] = self.P(mn, u), self.P(mt, u)
         f["tot5"], f["tot_r"] = self.tot5[now], self.tot5[now] / (self.tot30[now] + 1)
         f.update(self.pfeat(mt))
-        f["mod_now"], f["h"] = mn, h
+        f["wmod_now"], f["h"] = self.W(mn), h
         return pd.DataFrame(f)
 
     # -- missing: interpolation residual, other cameras' deviation over the same gap
@@ -413,13 +433,20 @@ class BlendModel:
         return (self.a.predict(X) + np.expm1(self.b.predict(X)) + np.expm1(self.h.predict(self._lin(X)))) / 3
 
 
+OOF_PROFILE = True
+
+
 def sims_for(recs, prof, hidden_fn, n, seed):
     rng = np.random.default_rng(seed)
+    U = recs[0].Y.shape[1]
+    # each training day sees a profile built without that day, as a test day would
+    pr = {r.day: (build_profile([x for x in recs if x.day != r.day], U)
+                  if OOF_PROFILE and any(x.day != r.day for x in recs) else prof) for r in recs}
     for k in range(n):
         for r in recs:
             H = hidden_fn(rng, r)
             M, holes = simulate(r.Y, rng, H, n_gaps=40)
-            yield r, M, holes, Feat(M, r, prof)
+            yield r, M, holes, Feat(M, r, pr[r.day])
 
 
 def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=()):
