@@ -31,6 +31,9 @@ PRAYERS = ("fajr", "dhuhr", "asr", "maghrib", "isha")
 HMAX = 15
 BLANK = 30
 KINDS = ("forecast", "hidden", "hidden-future", "missing")
+SAME_WEEK = True  # also learn from the other test day where the rules allow
+UNITS = []
+units_name = lambda u: UNITS[u] if u < len(UNITS) else u
 FC_DROP = set()  # forecast features to leave out
 KNOWN = None  # cameras seen on training days; plaza totals use only these, because
               # cameras I-M switch on at 14:00 on test days and would make totals jump
@@ -156,6 +159,7 @@ def load(data_dir):
         out[r.recording] = Rec(r.recording, str(r.day), str(r.weekday), first, Y)
         out[r.recording].split = r.split
     global KNOWN
+    UNITS[:] = units
     KNOWN = np.array([u in set(tr["unit"]) for u in units])
     holes = te[te["id"].notna()].copy()
     holes["u"] = holes["unit"].map(uix)
@@ -436,24 +440,30 @@ class BlendModel:
 OOF_PROFILE = True
 
 
-def sims_for(recs, prof, hidden_fn, n, seed):
+def sims_for(recs, prof, hidden_fn, n, seed, extra=()):
+    """Masked copies of `recs` (training days) and `extra` (released test-day rows,
+    whose profile is the training-day one, as at prediction time)."""
     rng = np.random.default_rng(seed)
     U = recs[0].Y.shape[1]
     # each training day sees a profile built without that day, as a test day would
     pr = {r.day: (build_profile([x for x in recs if x.day != r.day], U)
                   if OOF_PROFILE and any(x.day != r.day for x in recs) else prof) for r in recs}
+    for r in extra:
+        pr[r.day] = prof
     for k in range(n):
-        for r in recs:
+        for r in list(recs) + list(extra):
             H = hidden_fn(rng, r)
             M, holes = simulate(r.Y, rng, H, n_gaps=40)
             yield r, M, holes, Feat(M, r, pr[r.day])
 
 
-def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=()):
-    """Forecast + missing models (independent of which camera is hidden)."""
+def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), extra_forecast=()):
+    """Forecast + missing models (independent of which camera is hidden).
+    extra_forecast: released test-day rows that are all before the holes predicted."""
     FX, Fy, MX, My = [], [], [], []
     present = lambda r: [u for u in range(U) if not np.isnan(r.Y[:, u]).all()]
-    for r, M, H, F in sims_for(recs, prof, lambda g, r: [int(g.choice(present(r)))], n_sims, seed):
+    for r, M, H, F in sims_for(recs, prof, lambda g, r: [int(g.choice(present(r)))], n_sims, seed,
+                               extra=extra_forecast):
         u, now, h = H["forecast"].T
         X, base = F.forecast(u, now, h)
         FX.append(X); Fy.append(r.Y[now + h, u] - base)
@@ -493,9 +503,13 @@ def simulate_gaps_only(Y, rng, n_gaps):
     return M, np.array(out, dtype=int).reshape(-1, 3)
 
 
-def train_hidden(recs, prof, Hset, n_sims, seed=0, n_seeds=1):
-    """Per hidden camera u in Hset: a hidden model and a hidden-future model."""
-    sims = list(sims_for(recs, prof, lambda g, r: list(Hset), n_sims, seed))
+def train_hidden(recs, prof, Hset, n_sims, seed=0, n_seeds=1, extra_h=(), extra_hf=()):
+    """Per hidden camera u in Hset: a hidden model and a hidden-future model.
+    extra_h: test days where the camera is visible (hidden holes may use any row);
+    extra_hf: the subset that is before the hidden-future holes (also usable there)."""
+    extra_h = [r for r in extra_h if r not in extra_hf]
+    sims = list(sims_for(recs, prof, lambda g, r: list(Hset), n_sims, seed, extra=list(extra_hf) + extra_h))
+    causal = [i for i, s_ in enumerate(sims) if not any(s_[0] is x for x in extra_h)]
 
     def hid_fit(idx, u, n):
         X, y = [], []
@@ -514,21 +528,25 @@ def train_hidden(recs, prof, Hset, n_sims, seed=0, n_seeds=1):
         if full is None:
             out[u] = None
             continue
-        # out-of-fold hidden tracks (leave one training recording out) as a
-        # feature for hidden-future, so its training sees honest estimates
+        # the hidden-future side must not learn from rows after its holes, so its
+        # hidden track comes from a model without extra_h
+        full_c = hid_fit(causal, u, n_seeds) if extra_h else full
+        # out-of-fold hidden tracks (leave one recording out) as a feature for
+        # hidden-future, so its training sees honest estimates
         tracks = {}
-        for r in recs:
-            mine = [i for i, s_ in enumerate(sims) if s_[0] is r]
-            oof = hid_fit([i for i, s_ in enumerate(sims) if s_[0] is not r], u, 1)
+        for r in {id(sims[i][0]): sims[i][0] for i in causal}.values():
+            mine = [i for i in causal if sims[i][0] is r]
+            oof = hid_fit([i for i in causal if sims[i][0] is not r], u, 1)
             for i in mine:
-                tracks[i] = sims[i][3].hidden_track(oof or full, u)
+                tracks[i] = sims[i][3].hidden_track(oof or full_c, u)
         X, y = [], []
-        for i, (r, M, H, F) in enumerate(sims):
+        for i in causal:
+            r, M, H, F = sims[i]
             hf = H["hidden-future"][H["hidden-future"][:, 0] == u]
             if len(hf):
                 now, h = hf[:, 1], hf[:, 2]
                 X.append(F.hidden_future(u, now, h, tracks[i])); y.append(r.Y[now + h, u])
-        out[u] = (full, Model(n_seeds).fit(pd.concat(X, ignore_index=True), np.concatenate(y)))
+        out[u] = (full, Model(n_seeds).fit(pd.concat(X, ignore_index=True), np.concatenate(y)), full_c)
     return out
 
 
@@ -571,7 +589,7 @@ def predict_kinds(F, H, fm, mm, hm):
             if kind == "hidden":
                 p[sel] = hm[uu][0].predict(F.hidden(uu, arr[sel, 1]))
             else:
-                track = F.hidden_track(hm[uu][0], uu)
+                track = F.hidden_track(hm[uu][-1], uu)
                 p[sel] = hm[uu][1].predict(F.hidden_future(uu, arr[sel, 1], arr[sel, 2], track))
         P[kind] = p
     return {k: np.clip(v, 0, None) for k, v in P.items()}
@@ -645,16 +663,26 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
     train = [r for r in recs.values() if r.split == "train"]
     test = [r for r in recs.values() if r.split == "test"]
     prof = build_profile(train, U)
-    print("training forecast + missing models ...", flush=True)
-    fm, mm = train_generic(train, prof, U, n_sims, seed, n_seeds, extra_missing=test)
     pred = {}
-    cache = {}
+    gen = {}
     for r in test:
         hr = holes[holes["recording"] == r.name]
-        Hset = tuple(sorted(hr.loc[hr["kind"].isin(["hidden", "hidden-future"]), "u"].unique().tolist()))
-        if Hset not in cache:
-            print(f"training hidden models for {[u for u in Hset]} ...", flush=True)
-            cache[Hset] = train_hidden(train, prof, list(Hset), n_sims, seed, n_seeds)
+        Hset = sorted(hr.loc[hr["kind"].isin(["hidden", "hidden-future"]), "u"].unique().tolist())
+        # same-week data from the other test day (rules: forecast / hidden-future
+        # holes may only use rows before their now, i.e. earlier days)
+        earlier = [x for x in test if x.day < r.day] if SAME_WEEK else []
+        others = [x for x in test if x is not r and all(not np.isnan(x.Y[:, u]).all() for u in Hset)] \
+            if SAME_WEEK else []
+        key = tuple(x.name for x in earlier)
+        if key not in gen:
+            print(f"training forecast + missing models (extra forecast days: {list(key)}) ...", flush=True)
+            gen[key] = train_generic(train, prof, U, n_sims, seed, n_seeds, extra_missing=test,
+                                     extra_forecast=earlier)
+        fm, mm = gen[key]
+        print(f"training hidden models for {[units_name(u) for u in Hset]} on {r.name} "
+              f"(extra hidden days: {[x.name for x in others]}) ...", flush=True)
+        hm = train_hidden(train, prof, Hset, n_sims, seed, n_seeds,
+                          extra_h=others, extra_hf=[x for x in others if x in earlier])
         F = Feat(r.Y, r, prof)
         H, ids = {}, {}
         for kind in KINDS:
@@ -667,7 +695,7 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
                 h = np.zeros(len(k), int)
             H[kind] = np.stack([k["u"].to_numpy(), now, h], 1).astype(int).reshape(-1, 3)
             ids[kind] = k["id"].to_numpy()
-        P = predict_kinds(F, H, fm, mm, cache[Hset])
+        P = predict_kinds(F, H, fm, mm, hm)
         for kind in KINDS:
             if len(ids[kind]):
                 pred.update(zip(ids[kind], P[kind]))
@@ -690,7 +718,10 @@ def main():
     ap.add_argument("--eval", type=int, default=4, help="CV: hidden-camera choices per fold")
     ap.add_argument("--seeds", type=int, default=3, help="LightGBM seeds to average")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--no-same-week", action="store_true", help="train on train.csv only")
     a = ap.parse_args()
+    global SAME_WEEK
+    SAME_WEEK = not a.no_same_week
     d = find_data_dir(a.data)
     recs, units, holes = load(d)
     print(f"units: {units}; recordings: {len(recs)}; test holes: {len(holes)}")

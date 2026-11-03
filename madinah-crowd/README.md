@@ -26,6 +26,18 @@ The training recordings are masked again and again to look like a test day: a hi
 
 Validation is leave-one-day-out on the two full training days (11 and 12 Sep), with holes simulated like the test days. For comparison, the organizers say their gradient-boosting baseline scores about 0.81. The real leaderboard will differ: there are only two test days, and the private board is a single recording.
 
+## Same-week data
+
+The other test day is used where the rules allow it: the hidden model of each test day also learns from the other test day (where that camera is visible), and the 19 Sep forecast and hidden-future models also learn from 18 Sep (all of it is before any 19 Sep `now`). The 18 Sep forecast and hidden-future models never see 19 Sep. On a training analog (predict 12 Sep from the week before, with and without 11 Sep), the extra day improved forecast 0.93 → 0.83 and hidden 0.71–0.98 → 0.66–0.73. Turn it off with `--no-same-week`.
+
+## Leaderboard history
+
+| version | public | change |
+|---|---|---|
+| v1 | 0.835 | first model |
+| v3 | 0.792 | prayer-aligned time (crowd timing moves ~7 min earlier per week; probes showed forecast at 1.008) |
+| v4 | ? | same-week data |
+
 ## Rules check
 
 - Forecast and hidden-future features only read rows at or before `now` (trailing windows). The hidden track feature uses windows that reach at most 10 minutes ahead, and every camera is blank for 30 minutes after `now`, so it never sees a row after `now`.
