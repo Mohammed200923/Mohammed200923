@@ -31,6 +31,8 @@ PRAYERS = ("fajr", "dhuhr", "asr", "maghrib", "isha")
 HMAX = 15
 BLANK = 30
 KINDS = ("forecast", "hidden", "hidden-future", "missing")
+KNOWN = None  # cameras seen on training days; plaza totals use only these, because
+              # cameras I-M switch on at 14:00 on test days and would make totals jump
 
 
 # ----------------------------------------------------------------------------- utils
@@ -137,6 +139,8 @@ def load(data_dir):
         Y[s["minute_of_day"].to_numpy() - first, s["unit"].map(uix).to_numpy()] = s["people"].to_numpy()
         out[r.recording] = Rec(r.recording, str(r.day), str(r.weekday), first, Y)
         out[r.recording].split = r.split
+    global KNOWN
+    KNOWN = np.array([u in set(tr["unit"]) for u in units])
     holes = te[te["id"].notna()].copy()
     holes["u"] = holes["unit"].map(uix)
     return out, units, holes
@@ -238,11 +242,12 @@ class Feat:
         self.ri = bfill_idx(M)
         self.tm = {w: nanroll(M, -w + 1, 0) for w in (3, 5, 10, 15, 30)}
         self.cm = {w: nanroll(M, -w, w) for w in (1, 2, 5, 10)}
-        self.tot5 = np.nansum(self.tm[5], 1)
-        self.tot15 = np.nansum(self.tm[15], 1)
-        self.tot30 = np.nansum(self.tm[30], 1)
-        self.totc2 = np.nansum(self.cm[2], 1)
-        self.nvis = (~np.isnan(self.cm[2])).sum(1)
+        k = KNOWN if KNOWN is not None else np.ones(self.U, bool)
+        self.tot5 = np.nansum(self.tm[5][:, k], 1)
+        self.tot15 = np.nansum(self.tm[15][:, k], 1)
+        self.tot30 = np.nansum(self.tm[30][:, k], 1)
+        self.totc2 = np.nansum(self.cm[2][:, k], 1)
+        self.nvis = (~np.isnan(self.cm[2][:, k])).sum(1)
 
     def pfeat(self, mod):
         d = np.clip(np.asarray(mod, float)[:, None] - self.pt[None, :], -300, 300)
@@ -353,7 +358,7 @@ class Feat:
             rd = (xv - iv) / (np.abs(iv) + 1)
             rd = np.where(v == u, np.nan, rd)
             f[f"rd_{v}"] = rd
-            ok = ~np.isnan(rd)
+            ok = ~np.isnan(rd) & (True if KNOWN is None else bool(KNOWN[v]))
             S += np.where(ok, xv, 0)
             Si += np.where(ok, iv, 0)
         f["tot_rd"] = (S - Si) / (Si + 1)
