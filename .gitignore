@@ -4,3 +4,6 @@ __pycache__/
 .env
 *.key
 .DS_Store
+madinah-crowd/data/
+madinah-crowd/*.csv
+!madinah-crowd/submission.csv
