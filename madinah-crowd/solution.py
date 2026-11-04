@@ -568,7 +568,7 @@ def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), ex
     return Avg([m[0] for m in ms]), (None if forecast_only else Avg([m[1] for m in ms]))
 
 
-ONLINE = True  # forecast also learns from the test day's own rows before a cutoff
+ONLINE = False  # hurt on the public board (v6 0.784 vs v5 0.774); forecast also learns from the test day's own rows before a cutoff
 ONLINE_CUTOFFS = (780, 930, 1080)  # 13:00, 15:30, 18:00 (minute of day)
 
 
