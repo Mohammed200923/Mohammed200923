@@ -46,7 +46,10 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v10 | (= v8 on the public day) | v8 + 25% reference blend for cam_D hidden-future, which only exists on 19 Sep (likely the private day). Bench, D hidden on a Saturday with the previous day: 0.738/0.680/0.800 → 0.651/0.593/0.670 |
 
-`submission.csv` is v10. It is identical to v8 on 18 Sep, so its public score should equal v8's (0.766); the change only affects 19 Sep. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v10 | 0.766 | (same as v8 on 18 Sep, as expected) |
+| v11a | **0.758** | v10 + 25% reference blended into every hidden prediction (50%: 0.760; B/G hidden-future 25%: 0.765, not adopted) |
+
+`submission.csv` is v11a, the best public score. Suggested finals: v11a + v10. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
