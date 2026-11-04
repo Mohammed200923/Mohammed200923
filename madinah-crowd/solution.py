@@ -376,6 +376,8 @@ class Feat:
     def hidden(self, u, t):
         f = {}
         for v in range(self.U):
+            if HID_KNOWN_ONLY and KNOWN is not None and not KNOWN[v]:
+                continue
             f[f"x_{v}"] = self.M[t, v]
             for w, A in self.cm.items():
                 f[f"c{w}_{v}"] = A[t, v]
@@ -419,6 +421,8 @@ class Feat:
                 f[f"hp{w}"] = nanroll(tr, -w + 1, 0)[now, 0]
             f["hp_ratio"] = f["hp_last"] * (self.P(self.mods[now] + h, u) + 1) / (self.P(self.mods[now], u) + 1)
         for v in range(self.U):
+            if HID_KNOWN_ONLY and KNOWN is not None and not KNOWN[v]:
+                continue
             f[f"l_{v}"] = self.last(now, v)[0]
             f[f"t5_{v}"] = self.tm[5][now, v]
             f[f"t15_{v}"] = self.tm[15][now, v]
@@ -739,6 +743,7 @@ def horizon_trust(h):
     return np.clip(a1 + (1 - a1) * (np.asarray(h, float) - 1) / (hf - 1), a1, 1.0)
 
 
+HID_KNOWN_ONLY = False  # hidden models: only cameras seen on training days (not test-only I-M)
 HIDDEN_REF_BLEND = 0.25  # hidden: share of the reference (best camera x scale) blended in
 HF_REF_BLEND = {"cam_D": 0.25}  # hidden-future: share of the reference blended in, per camera
 PRE_PRAYER = None  # v9 (-30, -10) gave 0.767 vs v8 0.766 on the public board, so off.
