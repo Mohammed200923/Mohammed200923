@@ -726,6 +726,19 @@ def hidden_reference(recs, u, Hset, U):
     return best[1], best[2]
 
 
+FC_TRUST = (0.25, 8)  # trust in the forecast model's change: 0.25 at h=1, linear to 1 at h=8
+
+
+def horizon_trust(h):
+    """Week-gap bench: at 1-2 minutes ahead the model is worse than the last value
+    (ratio 1.07-1.14), at 6-15 it clearly wins. Fitted on one bench seed, it improves
+    the other (wk11 0.886 -> 0.860, wk12 0.835 -> 0.825, prev12 unchanged)."""
+    if FC_TRUST is None:
+        return 1.0
+    a1, hf = FC_TRUST
+    return np.clip(a1 + (1 - a1) * (np.asarray(h, float) - 1) / (hf - 1), a1, 1.0)
+
+
 def predict_kinds(F, H, fm, mm, hm):
     """Predict every hole in H (dict kind -> (u, t|now, h) arrays)."""
     P = {}
@@ -738,9 +751,9 @@ def predict_kinds(F, H, fm, mm, hm):
                 sel = mod >= c
                 if sel.any():
                     d[sel] = m.predict(X[sel])
-            P["forecast"] = base + d
+            P["forecast"] = base + horizon_trust(h) * d
         else:
-            P["forecast"] = base + fm.predict(X)
+            P["forecast"] = base + horizon_trust(h) * fm.predict(X)
     u, t, _ = H["missing"].T
     if len(u):
         X, base = F.missing(u, t)

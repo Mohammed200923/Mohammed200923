@@ -41,8 +41,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v6 | 0.784 | forecast also learns from the test day's own rows before 13:00/15:30/18:00 (bench 0.831 → 0.807, but worse on the public board: reverted, `ONLINE = False`) |
 
 | v7 | 0.773 | v5 + 5-minute timing jitter in training sims + 8 bags (forecast bench 0.831 → 0.812) |
+| v8 | ? | v7 + horizon-dependent trust in forecast changes (0.25 at 1 min → 1.0 at 8 min). Bench: the model was worse than the last value at 1–2 min ahead |
 
-`submission.csv` is v7.
+`submission.csv` is v8.
 
 ## Rules check
 
