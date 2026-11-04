@@ -560,14 +560,40 @@ N_BAGS = 5  # models trained on independent simulated maskings, averaged
             # (week-gap bench, forecast: single model 0.84-0.91, 5 bags 0.81-0.82)
 
 
-def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), extra_forecast=(), n_bags=None):
+def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), extra_forecast=(), n_bags=None,
+                  forecast_only=False):
     n_bags = n_bags or N_BAGS
-    ms = [_train_generic(recs, prof, U, n_sims, seed + 1000 * k, n_seeds, extra_missing, extra_forecast)
-          for k in range(n_bags)]
-    return Avg([m[0] for m in ms]), Avg([m[1] for m in ms])
+    ms = [_train_generic(recs, prof, U, n_sims, seed + 1000 * k, n_seeds, extra_missing, extra_forecast,
+                         forecast_only) for k in range(n_bags)]
+    return Avg([m[0] for m in ms]), (None if forecast_only else Avg([m[1] for m in ms]))
 
 
-def _train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), extra_forecast=()):
+ONLINE_CUTOFFS = (780, 930, 1080)  # 13:00, 15:30, 18:00 (minute of day)
+
+
+def truncated(r, cut_mod):
+    """Copy of recording r with every row after minute `cut_mod` removed."""
+    t = Rec(r.name + f"@{cut_mod}", r.day, r.weekday, r.first, r.Y.copy())
+    t.Y[max(0, cut_mod - r.first + 1):] = np.nan
+    t.split = r.split
+    return t
+
+
+def online_forecast_models(recs, prof, U, n_sims, seed, n_seeds, r, extra_forecast=(), cutoffs=None):
+    """Forecast models that also learn from recording r's own rows before a cutoff.
+    A hole whose now >= cutoff uses the model of the latest such cutoff (rules: rows
+    at or before now only). Returns [(cut_mod, model)], ascending; cut_mod=-1 = base."""
+    out = []
+    for c in (cutoffs if cutoffs is not None else ONLINE_CUTOFFS):
+        if c <= r.first + 60:
+            continue
+        fm, _ = train_generic(recs, prof, U, n_sims, seed + 7 * c, n_seeds,
+                              extra_forecast=list(extra_forecast) + [truncated(r, c)], forecast_only=True)
+        out.append((c, fm))
+    return out
+
+
+def _train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), extra_forecast=(), forecast_only=False):
     """Forecast + missing models (independent of which camera is hidden).
     extra_forecast: released test-day rows that are all before the holes predicted."""
     FX, Fy, MX, My = [], [], [], []
@@ -577,9 +603,13 @@ def _train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), e
         u, now, h = H["forecast"].T
         X, base = F.forecast(u, now, h)
         FX.append(X); Fy.append(r.Y[now + h, u] - base)
+        if forecast_only:
+            continue
         u, t, _ = H["missing"].T
         X, base = F.missing(u, t)
         MX.append(X); My.append(r.Y[t, u] - base)
+    if forecast_only:
+        return FcModel(n_seeds, FC_BLEND).fit(pd.concat(FX, ignore_index=True), np.concatenate(Fy)), None
     # missing model may also learn from released test rows (allowed by the rules)
     rng = np.random.default_rng(seed + 99)
     for r in extra_missing:
