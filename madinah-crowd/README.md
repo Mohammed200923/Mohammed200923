@@ -55,7 +55,10 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v14a / v14b | 0.773 / 0.765 | hidden blended with a share-pattern estimator (B's share of cam_A by prayer-aligned time × cam_A). Beats the reference on held-out training days, but worse on the public day: not used |
 
-`submission.csv` is v13. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v13 + v11a. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v15a | 0.776 | v13 + missing pulled 25% toward interpolation: much worse |
+| v15b | **0.757** | v13 + 25% reference in B/G hidden-future (now in the code for every hidden camera) |
+
+`submission.csv` is v15b. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v15b + v13. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
