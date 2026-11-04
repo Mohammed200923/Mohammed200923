@@ -739,7 +739,8 @@ def horizon_trust(h):
     return np.clip(a1 + (1 - a1) * (np.asarray(h, float) - 1) / (hf - 1), a1, 1.0)
 
 
-PRE_PRAYER = (-30, -10)  # targets this many minutes before a prayer: keep the last value
+PRE_PRAYER = None  # v9 (-30, -10) gave 0.767 vs v8 0.766 on the public board, so off.
+# targets this many minutes before a prayer: keep the last value
                          # on a day without an earlier same-week day (week-gap bench:
                          # model ratio 1.3-2.0 there; wk11 0.853 -> 0.820, wk12 0.828 -> 0.802;
                          # with an adjacent day it is fine, so not applied then)
