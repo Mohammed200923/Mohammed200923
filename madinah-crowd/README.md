@@ -44,7 +44,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v8 | 0.766 | v7 + horizon-dependent trust in forecast changes (0.25 at 1 min → 1.0 at 8 min). Bench: the model was worse than the last value at 1–2 min ahead |
 | v9 | 0.767 | v8 + on a day without an earlier same-week day (18 Sep), forecasts whose target is 10–30 min before a prayer keep the last value (week-gap bench: model 1.3–2.0 there) |
 
-`submission.csv` is v8, the best public score. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v10 | (= v8 on the public day) | v8 + 25% reference blend for cam_D hidden-future, which only exists on 19 Sep (likely the private day). Bench, D hidden on a Saturday with the previous day: 0.738/0.680/0.800 → 0.651/0.593/0.670 |
+
+`submission.csv` is v10. It is identical to v8 on 18 Sep, so its public score should equal v8's (0.766); the change only affects 19 Sep. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 

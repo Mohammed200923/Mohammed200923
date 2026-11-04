@@ -739,6 +739,7 @@ def horizon_trust(h):
     return np.clip(a1 + (1 - a1) * (np.asarray(h, float) - 1) / (hf - 1), a1, 1.0)
 
 
+HF_REF_BLEND = {"cam_D": 0.25}  # hidden-future: share of the reference blended in, per camera
 PRE_PRAYER = None  # v9 (-30, -10) gave 0.767 vs v8 0.766 on the public board, so off.
 # targets this many minutes before a prayer: keep the last value
                          # on a day without an earlier same-week day (week-gap bench:
@@ -895,6 +896,14 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
                 pred.update(zip(ids[kind], P[kind]))
     ss = pd.read_csv(os.path.join(data_dir, "sample_submission.csv")).set_index("id")["people"]
     pred = pd.Series(pred, dtype=float).reindex(ss.index)
+    # hidden-future of cam_D: blend with the reference (1.165 x cam_B at now, B being D's
+    # closest camera). Bench (Saturday, previous day in training, D hidden, as on 19 Sep):
+    # 25% reference gives 0.738 -> 0.651, 0.680 -> 0.593, 0.800 -> 0.670 over 3 seeds.
+    # It hurt for B/G, so it is camera-specific.
+    for unit, w in HF_REF_BLEND.items():
+        sel = holes.loc[(holes["kind"] == "hidden-future") & (holes["unit"] == unit), "id"]
+        sel = sel[sel.isin(pred.index)]
+        pred.loc[sel] = (1 - w) * pred.loc[sel] + w * ss.loc[sel]
     nbad = int(pred.isna().sum())
     if nbad:
         print(f"warning: {nbad} holes fell back to the reference")
