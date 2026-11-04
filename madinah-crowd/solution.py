@@ -752,7 +752,7 @@ def horizon_trust(h):
 HID_KNOWN_ONLY = False  # hidden models: only cameras seen on training days (not test-only I-M)
 HIDDEN_REF_BLEND = 0.25  # hidden: share of the reference (best camera x scale) blended in
 HF_REF_BLEND = {"cam_D": 0.25, "cam_B": 0.25, "cam_G": 0.25}  # B/G added: public 0.758 -> 0.757
-MISSING_SCALE = 1.0  # missing = interpolation + MISSING_SCALE x model correction (25% toward interpolation: 0.776)  # hidden-future: share of the reference blended in, per camera
+MISSING_SCALE = 1.25  # missing = interpolation + 1.25 x model correction; public: 0.75x 0.776, 1.0x 0.757, 1.25x 0.747, 1.5x 0.750
 SAME_WEEK_LONG_TRUST = 1.15
 PRE_PRAYER = None  # v9 (-30, -10) gave 0.767 vs v8 0.766 on the public board, so off.
 # targets this many minutes before a prayer: keep the last value

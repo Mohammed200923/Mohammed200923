@@ -58,7 +58,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v15a | 0.776 | v13 + missing pulled 25% toward interpolation: much worse |
 | v15b | **0.757** | v13 + 25% reference in B/G hidden-future (now in the code for every hidden camera) |
 
-`submission.csv` is v15b. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v15b + v13. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v16 (1.25×) | **0.747** | v15b + missing = interpolation + 1.25 × the model's correction (1.5×: 0.750). The missing model under-corrects |
+
+`submission.csv` is v16 (1.25×). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v16 (1.25×) + v15b. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
