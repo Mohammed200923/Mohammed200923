@@ -739,21 +739,31 @@ def horizon_trust(h):
     return np.clip(a1 + (1 - a1) * (np.asarray(h, float) - 1) / (hf - 1), a1, 1.0)
 
 
-def predict_kinds(F, H, fm, mm, hm):
+PRE_PRAYER = (-30, -10)  # targets this many minutes before a prayer: keep the last value
+                         # on a day without an earlier same-week day (week-gap bench:
+                         # model ratio 1.3-2.0 there; wk11 0.853 -> 0.820, wk12 0.828 -> 0.802;
+                         # with an adjacent day it is fine, so not applied then)
+
+
+def predict_kinds(F, H, fm, mm, hm, week_gap=False):
     """Predict every hole in H (dict kind -> (u, t|now, h) arrays)."""
     P = {}
     u, now, h = H["forecast"].T
     if len(u):
         X, base = F.forecast(u, now, h)
+        trust = horizon_trust(h)
+        if week_gap and PRE_PRAYER:
+            dn = X["d_near"].to_numpy()
+            trust = np.where((dn > PRE_PRAYER[0]) & (dn <= PRE_PRAYER[1]), 0.0, trust)
         if isinstance(fm, list):  # [(cutoff minute, model)] ascending; latest cutoff <= now wins
             d = np.zeros(len(u)); mod = F.mods[now]
             for c, m in fm:
                 sel = mod >= c
                 if sel.any():
                     d[sel] = m.predict(X[sel])
-            P["forecast"] = base + horizon_trust(h) * d
+            P["forecast"] = base + trust * d
         else:
-            P["forecast"] = base + horizon_trust(h) * fm.predict(X)
+            P["forecast"] = base + trust * fm.predict(X)
     u, t, _ = H["missing"].T
     if len(u):
         X, base = F.missing(u, t)
@@ -878,7 +888,7 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
                 h = np.zeros(len(k), int)
             H[kind] = np.stack([k["u"].to_numpy(), now, h], 1).astype(int).reshape(-1, 3)
             ids[kind] = k["id"].to_numpy()
-        P = predict_kinds(F, H, fm, mm, hm)
+        P = predict_kinds(F, H, fm, mm, hm, week_gap=not earlier)
         for kind in KINDS:
             if len(ids[kind]):
                 pred.update(zip(ids[kind], P[kind]))
