@@ -35,6 +35,8 @@ SAME_WEEK = True  # also learn from the other test day where the rules allow
 UNITS = []
 units_name = lambda u: UNITS[u] if u < len(UNITS) else u
 FC_DROP = set()  # forecast features to leave out
+HID_EXTRA = False  # hidden: counts relative to profile, plaza busyness x own profile
+FC_EXTRA = False  # today's level, timing offset and profile shape (did not help)
 KNOWN = None  # cameras seen on training days; plaza totals use only these, because
               # cameras I-M switch on at 14:00 on test days and would make totals jump
 
@@ -290,8 +292,58 @@ class Feat:
         return np.where(i >= 0, self.M[np.maximum(i, 0), u], np.nan), now - i
 
     # -- forecast: causal
+    def Pw(self, w, u):
+        return self.prof[np.clip(np.round(w).astype(int), 0, 1439), u]
+
+    def _day_stats(self):
+        """Per-camera level of today vs the profile (cumulative, rows <= t only), and
+        today's timing offset vs the profile, fitted on the last 90 released minutes."""
+        if hasattr(self, "_dr"):
+            return
+        T, U = self.T, self.U
+        wm = self.warp[np.clip(self.mods, 0, 1439)]
+        R = ~np.isnan(self.M)
+        PR = self.Pw(wm[:, None] + np.zeros((1, U)), np.arange(U)[None, :])
+        z = np.zeros((1, U))
+        co = np.concatenate([z, np.cumsum(np.nan_to_num(self.M), 0)])
+        cp = np.concatenate([z, np.cumsum(np.where(R, np.nan_to_num(PR), 0), 0)])
+        t = np.arange(T)
+        self._dr = (co[t + 1] + 1) / (cp[t + 1] + 1)
+        lo = np.maximum(t + 1 - 60, 0)
+        self._dr60 = (co[t + 1] - co[lo] + 1) / (cp[t + 1] - cp[lo] + 1)
+        k = KNOWN if KNOWN is not None else np.ones(U, bool)
+        best = np.full(T, np.inf); off = np.zeros(T)
+        lo = np.maximum(t + 1 - 90, 0)
+        for L in range(-12, 13, 2):
+            PL = self.Pw(wm[:, None] + L + np.zeros((1, U)), np.arange(U)[None, :])
+            e = np.log1p(self.M) - np.log1p(PL)
+            ok = ~np.isnan(e) & k[None, :]
+            e0 = np.where(ok, e, 0)
+            c1 = np.concatenate([z, np.cumsum(e0, 0)]); c2 = np.concatenate([z, np.cumsum(e0 ** 2, 0)])
+            cn = np.concatenate([z, np.cumsum(ok, 0)])
+            n = cn[t + 1] - cn[lo]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                m = (c1[t + 1] - c1[lo]) / n
+                var = (c2[t + 1] - c2[lo]) / n - m ** 2
+            sc = np.where(n >= 15, var, np.nan)
+            score = np.nanmean(sc, 1) + 0.002 * abs(L)  # mild preference for no shift
+            better = score < best
+            best = np.where(better, score, best); off = np.where(better, L, off)
+        self._off = np.where(np.isfinite(best), off, 0.0)
+
     def forecast(self, u, now, h):
         f = {}
+        if FC_EXTRA:
+            self._day_stats()
+            wn, wt = self.W(self.mods[now]), self.W(self.mods[now] + h)
+            f["dr"], f["dr60"] = self._dr[now, u], self._dr60[now, u]
+            off = self._off[now]
+            f["off"] = off
+            pno, pto = self.Pw(wn + off, u), self.Pw(wt + off, u)
+            f["p_d_off"] = pto - pno
+            f["rp_off"] = self.tm[5][now, u] * (pto + 1) / (pno + 1)
+            f["rp_dr"] = f["dr60"] * pto
+            f["p_shape"] = self.Pw(wt + 5, u) - self.Pw(wt - 5, u)
         last, age = self.last(now, u)
         f["last"], f["age"] = last, age
         for w, A in self.tm.items():
@@ -313,6 +365,7 @@ class Feat:
         X = pd.DataFrame(f).drop(columns=[c for c in FC_DROP if c in f])
         base = np.where(np.isnan(last), f["ratio_pred"], last)
         base = np.where(np.isnan(base), pt, base)
+        X["_base"] = base
         return X, base
 
     # -- hidden: non-causal, other cameras at t
@@ -325,6 +378,17 @@ class Feat:
         f["tot"] = self.totc2[t]
         f["nvis"] = self.nvis[t]
         f["p_u"] = self.P(self.mods[t], u)
+        if HID_EXTRA:
+            k = KNOWN if KNOWN is not None else np.ones(self.U, bool)
+            num = np.zeros(len(t)); den = np.zeros(len(t))
+            for v in range(self.U):
+                pv = self.P(self.mods[t], v)
+                xv = self.cm[2][t, v]
+                f[f"rx_{v}"] = xv / (pv + 1)
+                ok = ~np.isnan(xv) & ~np.isnan(pv) & bool(k[v])
+                num += np.where(ok, xv, 0); den += np.where(ok, pv, 0)
+            f["plz"] = num / (den + 1)
+            f["est_prof"] = f["p_u"] * f["plz"]
         f.update(self.pfeat(self.mods[t]))
         return pd.DataFrame(f)
 
@@ -413,6 +477,33 @@ class Model:
         return np.mean([m.predict(X) for m in self.ms], 0)
 
 
+class FcModel:
+    """Forecast: mean of a model on the change (people) and one on the log ratio."""
+
+    def __init__(self, n_seeds, blend=True):
+        self.n, self.blend = n_seeds, blend
+
+    def fit(self, X, d):
+        b = np.clip(X["_base"].to_numpy(), 0, None)
+        Xf = X.drop(columns="_base")
+        self.a = Model(self.n, **FC_PARAMS).fit(Xf, d)
+        if self.blend:
+            self.b = Model(self.n, **FC_PARAMS).fit(Xf, np.log1p(np.clip(b + d, 0, None)) - np.log1p(b))
+        return self
+
+    def predict(self, X):
+        b = np.clip(X["_base"].to_numpy(), 0, None)
+        Xf = X.drop(columns="_base")
+        d = self.a.predict(Xf)
+        if self.blend:
+            d = (d + np.expm1(np.log1p(b) + self.b.predict(Xf)) - b) / 2
+        return d
+
+
+FC_BLEND = True
+FC_PARAMS = {}
+
+
 class BlendModel:
     """Mean of LightGBM (raw), LightGBM (log1p target) and a log-linear Huber
     regression on the smoothed camera columns. The linear part is much more
@@ -457,7 +548,26 @@ def sims_for(recs, prof, hidden_fn, n, seed, extra=()):
             yield r, M, holes, Feat(M, r, pr[r.day])
 
 
-def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), extra_forecast=()):
+class Avg:
+    def __init__(self, ms):
+        self.ms = ms
+
+    def predict(self, X):
+        return np.mean([m.predict(X) for m in self.ms], 0)
+
+
+N_BAGS = 5  # models trained on independent simulated maskings, averaged
+            # (week-gap bench, forecast: single model 0.84-0.91, 5 bags 0.81-0.82)
+
+
+def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), extra_forecast=(), n_bags=None):
+    n_bags = n_bags or N_BAGS
+    ms = [_train_generic(recs, prof, U, n_sims, seed + 1000 * k, n_seeds, extra_missing, extra_forecast)
+          for k in range(n_bags)]
+    return Avg([m[0] for m in ms]), Avg([m[1] for m in ms])
+
+
+def _train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), extra_forecast=()):
     """Forecast + missing models (independent of which camera is hidden).
     extra_forecast: released test-day rows that are all before the holes predicted."""
     FX, Fy, MX, My = [], [], [], []
@@ -481,7 +591,7 @@ def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), ex
                 continue
             X, base = F.missing(u, t)
             MX.append(X); My.append(r.Y[t, u] - base)
-    fm = Model(n_seeds).fit(pd.concat(FX, ignore_index=True), np.concatenate(Fy))
+    fm = FcModel(n_seeds, FC_BLEND).fit(pd.concat(FX, ignore_index=True), np.concatenate(Fy))
     mm = Model(n_seeds).fit(pd.concat(MX, ignore_index=True), np.concatenate(My))
     return fm, mm
 
@@ -503,7 +613,18 @@ def simulate_gaps_only(Y, rng, n_gaps):
     return M, np.array(out, dtype=int).reshape(-1, 3)
 
 
-def train_hidden(recs, prof, Hset, n_sims, seed=0, n_seeds=1, extra_h=(), extra_hf=()):
+def train_hidden(recs, prof, Hset, n_sims, seed=0, n_seeds=1, extra_h=(), extra_hf=(), n_bags=None):
+    n_bags = n_bags or N_BAGS
+    bags = [_train_hidden(recs, prof, Hset, n_sims, seed + 1000 * k, n_seeds, extra_h, extra_hf)
+            for k in range(n_bags)]
+    out = {}
+    for u in Hset:
+        ms = [b[u] for b in bags if b.get(u) is not None]
+        out[u] = tuple(Avg([m[i] for m in ms]) for i in range(3)) if ms else None
+    return out
+
+
+def _train_hidden(recs, prof, Hset, n_sims, seed=0, n_seeds=1, extra_h=(), extra_hf=()):
     """Per hidden camera u in Hset: a hidden model and a hidden-future model.
     extra_h: test days where the camera is visible (hidden holes may use any row);
     extra_hf: the subset that is before the hidden-future holes (also usable there)."""
@@ -520,7 +641,7 @@ def train_hidden(recs, prof, Hset, n_sims, seed=0, n_seeds=1, extra_h=(), extra_
                 X.append(F.hidden(u, hh[:, 1])); y.append(r.Y[hh[:, 1], u])
         if not X:
             return None
-        return BlendModel(n, ("c2_", "c5_")).fit(pd.concat(X, ignore_index=True), np.concatenate(y))
+        return BlendModel(n, ("c2_", "c5_", "est_prof")).fit(pd.concat(X, ignore_index=True), np.concatenate(y))
 
     out = {}
     for u in Hset:
@@ -710,6 +831,7 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
 
 
 def main():
+    global SAME_WEEK, N_BAGS
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default="data")
     ap.add_argument("--out", default="submission.csv")
@@ -719,9 +841,10 @@ def main():
     ap.add_argument("--seeds", type=int, default=3, help="LightGBM seeds to average")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-same-week", action="store_true", help="train on train.csv only")
+    ap.add_argument("--bags", type=int, default=N_BAGS, help="bagged models per kind")
     a = ap.parse_args()
-    global SAME_WEEK
     SAME_WEEK = not a.no_same_week
+    N_BAGS = a.bags
     d = find_data_dir(a.data)
     recs, units, holes = load(d)
     print(f"units: {units}; recordings: {len(recs)}; test holes: {len(holes)}")
