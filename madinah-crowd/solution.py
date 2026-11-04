@@ -36,6 +36,7 @@ UNITS = []
 units_name = lambda u: UNITS[u] if u < len(UNITS) else u
 FC_DROP = set()  # forecast features to leave out
 HID_EXTRA = False  # hidden: counts relative to profile, plaza busyness x own profile
+FC_LAG = False  # forecast: per-camera momentum / 10-minute change (lead-lag between cameras)
 FC_EXTRA = False  # today's level, timing offset and profile shape (did not help)
 KNOWN = None  # cameras seen on training days; plaza totals use only these, because
               # cameras I-M switch on at 14:00 on test days and would make totals jump
@@ -359,6 +360,9 @@ class Feat:
         f["tot_r2"] = self.tot5[now] / (self.tot30[now] + 1)
         for v in range(self.U):
             f[f"tr_{v}"] = self.tm[5][now, v] / (self.tm[30][now, v] + 1)
+            if FC_LAG:  # crowd moving between camera views: each camera's recent change
+                f[f"mom_{v}"] = (self.tm[3][now, v] - self.tm[10][now, v]) / (self.tm[30][now, v] + 1)
+                f[f"lag10_{v}"] = (self.tm[5][now, v] - take(self.tm[5], now - 10, v)) / (self.tm[30][now, v] + 1)
         f.update(self.pfeat(mt))
         f["wmod_now"] = self.W(mn)
         f["h"] = h
