@@ -51,7 +51,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v12 | 0.759 | v11a with hidden models restricted to training-day cameras (no I–M): no gain, option left off |
 
-`submission.csv` is v11a, the best public score. Suggested finals: v11a + v10. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v13 | (= v11a on the public day) | v11a + on 19 Sep (which has 18 Sep as same-week data) forecast changes at 6+ min ahead trusted 1.15x (bench prev12: 0.726 -> ~0.714). Forecast label smoothing and a multi-camera hidden reference were tested and gave nothing |
+
+`submission.csv` is v13. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v13 + v11a. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 

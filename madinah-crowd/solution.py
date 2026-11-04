@@ -752,6 +752,7 @@ def horizon_trust(h):
 HID_KNOWN_ONLY = False  # hidden models: only cameras seen on training days (not test-only I-M)
 HIDDEN_REF_BLEND = 0.25  # hidden: share of the reference (best camera x scale) blended in
 HF_REF_BLEND = {"cam_D": 0.25}  # hidden-future: share of the reference blended in, per camera
+SAME_WEEK_LONG_TRUST = 1.15
 PRE_PRAYER = None  # v9 (-30, -10) gave 0.767 vs v8 0.766 on the public board, so off.
 # targets this many minutes before a prayer: keep the last value
                          # on a day without an earlier same-week day (week-gap bench:
@@ -766,6 +767,11 @@ def predict_kinds(F, H, fm, mm, hm, week_gap=False):
     if len(u):
         X, base = F.forecast(u, now, h)
         trust = horizon_trust(h)
+        if not week_gap and SAME_WEEK_LONG_TRUST:
+            # with an earlier same-week day in training the model's changes are well
+            # timed but timid at longer horizons (bench prev12, 1.2x at h>=6:
+            # 0.726 -> 0.712 / 0.716; on week-gap days it hurts, so not applied there)
+            trust = np.where(np.asarray(h) >= 6, trust * SAME_WEEK_LONG_TRUST, trust)
         if week_gap and PRE_PRAYER:
             dn = X["d_near"].to_numpy()
             trust = np.where((dn > PRE_PRAYER[0]) & (dn <= PRE_PRAYER[1]), 0.0, trust)
