@@ -40,7 +40,7 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v5 | 0.774 | 5 bagged models per kind + forecast raw/log blend. Probes: forecast 0.896, hidden 0.880, hidden-future 0.668, missing ≈0.652 |
 | v6 | 0.784 | forecast also learns from the test day's own rows before 13:00/15:30/18:00 (bench 0.831 → 0.807, but worse on the public board: reverted, `ONLINE = False`) |
 
-| v7 | ? | v5 + 5-minute timing jitter in training sims + 8 bags (forecast bench 0.831 → 0.812) |
+| v7 | 0.773 | v5 + 5-minute timing jitter in training sims + 8 bags (forecast bench 0.831 → 0.812) |
 
 `submission.csv` is v7.
 
