@@ -36,6 +36,7 @@ UNITS = []
 units_name = lambda u: UNITS[u] if u < len(UNITS) else u
 FC_DROP = set()  # forecast features to leave out
 HID_EXTRA = False  # hidden: counts relative to profile, plaza busyness x own profile
+FC_LABEL_SMOOTH = 0  # forecast training label: centered mean over +-k minutes (0 = raw)
 FC_LAG = False  # forecast: per-camera momentum / 10-minute change (lead-lag between cameras)
 FC_EXTRA = False  # today's level, timing offset and profile shape (did not help)
 KNOWN = None  # cameras seen on training days; plaza totals use only these, because
@@ -613,7 +614,12 @@ def _train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), e
                                extra=extra_forecast):
         u, now, h = H["forecast"].T
         X, base = F.forecast(u, now, h)
-        FX.append(X); Fy.append(r.Y[now + h, u] - base)
+        if FC_LABEL_SMOOTH:  # train on the target minute's count averaged with its neighbours
+            ysm = nanroll(r.Y, -FC_LABEL_SMOOTH, FC_LABEL_SMOOTH)[now + h, u]
+            tgt = np.where(np.isnan(ysm), r.Y[now + h, u], ysm)
+        else:
+            tgt = r.Y[now + h, u]
+        FX.append(X); Fy.append(tgt - base)
         if forecast_only:
             continue
         u, t, _ = H["missing"].T

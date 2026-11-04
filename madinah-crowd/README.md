@@ -49,6 +49,8 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v10 | 0.766 | (same as v8 on 18 Sep, as expected) |
 | v11a | **0.758** | v10 + 25% reference blended into every hidden prediction (50%: 0.760; B/G hidden-future 25%: 0.765, not adopted) |
 
+| v12 | 0.759 | v11a with hidden models restricted to training-day cameras (no I–M): no gain, option left off |
+
 `submission.csv` is v11a, the best public score. Suggested finals: v11a + v10. The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
