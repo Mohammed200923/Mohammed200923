@@ -37,7 +37,8 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v1 | 0.835 | first model |
 | v3 | 0.792 | prayer-aligned time (crowd timing moves ~7 min earlier per week; probes showed forecast at 1.008) |
 | v4 | 0.790 | same-week data (mostly helps 19 Sep, likely the private day) |
-| v5 | ? | 5 bagged models per kind + forecast raw/log blend (week-gap forecast bench 0.874 → 0.815) |
+| v5 | 0.774 | 5 bagged models per kind + forecast raw/log blend. Probes: forecast 0.896, hidden 0.880, hidden-future 0.668, missing ≈0.652 |
+| v6 | ? | forecast also learns from the test day's own rows before 13:00/15:30/18:00 (bench 0.831 → 0.807) |
 
 ## Rules check
 
