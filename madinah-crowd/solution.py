@@ -561,7 +561,7 @@ class Avg:
         return np.mean([m.predict(X) for m in self.ms], 0)
 
 
-N_BAGS = 5  # models trained on independent simulated maskings, averaged
+N_BAGS = 8  # models trained on independent simulated maskings, averaged
             # (week-gap bench, forecast: single model 0.84-0.91, 5 bags 0.81-0.82)
 
 
@@ -573,7 +573,7 @@ def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), ex
     return Avg([m[0] for m in ms]), (None if forecast_only else Avg([m[1] for m in ms]))
 
 
-JITTER = 0.0  # +-minutes of random timing shift of the profile in training sims
+JITTER = 5.0  # +-minutes of random timing shift of the profile in training sims
 ONLINE = False  # hurt on the public board (v6 0.784 vs v5 0.774); forecast also learns from the test day's own rows before a cutoff
 ONLINE_CUTOFFS = (780, 930, 1080)  # 13:00, 15:30, 18:00 (minute of day)
 
