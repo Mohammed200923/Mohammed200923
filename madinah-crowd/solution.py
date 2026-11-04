@@ -253,14 +253,14 @@ def simulate(Y, rng, hidden, n_gaps=15, start=(15, 45), between=(8, 40)):
 class Feat:
     """Feature builder for one (masked) recording."""
 
-    def __init__(self, M, rec, prof):
+    def __init__(self, M, rec, prof, jitter=0.0):
         self.M = M
         self.T, self.U = M.shape
         self.mods = rec.first + np.arange(self.T)
         self.fri = float(rec.weekday.startswith("Fri"))
         self.prof = prof.get(rec.weekday, prof["all"])
         self.pt = prayer_times(rec.day)
-        self.warp = warp(rec.day)
+        self.warp = warp(rec.day) + jitter  # jitter: training-time timing noise
         self.li = ffill_idx(M)
         self.ri = bfill_idx(M)
         self.tm = {w: nanroll(M, -w + 1, 0) for w in (3, 5, 10, 15, 30)}
@@ -545,7 +545,8 @@ def sims_for(recs, prof, hidden_fn, n, seed, extra=()):
         for r in list(recs) + list(extra):
             H = hidden_fn(rng, r)
             M, holes = simulate(r.Y, rng, H, n_gaps=40)
-            yield r, M, holes, Feat(M, r, pr[r.day])
+            j = rng.uniform(-JITTER, JITTER) if JITTER else 0.0
+            yield r, M, holes, Feat(M, r, pr[r.day], jitter=j)
 
 
 class Avg:
@@ -568,6 +569,7 @@ def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), ex
     return Avg([m[0] for m in ms]), (None if forecast_only else Avg([m[1] for m in ms]))
 
 
+JITTER = 0.0  # +-minutes of random timing shift of the profile in training sims
 ONLINE = False  # hurt on the public board (v6 0.784 vs v5 0.774); forecast also learns from the test day's own rows before a cutoff
 ONLINE_CUTOFFS = (780, 930, 1080)  # 13:00, 15:30, 18:00 (minute of day)
 
