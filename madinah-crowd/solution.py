@@ -568,6 +568,7 @@ def train_generic(recs, prof, U, n_sims, seed=0, n_seeds=1, extra_missing=(), ex
     return Avg([m[0] for m in ms]), (None if forecast_only else Avg([m[1] for m in ms]))
 
 
+ONLINE = True  # forecast also learns from the test day's own rows before a cutoff
 ONLINE_CUTOFFS = (780, 930, 1080)  # 13:00, 15:30, 18:00 (minute of day)
 
 
@@ -725,7 +726,15 @@ def predict_kinds(F, H, fm, mm, hm):
     u, now, h = H["forecast"].T
     if len(u):
         X, base = F.forecast(u, now, h)
-        P["forecast"] = base + fm.predict(X)
+        if isinstance(fm, list):  # [(cutoff minute, model)] ascending; latest cutoff <= now wins
+            d = np.zeros(len(u)); mod = F.mods[now]
+            for c, m in fm:
+                sel = mod >= c
+                if sel.any():
+                    d[sel] = m.predict(X[sel])
+            P["forecast"] = base + d
+        else:
+            P["forecast"] = base + fm.predict(X)
     u, t, _ = H["missing"].T
     if len(u):
         X, base = F.missing(u, t)
@@ -830,6 +839,10 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
             gen[key] = train_generic(train, prof, U, n_sims, seed, n_seeds, extra_missing=test,
                                      extra_forecast=earlier)
         fm, mm = gen[key]
+        if ONLINE:
+            print(f"training same-day forecast models for {r.name} (cutoffs {ONLINE_CUTOFFS}) ...", flush=True)
+            fm = [(-1, fm)] + online_forecast_models(train, prof, U, n_sims, seed, n_seeds, r,
+                                                     extra_forecast=earlier)
         print(f"training hidden models for {[units_name(u) for u in Hset]} on {r.name} "
               f"(extra hidden days: {[x.name for x in others]}) ...", flush=True)
         hm = train_hidden(train, prof, Hset, n_sims, seed, n_seeds,
