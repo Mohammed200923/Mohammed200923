@@ -752,6 +752,7 @@ def horizon_trust(h):
 HID_KNOWN_ONLY = False  # hidden models: only cameras seen on training days (not test-only I-M)
 HIDDEN_REF_BLEND = 0.25  # hidden: share of the reference (best camera x scale) blended in
 HF_REF_BLEND = {"cam_D": 0.25, "cam_B": 0.12, "cam_G": 0.12}  # B/G: 0% 0.758, 12% best, 25% 0.757, 40% 0.741
+HIDDEN_WIGGLE = 0.25
 MISSING_SCALE = 1.25  # missing = interpolation + 1.25 x model correction; public: 0.75x 0.776, 1.0x 0.757, 1.25x 0.747, 1.5x 0.750
 WEEK_GAP_LONG_TRUST = 0.7
 NEW_CAM_FC_TRUST = 0.0
@@ -944,6 +945,33 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
         sel = holes.loc[holes["kind"] == "hidden", "id"]
         sel = sel[sel.isin(pred.index)]
         pred.loc[sel] = (1 - HIDDEN_REF_BLEND) * pred.loc[sel] + HIDDEN_REF_BLEND * ss.loc[sel]
+    if HIDDEN_WIGGLE:
+        # add the reference camera's minute-level wiggle (raw - 7-minute smooth) x scale to
+        # hidden predictions: neighbouring views share minute-to-minute ups and downs.
+        # Public: +0% 0.728, +25% 0.727, +50% 0.728. The reference camera and its scale are
+        # recovered from the reference values themselves (reference = scale x camera).
+        hh = holes[holes["kind"] == "hidden"]
+        for (rn, un), g in hh.groupby(["recording", "unit"]):
+            r = recs[rn]
+            t = g["minute_of_day"].to_numpy().astype(int) - r.first
+            refv = ss.loc[g["id"]].to_numpy()
+            best = None
+            for v in range(r.Y.shape[1]):
+                x = r.Y[t, v]
+                ok = ~np.isnan(x) & (x > 0)
+                if ok.sum() < 30:
+                    continue
+                sc = np.median(refv[ok] / x[ok])
+                err = np.abs(sc * x[ok] - refv[ok]).mean()
+                if best is None or err < best[0]:
+                    best = (err, v, sc)
+            if best is None or best[0] > 0.05:
+                continue
+            _, v, sc = best
+            x = r.Y[:, v]
+            dev = x - nanroll(x[:, None], -3, 3)[:, 0]
+            add = np.nan_to_num(dev[t]) * sc * HIDDEN_WIGGLE
+            pred.loc[g["id"]] = (pred.loc[g["id"]] + add).clip(lower=0)
     nbad = int(pred.isna().sum())
     if nbad:
         print(f"warning: {nbad} holes fell back to the reference")

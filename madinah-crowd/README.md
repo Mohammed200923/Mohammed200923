@@ -78,7 +78,10 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v25a / v25b | 0.728 / 0.730 | hidden model part smoothed ±2 / ±5 min: no gain (minute-level detail matters) |
 
-`submission.csv` is v24. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v24 + v24b (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v26a / v26b | **0.727** / 0.728 | hidden + the reference camera's minute-level wiggle ×scale, at 25% / 50% (level unchanged) |
+| v27 / v27b | (v27 = v26a) | v24 / v24b + 25% wiggle, reproduced by the code (max diff to v26a 0.006) |
+
+`submission.csv` is v27. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v26a (= v27) + v27b (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
