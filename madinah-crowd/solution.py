@@ -753,7 +753,8 @@ HID_KNOWN_ONLY = False  # hidden models: only cameras seen on training days (not
 HIDDEN_REF_BLEND = 0.25  # hidden: share of the reference (best camera x scale) blended in
 HF_REF_BLEND = {"cam_D": 0.25, "cam_B": 0.25, "cam_G": 0.25}  # B/G added: public 0.758 -> 0.757
 MISSING_SCALE = 1.25  # missing = interpolation + 1.25 x model correction; public: 0.75x 0.776, 1.0x 0.757, 1.25x 0.747, 1.5x 0.750
-SAME_WEEK_LONG_TRUST = 1.15
+WEEK_GAP_LONG_TRUST = 0.7
+SAME_WEEK_LONG_TRUST = 1.0  # bench said 1.2, but the bench over-trusted the model by ~0.3 on 18 Sep
 PRE_PRAYER = None  # v9 (-30, -10) gave 0.767 vs v8 0.766 on the public board, so off.
 # targets this many minutes before a prayer: keep the last value
                          # on a day without an earlier same-week day (week-gap bench:
@@ -768,6 +769,11 @@ def predict_kinds(F, H, fm, mm, hm, week_gap=False):
     if len(u):
         X, base = F.forecast(u, now, h)
         trust = horizon_trust(h)
+        if week_gap and WEEK_GAP_LONG_TRUST != 1.0:
+            # without same-week data the model is over-confident at longer horizons.
+            # Public (18 Sep), h >= 6 scaled: 1.15x 0.760, 1.0x 0.747, 0.85x 0.737,
+            # 0.7x 0.732, 0.55x 0.734
+            trust = np.where(np.asarray(h) >= 6, trust * WEEK_GAP_LONG_TRUST, trust)
         if not week_gap and SAME_WEEK_LONG_TRUST:
             # with an earlier same-week day in training the model's changes are well
             # timed but timid at longer horizons (bench prev12, 1.2x at h>=6:

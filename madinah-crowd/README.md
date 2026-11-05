@@ -62,7 +62,10 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v17a / v17b | 0.760 / **0.737** | v16 + 18 Sep forecasts at 6+ min: model change ×1.15 / ×0.85. On the week-gap day the model is over-confident at longer horizons |
 
-`submission.csv` is v17b. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v17b + v16 (1.25×). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v18a / v18b | **0.732** / 0.734 | v16 + 18 Sep forecasts at 6+ min ×0.7 / ×0.55 |
+| v19 | (= v18a on 18 Sep) | v18a with 19 Sep long-horizon trust back to 1.0 (the bench over-trusted the model by ~0.3 on 18 Sep, so its 1.2 for 19 Sep is likely ~0.9) |
+
+`submission.csv` is v19. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v19 + v19b (identical on 18 Sep; 19 Sep long-horizon trust 1.0 vs 0.85). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
