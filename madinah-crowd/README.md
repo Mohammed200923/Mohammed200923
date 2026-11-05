@@ -72,6 +72,8 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v21a / v21b | 0.730 / 0.730 | last value for I–M forecasts on 18 Sep / B/G hidden-future blend 12% |
 | v22 / v22b | **0.728** / **0.728** | v19 + both. v22b is the conservative 19 Sep hedge: forecast trust 0.85 and I–M forecasts = last value on 19 Sep too |
 
+| v23a / v23b | 0.728 / 0.730 | I–M missing without amplification (no change) / 18 Sep h 11–15 forecast 0.55× (worse) |
+
 `submission.csv` is v22. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v22 + v22b (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
