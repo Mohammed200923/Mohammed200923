@@ -751,9 +751,10 @@ def horizon_trust(h):
 
 HID_KNOWN_ONLY = False  # hidden models: only cameras seen on training days (not test-only I-M)
 HIDDEN_REF_BLEND = 0.25  # hidden: share of the reference (best camera x scale) blended in
-HF_REF_BLEND = {"cam_D": 0.25, "cam_B": 0.25, "cam_G": 0.25}  # B/G added: public 0.758 -> 0.757
+HF_REF_BLEND = {"cam_D": 0.25, "cam_B": 0.12, "cam_G": 0.12}  # B/G: 0% 0.758, 12% best, 25% 0.757, 40% 0.741
 MISSING_SCALE = 1.25  # missing = interpolation + 1.25 x model correction; public: 0.75x 0.776, 1.0x 0.757, 1.25x 0.747, 1.5x 0.750
 WEEK_GAP_LONG_TRUST = 0.7
+NEW_CAM_FC_TRUST = 0.0
 SAME_WEEK_LONG_TRUST = 1.0  # bench said 1.2, but the bench over-trusted the model by ~0.3 on 18 Sep
 PRE_PRAYER = None  # v9 (-30, -10) gave 0.767 vs v8 0.766 on the public board, so off.
 # targets this many minutes before a prayer: keep the last value
@@ -774,6 +775,10 @@ def predict_kinds(F, H, fm, mm, hm, week_gap=False):
             # Public (18 Sep), h >= 6 scaled: 1.15x 0.760, 1.0x 0.747, 0.85x 0.737,
             # 0.7x 0.732, 0.55x 0.734
             trust = np.where(np.asarray(h) >= 6, trust * WEEK_GAP_LONG_TRUST, trust)
+        if week_gap and NEW_CAM_FC_TRUST != 1.0 and KNOWN is not None:
+            # cameras never seen on training days: on a week-gap day the model does not
+            # help them (public 18 Sep: last value for I-M 0.732 -> 0.730)
+            trust = np.where(~KNOWN[np.asarray(u)], trust * NEW_CAM_FC_TRUST, trust)
         if not week_gap and SAME_WEEK_LONG_TRUST:
             # with an earlier same-week day in training the model's changes are well
             # timed but timid at longer horizons (bench prev12, 1.2x at h>=6:
