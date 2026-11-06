@@ -751,6 +751,10 @@ def horizon_trust(h):
 
 HID_KNOWN_ONLY = False  # hidden models: only cameras seen on training days (not test-only I-M)
 HIDDEN_REF_BLEND = 0.25  # hidden: share of the reference (best camera x scale) blended in
+# per camera: cam_B's reference (0.858 x its neighbour cam_D) is informative, cam_G's
+# (0.031 x the big, distant cam_E) is not. Public: B 25% 0.727, 40% 0.725, 55% 0.726;
+# with B 40%: G 0% 0.724, 10% 0.724, 25% 0.725, 40% 0.730. cam_D (19 Sep) keeps 25%.
+HIDDEN_REF_BLEND_UNIT = {"cam_B": 0.40, "cam_G": 0.10}
 HF_REF_BLEND = {"cam_D": 0.25, "cam_B": 0.12, "cam_G": 0.12}  # B/G: 0% 0.758, 12% best, 25% 0.757, 40% 0.741
 HIDDEN_WIGGLE = 0.25
 MISSING_SCALE = 1.25  # missing = interpolation + 1.25 x model correction; public: 0.75x 0.776, 1.0x 0.757, 1.25x 0.747, 1.5x 0.750
@@ -942,9 +946,10 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
     # hidden: the model is over-confident on the test week. Public board (18 Sep, B/G):
     # 0% -> 0.766, 25% -> 0.758, 50% -> 0.760; bench for cam_D (19 Sep): 25% slightly better.
     if HIDDEN_REF_BLEND:
-        sel = holes.loc[holes["kind"] == "hidden", "id"]
-        sel = sel[sel.isin(pred.index)]
-        pred.loc[sel] = (1 - HIDDEN_REF_BLEND) * pred.loc[sel] + HIDDEN_REF_BLEND * ss.loc[sel]
+        hh = holes[holes["kind"] == "hidden"]
+        w = hh["unit"].map(HIDDEN_REF_BLEND_UNIT).fillna(HIDDEN_REF_BLEND).to_numpy()
+        sel = hh["id"].to_numpy()
+        pred.loc[sel] = (1 - w) * pred.loc[sel].to_numpy() + w * ss.loc[sel].to_numpy()
     if HIDDEN_WIGGLE:
         # add the reference camera's minute-level wiggle (raw - 7-minute smooth) x scale to
         # hidden predictions: neighbouring views share minute-to-minute ups and downs.

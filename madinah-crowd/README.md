@@ -91,7 +91,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v32a / v32b | 0.724 / 0.724 | cam_G blend 0% / cam_G without wiggle: no change |
 
-`submission.csv` is v27. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v26a (= v27) + v27b (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v33a–e | 0.725 / 0.727 / 0.730 / 0.730 / 0.724 | B wiggle ×2 / big-camera forecasts 0.85× / hidden-future B25-G0 / missing big ×1.5 / missing small ×1.5: no gain |
+
+`submission.csv` is v31b (0.724). Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v31b + v27b (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
