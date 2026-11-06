@@ -95,7 +95,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v34a / v34b / v34c | 0.728 / 0.746 / 0.730 | retrain with training-day profiles built only from days a week away (`OOF_GAP_DAYS=3`), 18 Sep damping 0.7× / none / 0.55×: worse, option left off |
 
-`submission.csv` is v31b (0.724). Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v31b + v27b (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v35 | **0.723** | average of v31b and v34a (two differently built models) |
+
+`submission.csv` is v35 (0.723). Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v35 + v35b (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
