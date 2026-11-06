@@ -538,6 +538,8 @@ class BlendModel:
 
 
 OOF_PROFILE = True
+OOF_GAP_DAYS = 0  # >0: a training day's profile only uses days at least this many days away,
+                  # so the model learns how much a week-old profile can be trusted (as on 18 Sep)
 
 
 def sims_for(recs, prof, hidden_fn, n, seed, extra=()):
@@ -546,8 +548,14 @@ def sims_for(recs, prof, hidden_fn, n, seed, extra=()):
     rng = np.random.default_rng(seed)
     U = recs[0].Y.shape[1]
     # each training day sees a profile built without that day, as a test day would
-    pr = {r.day: (build_profile([x for x in recs if x.day != r.day], U)
-                  if OOF_PROFILE and any(x.day != r.day for x in recs) else prof) for r in recs}
+    def far(x, r):
+        return abs((pd.Timestamp(x.day) - pd.Timestamp(r.day)).days) >= OOF_GAP_DAYS
+    pr = {}
+    for r in recs:
+        pool = [x for x in recs if far(x, r)] if OOF_GAP_DAYS else []
+        if not pool:
+            pool = [x for x in recs if x.day != r.day]
+        pr[r.day] = build_profile(pool, U) if OOF_PROFILE and pool else prof
     for r in extra:
         pr[r.day] = prof
     for k in range(n):
