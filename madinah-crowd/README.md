@@ -85,6 +85,8 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v29a / v29b | 0.731 / 0.731 | missing long gaps 1.0× / + short gaps 1.4×: 1.25× everywhere is best |
 
+| v30a / v30b / v30c / v30d | 0.731 / 0.728 / **0.725** / 0.730 | 18 Sep big-camera forecasts 0.5× / small-camera 0.5× / hidden cam_B blend 40% / hidden cam_G blend 40% |
+
 `submission.csv` is v27. It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v26a (= v27) + v27b (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
