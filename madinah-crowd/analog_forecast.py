@@ -17,15 +17,15 @@ def _last_filled(M, u):
     return np.log1p(out)
 
 
-def _feats(lx, t, wmin, fri, tw=1.0):
+def _feats(lx, t, wmin, fri, tw=1.0, lags=LAGS):
     cur = lx[t]
-    f = [lx[t - L] - cur if t - L >= 0 else np.nan for L in LAGS]
+    f = [lx[t - L] - cur if t - L >= 0 else np.nan for L in lags]
     return np.array(f + [tw * wmin / 60.0, 2.0 * fri]), cur
 
 
 class Analog:
-    def __init__(self, k=40, tw=1.0):
-        self.k, self.tw = k, tw
+    def __init__(self, k=40, tw=1.0, lags=LAGS):
+        self.k, self.tw, self.lags = k, tw, tuple(lags)
 
     def fit(self, recs, units_known):
         X, Y = [], []
@@ -36,10 +36,10 @@ class Analog:
                 if np.isnan(r.Y[:, u]).all():
                     continue
                 lx = np.log1p(r.Y[:, u])
-                for t in range(15, r.T - HMAX):
+                for t in range(max(self.lags), r.T - HMAX):
                     if np.isnan(lx[t]):
                         continue
-                    f, cur = _feats(lx, t, wm[t], fri, self.tw)
+                    f, cur = _feats(lx, t, wm[t], fri, self.tw, self.lags)
                     tgt = lx[t + 1:t + 1 + HMAX] - cur
                     if np.isnan(f).any() or np.isnan(tgt).sum() > 3:
                         continue
@@ -59,7 +59,7 @@ class Analog:
             key = (uu, nw)
             if key not in cache:
                 lx = _last_filled(M[:nw + 1], uu)
-                f, cur = _feats(lx, nw, wm[nw], fri, self.tw)
+                f, cur = _feats(lx, nw, wm[nw], fri, self.tw, self.lags)
                 if np.isnan(f).any() or np.isnan(cur):
                     cache[key] = None
                 else:
