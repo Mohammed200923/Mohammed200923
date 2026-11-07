@@ -97,6 +97,8 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v35 | **0.723** | average of v31b and v34a (two differently built models) |
 
+| v37a | 0.727 | three-model average (adds a label-smoothed wide-tree run): worse |
+
 `submission.csv` is v35 (0.723). Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v35 + v35b (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
