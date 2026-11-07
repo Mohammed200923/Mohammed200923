@@ -109,7 +109,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v42a / v42b | 0.723 / 0.723 | hedge twin (v35b + analog) / analog with 150 neighbours |
 
-`submission.csv` is v41a (0.722): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v41a + v42a (v42a = v35b + the same analog blend) (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v43a / v43b | **0.721** / 0.722 | 18 Sep I–M forecasts 50% analog / analog share 12% for regular cameras |
+
+`submission.csv` is v43a (0.721): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v43a + v44h (v44h = the conservative 19 Sep hedge with the same analog changes) (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
