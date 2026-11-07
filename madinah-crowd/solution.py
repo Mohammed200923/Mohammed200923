@@ -32,6 +32,9 @@ HMAX = 15
 BLANK = 30
 KINDS = ("forecast", "hidden", "hidden-future", "missing")
 SAME_WEEK = True  # also learn from the other test day where the rules allow
+TRAIN_ON_OTHER_TEST_DAY = False  # forecast / hidden-future models of a test day also train on the
+                                 # other test day, even a later one (rules: models may be trained
+                                 # on any released row)
 UNITS = []
 units_name = lambda u: UNITS[u] if u < len(UNITS) else u
 FC_DROP = set()  # forecast features to leave out
@@ -907,11 +910,15 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
         earlier = [x for x in test if x.day < r.day] if SAME_WEEK else []
         others = [x for x in test if x is not r and all(not np.isnan(x.Y[:, u]).all() for u in Hset)] \
             if SAME_WEEK else []
-        key = tuple(x.name for x in earlier)
+        # "Models may be trained on any released row": with TRAIN_ON_OTHER_TEST_DAY the
+        # forecast / hidden-future models also learn from the OTHER test day (never from this
+        # day's own rows); each prediction still reads only rows at or before its now.
+        train_extra = [x for x in test if x is not r] if (SAME_WEEK and TRAIN_ON_OTHER_TEST_DAY) else earlier
+        key = tuple(x.name for x in train_extra)
         if key not in gen:
             print(f"training forecast + missing models (extra forecast days: {list(key)}) ...", flush=True)
             gen[key] = train_generic(train, prof, U, n_sims, seed, n_seeds, extra_missing=test,
-                                     extra_forecast=earlier)
+                                     extra_forecast=train_extra)
         fm, mm = gen[key]
         if ONLINE:
             print(f"training same-day forecast models for {r.name} (cutoffs {ONLINE_CUTOFFS}) ...", flush=True)
@@ -920,7 +927,7 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
         print(f"training hidden models for {[units_name(u) for u in Hset]} on {r.name} "
               f"(extra hidden days: {[x.name for x in others]}) ...", flush=True)
         hm = train_hidden(train, prof, Hset, n_sims, seed, n_seeds,
-                          extra_h=others, extra_hf=[x for x in others if x in earlier])
+                          extra_h=others, extra_hf=[x for x in others if x in train_extra])
         F = Feat(r.Y, r, prof)
         H, ids = {}, {}
         for kind in KINDS:
