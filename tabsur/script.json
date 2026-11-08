@@ -1,0 +1,62 @@
+{
+ "captions": [
+  {
+   "id": "c1",
+   "ar": "كانت الشوارعُ تُقاسُ بعددِ السيّارات…",
+   "en": "Streets used to be measured by the cars they carried…"
+  },
+  {
+   "id": "c2",
+   "ar": "…واليومَ، تُقاسُ بعددِ الخُطُوات.",
+   "en": "…today, by the steps they welcome."
+  },
+  {
+   "id": "c3",
+   "ar": "رصيفٌ يتّسعُ لك، وظِلٌّ يُرافقُك.",
+   "en": "A pavement with room for you, and shade along the way."
+  },
+  {
+   "id": "c4",
+   "ar": "وفي قلبِ المدينة… صار الطريقُ ساحةً للِقاء.",
+   "en": "In the heart of the city, the road became a place to meet."
+  },
+  {
+   "id": "c5",
+   "ar": "مساحاتٌ خضراءُ تتنفّسُ بين الحجر.",
+   "en": "Green spaces breathing between the stone."
+  },
+  {
+   "id": "c6",
+   "ar": "وحين يهدأ النهار… تبقى المدينةُ مُضاءةً لأهلها وزوّارها.",
+   "en": "When the day settles, the city stays lit for its people and its guests."
+  },
+  {
+   "id": "c7",
+   "ar": "جودةُ الحياة… أن تمشيَ في مدينتك على مَهَل.",
+   "en": "Quality of life is walking your city, at ease."
+  }
+ ],
+ "title": {
+  "ar": "على مَهَل",
+  "en": "AT EASE",
+  "sub_ar": "معسكر تبصّر · محور جودة الحياة · المدينة المنورة",
+  "sub_en": "TABSUR CAMP · QUALITY OF LIFE · MADINAH"
+ },
+ "credits": [
+  {
+   "k": "اللقطات",
+   "ar": "مكتبة اللقطات الخام لمعسكر تبصّر — أمانة منطقة المدينة المنورة",
+   "en": "Footage: Tabsur Camp raw-footage library, Madinah Regional Municipality"
+  },
+  {
+   "k": "الموسيقى",
+   "ar": "موسيقى أصلية مؤلَّفة ومُولَّدة برمجيًا لهذا العمل (مقام حجاز)",
+   "en": "Music: original score composed and synthesised in code for this film (maqam Hijaz)"
+  },
+  {
+   "k": "الإفصاح عن الأدوات",
+   "ar": "استُخدم الذكاء الاصطناعي (Claude) للمساعدة في كتابة النص وبرمجة المونتاج وتوليد الموسيقى.",
+   "en": "Edit and grade: FFmpeg. Type: IBM Plex Sans Arabic, Amiri. AI disclosure: Claude (Anthropic) assisted with the script, the edit code and the generated score."
+  }
+ ]
+}
