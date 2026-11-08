@@ -22,6 +22,8 @@ def estimate(recs_db, rec, u, cams, t, k=30):
         f = _feat(r, Ms, cams, tt); y = r.Y[tt, u]
         ok = np.isfinite(f).all(1) & np.isfinite(y)
         X.append(f[ok]); Y.append(np.log1p(y[ok]))
+    if not X or sum(len(x) for x in X) < k:
+        return np.full(len(t), np.nan)       # nothing to learn from for this camera set
     X = np.vstack(X); Y = np.concatenate(Y)
     mu, sd = X.mean(0), X.std(0) + 1e-9
     nn = NearestNeighbors(n_neighbors=k).fit((X - mu) / sd)
