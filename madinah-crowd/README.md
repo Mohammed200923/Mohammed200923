@@ -121,7 +121,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v48b | 0.719 | I–M analog with 40 neighbours: no gain |
 | v49a / v49b | not submitted | analog gap-filler for missing holes (`analog_missing.py`): covers 164/464 holes and stays near interpolation, which is known to hurt |
 
-`submission.csv` is v45a (0.718): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v45a + v45h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v50a / v50b | **0.715** / 0.716 | hidden + 20% / 35% nearest-neighbour estimate (`analog_hidden.py`) |
+
+`submission.csv` is v50a (0.715): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v51a + v51h (v50a/v45h + nearest-neighbour hidden at 20%, full coverage) (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
