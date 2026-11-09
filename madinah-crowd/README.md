@@ -143,7 +143,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v60a / v60b | 0.700 / **0.691** | missing: 25% / 50% partner-camera estimate (`partner_missing.py`) |
 
-`submission.csv` is v60b (0.691): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v57 + v57h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v61a / v61b / v61c | **0.687** / 0.692 / 0.699 | missing partner 75% / 100% / 50% with relaxed extra coverage |
+
+`submission.csv` is v61a (0.687): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v61a + v61h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
