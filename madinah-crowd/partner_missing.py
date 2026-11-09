@@ -4,7 +4,7 @@ that ratio across the gap from its edges, and multiply by the partner's counts i
 import numpy as np
 
 
-def gap_estimate(Y, u, a, b, W=120, E=5, top=1, smooth=3):  # bench: smooth 0 0.768, 2 0.727, 3 0.725, 4 0.729  # bench (1042 simulated gaps): E=5,W=120 0.768 vs E=10,W=60 0.797
+def gap_estimate(Y, u, a, b, W=120, E=5, top=1, smooth=0):  # bench preferred smooth=3 (0.725) but public: v65 0.697 vs v63 0.684, so off  # bench (1042 simulated gaps): E=5,W=120 0.768 vs E=10,W=60 0.797
     T, U = Y.shape
     lo, hi = max(0, a - W), min(T, b + W + 1)
     best = None
