@@ -40,3 +40,29 @@ def gap_estimate(Y, u, a, b, W=120, E=5, top=1, smooth=0):  # bench preferred sm
         ests.append(np.exp(rl + (rr - rl) * fr) * (pv + 1) - 1); ws.append(1 / max(sd, 1e-3))
     est = np.average(np.array(ests), axis=0, weights=np.array(ws))
     return est, (cands[0][1], cands[0][0])
+
+
+def gap_estimate_right(Y, u, a, b, W=120, E=5):
+    """One-sided version for gaps that start right after a blank (no left edge): partner chosen by
+    ratio stability in the window after the gap, ratio measured on the right edge and held constant."""
+    T, U = Y.shape
+    hi = min(T, b + W + 1)
+    best = None
+    for v in range(U):
+        if v == u or np.isnan(Y[a:b + 1, v]).any():
+            continue
+        win = np.r_[b + 1:hi]
+        ok = np.isfinite(Y[win, u]) & np.isfinite(Y[win, v]) & (Y[win, v] > 0)
+        if ok.sum() < 15:
+            continue
+        R = np.r_[b + 1:min(T, b + 1 + E)]
+        okR = np.isfinite(Y[R, u]) & np.isfinite(Y[R, v])
+        if okR.sum() < 3:
+            continue
+        sd = np.log((Y[win, u][ok] + 1) / (Y[win, v][ok] + 1)).std()
+        if best is None or sd < best[0]:
+            best = (sd, v, np.median(np.log((Y[R, u][okR] + 1) / (Y[R, v][okR] + 1))))
+    if best is None:
+        return None
+    _, v, rr = best
+    return np.exp(rr) * (Y[a:b + 1, v] + 1) - 1
