@@ -136,6 +136,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v57 | **0.713** | v51a with the second forecast model averaged over two training runs |
 
+| v57h | 0.714 | hedge twin of v57 |
+| v58 / v58h | 0.714 / 0.714 | second forecast model averaged over three seeds: no further gain |
+
 `submission.csv` is v57 (0.713): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v57 + v57h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
