@@ -4,7 +4,7 @@ that ratio across the gap from its edges, and multiply by the partner's counts i
 import numpy as np
 
 
-def gap_estimate(Y, u, a, b, W=120, E=5, top=1):  # bench (1042 simulated gaps): E=5,W=120 0.768 vs E=10,W=60 0.797
+def gap_estimate(Y, u, a, b, W=120, E=5, top=1, smooth=3):  # bench: smooth 0 0.768, 2 0.727, 3 0.725, 4 0.729  # bench (1042 simulated gaps): E=5,W=120 0.768 vs E=10,W=60 0.797
     T, U = Y.shape
     lo, hi = max(0, a - W), min(T, b + W + 1)
     best = None
@@ -34,6 +34,9 @@ def gap_estimate(Y, u, a, b, W=120, E=5, top=1):  # bench (1042 simulated gaps):
     fr = np.arange(1, b - a + 2) / (b - a + 2)
     ests, ws = [], []
     for sd, v, rl, rr in cands[:top]:
-        ests.append(np.exp(rl + (rr - rl) * fr) * (Y[a:b + 1, v] + 1) - 1); ws.append(1 / max(sd, 1e-3))
+        pv = Y[a:b + 1, v]
+        if smooth:  # partner counts averaged over +-smooth minutes (its minute noise is not the gap's)
+            pv = np.array([np.nanmean(Y[max(0, t - smooth):t + smooth + 1, v]) for t in range(a, b + 1)])
+        ests.append(np.exp(rl + (rr - rl) * fr) * (pv + 1) - 1); ws.append(1 / max(sd, 1e-3))
     est = np.average(np.array(ests), axis=0, weights=np.array(ws))
     return est, (cands[0][1], cands[0][0])
