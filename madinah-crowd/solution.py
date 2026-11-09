@@ -32,6 +32,10 @@ HMAX = 15
 BLANK = 30
 KINDS = ("forecast", "hidden", "hidden-future", "missing")
 SAME_WEEK = True  # also learn from the other test day where the rules allow
+OWN_DAY_TRAINING = False  # EXPERIMENT ONLY, never for a final submission: forecast models also train
+                          # on the test day's OWN released rows, including rows after each forecast's
+                          # now. "Models may be trained on any released row" may allow it, but "use no
+                          # row from after its now" may forbid it, so it is off by default.
 TRAIN_ON_OTHER_TEST_DAY = False  # forecast / hidden-future models of a test day also train on the
                                  # other test day, even a later one (rules: models may be trained
                                  # on any released row)
@@ -914,6 +918,8 @@ def run_predict(recs, U, holes, data_dir, out, n_sims, seed, n_seeds):
         # forecast / hidden-future models also learn from the OTHER test day (never from this
         # day's own rows); each prediction still reads only rows at or before its now.
         train_extra = [x for x in test if x is not r] if (SAME_WEEK and TRAIN_ON_OTHER_TEST_DAY) else earlier
+        if OWN_DAY_TRAINING:  # EXPERIMENT ONLY - see OWN_DAY_TRAINING below
+            train_extra = list(train_extra) + [r]
         key = tuple(x.name for x in train_extra)
         if key not in gen:
             print(f"training forecast + missing models (extra forecast days: {list(key)}) ...", flush=True)
