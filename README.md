@@ -4,7 +4,9 @@
 
 SkyShift is a public web tool. You type an object name or sky coordinates (RA/Dec), and it fetches every image of that spot from NASA's **SPHEREx** all-sky infrared survey. It lines the images up on a common north-up grid and plays them as a short time-lapse video. Anything that moves (nearby stars, brown dwarfs, asteroids, comets) or changes brightness (variable stars) stands out at a glance.
 
-![SkyShift viewer](docs/img/viewer.png)
+![Barnard's Star in real SPHEREx data, difference mode](docs/img/live-barnard-difference.png)
+
+*Real SPHEREx data (IRSA DR1 + QR3): Barnard's Star in difference mode. 36 exposures, 6 visits between Aug 2025 and Sep 2026. The star sits within about 1 pixel of its predicted position in every visit.*
 
 > ⚠️ **Space Apps Rule 01 (no early work):** building is only allowed on **14–15 November 2026**. This repository was created on 31 October 2026, before the hackathon. Before you submit it as your Space Apps project, read [docs/PLAN.md § Rules](docs/PLAN.md#rules--read-first) and decide with your team how to handle it. The safest option is to rebuild during the hackathon weekend and treat this repository as the design reference.
 
@@ -30,8 +32,10 @@ SkyShift is a public web tool. You type an object name or sky coordinates (RA/De
 name/RA,Dec ──► CDS Sesame (names) ──► proper-motion propagation to 2026.0 (field centre)
             ──► IRSA SIA v2 (ObsCore): every SPHEREx Level-2 spectral image covering the spot
             ──► filter by wavelength + detector, then evenly subsample to the cutout budget
-            ──► IRSA cutout service: small multi-extension FITS per image (IMAGE, FLAGS, ZODI, …)
-            ──► in browser: FITS parse → subtract ZODI → mask bad-pixel FLAGS
+            ──► IRSA cutout service: multi-extension FITS per image; the download stops after
+                IMAGE, FLAGS, ZODI (~120 KB of ~4 MB, the rest is the PSF table)
+            ──► in browser: FITS parse → subtract ZODI → mask artifact FLAGS (not bright-star flags)
+                ──► exact wavelength at the target from the WCS-WAVE lookup (one table per detector)
                 ──► TAN-SIP WCS → bilinear reprojection onto a common north-up 6.15″/px grid
                 ──► group into survey visits → coadd ──► stretch/colour map ──► animate / record
 ```
@@ -44,7 +48,7 @@ Everything runs in the browser with plain ES modules: no build step and no frame
 python3 server.py
 ```
 
-Then open <http://localhost:8000>. The app also works as static files (for example on GitHub Pages) wherever the archives allow cross-origin requests.
+Then open <http://localhost:8000>. **Use the server for real SPHEREx data:** IRSA sends no CORS headers, so a browser can't call it directly from a static page. The proxy is what makes live data work.
 
 **Single-file version:** `dist/skyshift.html` contains the whole app and the team briefing in one file, so you can email it or double-click it. Rebuild it with `python3 scripts/build_standalone.py`.
 
@@ -60,24 +64,25 @@ npm test
 npm run test:e2e
 ```
 
-`npm test` runs the unit tests (FITS, WCS, photometry, parsing). The WCS is checked against astropy; regenerate the reference with `python3 tests/astropy_reference.py`. `npm run test:e2e` runs a Playwright browser test on simulated data.
+```bash
+npm run test:live
+```
+
+`npm test` runs the unit tests (FITS, WCS, wavelength lookup, flags, photometry, parsing). The WCS and the per-pixel wavelength are checked against astropy, the wavelength on a fixture taken from a real SPHEREx cutout. `npm run test:e2e` runs a Playwright browser test on simulated data. `npm run test:live` loads Barnard's Star from the real archive and checks that the star follows its known proper motion.
 
 ## NASA and partner data
 
-- **NASA SPHEREx** Level-2 spectral images — NASA/IPAC Infrared Science Archive (IRSA): SIA v2 `https://irsa.ipac.caltech.edu/SIA` (collection `spherex_qr`) and its cutout service
+- **NASA SPHEREx** Level-2 spectral images — NASA/IPAC Infrared Science Archive (IRSA): SIA v2 `https://irsa.ipac.caltech.edu/SIA` (collections `spherex_dr1` and `spherex_qr3`) and its cutout service
 - **ESA Gaia DR3** (`I/355/gaiadr3`) via CDS VizieR — proper-motion overlay
 - **CDS Sesame / SIMBAD** — name resolution
 - **Aladin Lite v3** (CDS, Strasbourg) — sky context with 2MASS, AllWISE, DSS2 and Pan-STARRS HiPS
 
 ## Known limitations / next steps
 
-- **Live archive not yet exercised end to end.** It was built in a sandbox with no network access to IRSA or CDS, so it was verified on simulated data and unit tests. On day 1, run one real query and check three things:
-  - the SIA collection name (`spherex_qr` vs. a newer release)
-  - the ObsCore column names (`access_url`, `t_min`, `em_min`, `em_max`, `energy_bandpassname`)
-  - the cutout URL syntax (`?center=RA,DEC&size=DEG`)
-
-  All three live in `app/js/providers/irsa.js`.
-- **Spectral wavelength is approximate.** Each exposure gets the midpoint of its ObsCore wavelength range. SPHEREx's linear variable filters give each pixel its own wavelength, so the next step is to read the `WCS-WAVE` lookup table and use each pixel's exact λ.
+- **Verified on the live archive (13 Nov 2026)** against IRSA's SPHEREx tutorial notebooks and real responses: collection names, ObsCore columns, cutout syntax, FLAGS bit names (`MSKNnnnn`) and the `WCS-WAVE` lookup.
+- **Only Barnard's Star has been checked on real data so far.** Run the other four test targets next.
+- **IRSA throttles bursts** (HTTP 503). The app retries with back-off and keeps 4 downloads in flight.
+- **Gaia overlay and Aladin sky map** need CDS, which this sandbox couldn't reach; check them on a normal connection.
 - Tile-compressed FITS isn't supported (it isn't expected for IRSA cutouts).
 - Ideas: automatic mover detection (dipole finder in difference images), JPL Horizons asteroid/comet predictions, and a WISE/NEOWISE time-series overlay for a 15-year baseline.
 

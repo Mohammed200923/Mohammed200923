@@ -65,7 +65,7 @@ test('FITS write/read round trip, MEF extensions', () => {
   const flags = Int32Array.from({ length: 12 }, (_, i) => (i === 5 ? 1 << 10 : i === 6 ? 1 << 21 : 0));
   const buf = writeFits([
     { header: [['EXTNAME', 'IMAGE'], ['CTYPE1', 'RA---TAN'], ['CRVAL1', 12.5]], data: img, width: 4, height: 3 },
-    { header: [['EXTNAME', 'FLAGS'], ['MP_HOT', 10], ['MP_SOURCE', 21]], data: flags, width: 4, height: 3 },
+    { header: [['EXTNAME', 'FLAGS'], ['MSKN0010', 'HOT'], ['MSKN0021', 'SOURCE']], data: flags, width: 4, height: 3 },
   ]);
   const hdus = parseFits(buf);
   assert.equal(hdus.length, 2);
@@ -99,4 +99,20 @@ test('VizieR TSV parsing', () => {
   const rows = parseVizierTsv(tsv);
   assert.equal(rows.length, 2);
   assert.equal(rows[0].pmRA, '-801.5');
+});
+
+test('SPHEREx per-pixel wavelength lookup matches astropy on a real cutout', async () => {
+  const { wavelengthAt } = await import('../app/js/spherex.js');
+  const fx = JSON.parse(readFileSync(new URL('./spherex_wave_fixture.json', import.meta.url)));
+  for (const p of fx.points) {
+    const [wl, bw] = wavelengthAt(fx.table, fx.header, p.x, p.y);
+    assert.ok(Math.abs(wl - p.wavelength) < 1e-6, `λ at ${p.x},${p.y}: ${wl} vs ${p.wavelength}`);
+    assert.ok(Math.abs(bw - p.bandwidth) < 1e-6);
+  }
+});
+
+test('flag names come from MSKN keywords and bright-star flags are never masked', async () => {
+  const { badPixelMask } = await import('../app/js/spherex.js');
+  const mask = badPixelMask({ MSKN0000: 'TRANSIENT', MSKN0001: 'OVERFLOW', MSKN0010: 'HOT', MSKN0026: 'BLOOM', MSKN0021: 'SOURCE' });
+  assert.equal(mask, 1 << 10);
 });

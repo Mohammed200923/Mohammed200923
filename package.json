@@ -7,7 +7,8 @@
   "scripts": {
     "start": "python3 server.py",
     "test": "node --test tests/unit.test.mjs",
-    "test:e2e": "node tests/e2e.mjs"
+    "test:e2e": "node tests/e2e.mjs",
+    "test:live": "node tests/live.mjs"
   },
   "license": "MIT"
 }

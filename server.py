@@ -64,6 +64,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_text(e.code, f"upstream error: {e.reason}")
         except (urllib.error.URLError, TimeoutError) as e:
             self._send_text(502, f"upstream unreachable: {e}")
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # the browser stops reading once it has the image planes it needs
 
 
 def main():

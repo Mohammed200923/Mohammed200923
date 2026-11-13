@@ -64,6 +64,32 @@ function readImage(view, offset, header) {
   return { data: out, width: w, height: h };
 }
 
+const TFORM_BYTES = { L: 1, X: 1, B: 1, I: 2, J: 4, K: 8, A: 1, E: 4, D: 8, C: 8, M: 16 };
+
+/** Decode the first row of a small binary table (numeric columns only). */
+function readTableRow0(view, offset, header) {
+  const table = {};
+  let pos = offset;
+  for (let k = 1; k <= (header.TFIELDS || 0); k++) {
+    const m = String(header[`TFORM${k}`] || '').trim().match(/^(\d*)([LXBIJKAEDCM])/);
+    if (!m) return null;
+    const count = m[1] === '' ? 1 : Number(m[1]);
+    const type = m[2];
+    const name = String(header[`TTYPE${k}`] || `COL${k}`).trim().toUpperCase();
+    const read = {
+      B: (o) => view.getUint8(o), I: (o) => view.getInt16(o, false), J: (o) => view.getInt32(o, false),
+      K: (o) => Number(view.getBigInt64(o, false)), E: (o) => view.getFloat32(o, false), D: (o) => view.getFloat64(o, false),
+    }[type];
+    if (read) {
+      const arr = new Float64Array(count);
+      for (let i = 0; i < count; i++) arr[i] = read(pos + i * TFORM_BYTES[type]);
+      table[name] = arr;
+    }
+    pos += count * TFORM_BYTES[type];
+  }
+  return table;
+}
+
 export function parseFits(buffer) {
   const bytes = new Uint8Array(buffer);
   const view = new DataView(buffer);
@@ -96,6 +122,10 @@ export function parseFits(buffer) {
     if (isImage && naxis >= 2 && off + nbytes <= bytes.length) {
       Object.assign(hdu, readImage(view, off, header));
     }
+    // Small lookup tables (e.g. SPHEREx WCS-WAVE) are decoded; big ones (EPSF) are skipped.
+    if (header.XTENSION === 'BINTABLE' && header.NAXIS2 <= 4 && off + nbytes <= bytes.length) {
+      hdu.table = readTableRow0(view, off, header);
+    }
     hdus.push(hdu);
     off += Math.ceil(nbytes / BLOCK) * BLOCK;
   }
@@ -110,7 +140,20 @@ export function spherexPlanes(hdus) {
     if (hdus.some((h) => h.compressed)) throw new Error('Tile-compressed FITS is not supported yet');
     throw new Error('No image data in FITS file');
   }
-  return { image, flags: byName('FLAGS'), zodi: byName('ZODI'), variance: byName('VARIANCE'), primary: hdus[0] };
+  return {
+    image, flags: byName('FLAGS'), zodi: byName('ZODI'), variance: byName('VARIANCE'), primary: hdus[0],
+    waveTable: hdus.find((h) => h.name === 'WCS-WAVE' && h.table)?.table || null,
+  };
+}
+
+/** True once a (possibly partial) download holds every named image plane. */
+export function hasPlanes(buffer, names) {
+  try {
+    const hdus = parseFits(buffer);
+    return names.every((n) => hdus.some((h) => h.name === n && h.data));
+  } catch {
+    return false;
+  }
 }
 
 // ---- writer (used by the simulated data source and tests) ----

@@ -78,14 +78,14 @@ Record a backup of the demo before judging in case the live archive is slow.
 | Storyteller | Project page text, References | 30-second video, pitch rehearsal (×2) |
 | Team Owner | Repo, team membership | **Submit early, re-submit before 11:59 pm** |
 
-## Day-1 verification checklist (live archive)
+## Live archive checks (done 13 Nov 2026)
 
-- [ ] `https://irsa.ipac.caltech.edu/SIA?COLLECTION=spherex_qr&POS=circle+269.45+4.75+0.01&RESPONSEFORMAT=votable` returns rows (try other collections listed by IRSA if not).
-- [ ] The rows include `access_url`, `t_min`, `em_min`/`em_max` (metres) and a detector or bandpass column.
-- [ ] `<access_url>?center=RA,DEC&size=0.1` returns a small MEF with `IMAGE`, `FLAGS` and `ZODI`.
-- [ ] Barnard's Star moves about 5″ (≈1 px) per visit, about 3 px across 2025–2026; check it with difference mode.
-- [ ] WISE 0855 is visible at 4–5 µm and invisible below about 2 µm.
-- [ ] R Dra / RW Aur light curves change between visits.
+- [x] SIA works with `COLLECTION=spherex_dr1&COLLECTION=spherex_qr3`. The old name `spherex_qr` is superseded.
+- [x] Rows have `access_url`, `t_min`, `em_min`/`em_max` (metres), and `energy_bandpassname` (`SPHEREx-D1`…`D6`).
+- [x] `<access_url>?center=RA,DECd&size=DEG` returns IMAGE, FLAGS, VARIANCE, ZODI, EPSF and WCS-WAVE.
+- [x] Barnard's Star: 358 images over 6 visits (Aug 2025 – Sep 2026). The star follows its predicted track to within about 1 px.
+- [ ] Epsilon Indi B, WISE 0855 (4–5 µm only), RW Aur and R Dra light curves.
+- [ ] Gaia overlay and Aladin sky map on a normal connection.
 
 ## Test target notes
 

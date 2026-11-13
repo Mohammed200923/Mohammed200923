@@ -1,23 +1,58 @@
 // SPHEREx data from NASA/IPAC IRSA: image discovery via SIA v2 (ObsCore rows),
 // then server-side cutouts of each Level-2 spectral image (multi-extension FITS).
+// Formats checked against IRSA's SPHEREx tutorial notebooks and live responses (Nov 2026).
 
 import { fetchRemote, parseVoTable } from '../net.js';
+import { parseFits, spherexPlanes, hasPlanes } from '../fits.js';
 import { detectorFromWavelength } from '../spherex.js';
 
 const SIA = 'https://irsa.ipac.caltech.edu/SIA';
+export const DEFAULT_COLLECTIONS = 'spherex_dr1,spherex_qr3';
+
+// A cutout is IMAGE, FLAGS, VARIANCE, ZODI (~120 KB for 6′) followed by a ~4 MB EPSF table
+// and the WCS-WAVE lookup. The server ignores Range requests, so we stop reading once
+// the planes we use have arrived.
+const NEEDED = ['IMAGE', 'FLAGS', 'ZODI'];
+
+function cutoutUrl(url, ra, dec, sizeDeg) {
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}center=${ra.toFixed(6)},${dec.toFixed(6)}d&size=${sizeDeg.toFixed(5)}`;
+}
+
+async function readPlanes(response) {
+  if (!response.body?.getReader) return response.arrayBuffer();
+  const reader = response.body.getReader();
+  let buf = new Uint8Array(0);
+  let checkedAt = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const next = new Uint8Array(buf.length + value.length);
+    next.set(buf); next.set(value, buf.length);
+    buf = next;
+    if (buf.length - checkedAt >= 16384) {
+      checkedAt = buf.length;
+      if (hasPlanes(buf.buffer, NEEDED)) {
+        reader.cancel().catch(() => {});
+        break;
+      }
+    }
+  }
+  return buf.buffer;
+}
 
 export const irsaProvider = {
   id: 'irsa',
   label: 'NASA SPHEREx (IRSA)',
   simulated: false,
+  _waveTables: new Map(),
 
   async search({ ra, dec, collection }) {
-    const params = new URLSearchParams({
-      COLLECTION: collection || 'spherex_qr',
-      POS: `circle ${ra} ${dec} 0.002`,
-      RESPONSEFORMAT: 'votable',
-      MAXREC: '5000',
-    });
+    const params = new URLSearchParams();
+    for (const c of (collection || DEFAULT_COLLECTIONS).split(/[\s,]+/).filter(Boolean)) params.append('COLLECTION', c);
+    params.set('POS', `circle ${ra} ${dec} 0.002`);
+    params.set('RESPONSEFORMAT', 'votable');
+    params.set('MAXREC', '5000');
     const r = await fetchRemote(`${SIA}?${params}`);
     const rows = parseVoTable(await r.text());
     return rows
@@ -27,10 +62,27 @@ export const irsaProvider = {
   },
 
   async fetchCutout(desc, { ra, dec, sizeDeg }) {
-    const sep = desc.url.includes('?') ? '&' : '?';
-    const url = `${desc.url}${sep}center=${ra.toFixed(6)},${dec.toFixed(6)}&size=${sizeDeg.toFixed(5)}`;
-    const r = await fetchRemote(url);
-    return r.arrayBuffer();
+    const r = await fetchRemote(cutoutUrl(desc.url, ra, dec, sizeDeg));
+    return readPlanes(r);
+  },
+
+  concurrency: 4, // IRSA answers 503 when pushed harder
+
+  /**
+   * The WCS-WAVE lookup table for a detector. It is identical for every exposure from the
+   * same detector, so one small full download per detector serves all of its cutouts.
+   */
+  waveTable(desc, { ra, dec }) {
+    const key = desc.detector;
+    if (!this._waveTables.has(key)) {
+      const p = fetchRemote(cutoutUrl(desc.url, ra, dec, 0.01))
+        .then((r) => r.arrayBuffer())
+        .then((b) => spherexPlanes(parseFits(b)).waveTable);
+      // Forget failures so the next exposure from this detector tries again.
+      p.catch(() => this._waveTables.delete(key));
+      this._waveTables.set(key, p);
+    }
+    return this._waveTables.get(key);
   },
 };
 
@@ -38,16 +90,16 @@ function toDescriptor(row) {
   // ObsCore wavelengths are in metres.
   const wlMin = row.em_min * 1e6, wlMax = row.em_max * 1e6;
   const wl = (wlMin + wlMax) / 2;
-  const bandName = String(row.energy_bandpassname || '');
-  const m = bandName.match(/D(\d)/i) || String(row.obs_id || '').match(/D(\d)\b/);
+  const m = String(row.energy_bandpassname || '').match(/D(\d)/i);
   return {
     id: row.obs_publisher_did || row.obs_id || row.access_url,
-    obsId: row.obs_id || '',
+    obsId: [row.obs_id, m ? `D${m[1]}` : ''].filter(Boolean).join(' '),
     url: row.access_url,
     mjd: row.t_min,
     mjdEnd: row.t_max,
     wlMin, wlMax, wl,
     detector: m ? Number(m[1]) : detectorFromWavelength(wl),
+    release: row.obs_collection || '',
     meta: row,
   };
 }

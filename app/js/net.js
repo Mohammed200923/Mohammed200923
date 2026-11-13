@@ -17,17 +17,26 @@ export function proxyEnabled() {
   return useProxy;
 }
 
-export async function fetchRemote(url, opts = {}) {
+const RETRY_STATUS = new Set([429, 502, 503, 504]);
+
+export async function fetchRemote(url, opts = {}, retries = 3) {
   const target = useProxy ? `proxy?url=${encodeURIComponent(url)}` : url;
-  let r;
-  try {
-    r = await fetch(target, opts);
-  } catch (e) {
-    const hint = useProxy ? '' : ' (the archive may block cross-origin requests — run "python3 server.py" and open the app from it)';
-    throw new Error(`Network error fetching ${new URL(url).host}${hint}`);
+  for (let attempt = 0; ; attempt++) {
+    let r;
+    try {
+      r = await fetch(target, opts);
+    } catch (e) {
+      const hint = useProxy ? '' : ' (the archive may block cross-origin requests — run "python3 server.py" and open the app from it)';
+      throw new Error(`Network error fetching ${new URL(url).host}${hint}`);
+    }
+    if (r.ok) return r;
+    // Busy archive: back off and try again.
+    if (RETRY_STATUS.has(r.status) && attempt < retries) {
+      await new Promise((res) => setTimeout(res, 1500 * 2 ** attempt * (0.75 + Math.random() / 2)));
+      continue;
+    }
+    throw new Error(`HTTP ${r.status} from ${new URL(url).host}`);
   }
-  if (!r.ok) throw new Error(`HTTP ${r.status} from ${new URL(url).host}`);
-  return r;
 }
 
 /** Run async tasks with a concurrency limit, reporting progress. */

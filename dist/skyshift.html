@@ -207,7 +207,7 @@ body.embed .panel { border: 0; border-radius: 0; }
           <label class="check"><input type="checkbox" id="mask" checked> Mask flagged pixels</label>
           <details>
             <summary>Advanced</summary>
-            <label>IRSA collection <input id="collection" value="spherex_qr"></label>
+            <label>IRSA collections <input id="collection" value="spherex_dr1,spherex_qr3"></label>
             <label>Visit gap (days) <input type="number" id="gap" min="1" max="90" value="20"></label>
           </details>
         </fieldset>
@@ -278,7 +278,7 @@ body.embed .panel { border: 0; border-radius: 0; }
 
       <h3>Click a source</h3>
       <p class="muted small" id="pick-info">Click in the viewer to measure brightness across all frames.</p>
-      <div class="chart-title">Spectrum <span class="muted small">(approx. λ)</span></div>
+      <div class="chart-title">Spectrum</div>
       <canvas class="chart" id="spectrum"></canvas>
       <div class="chart-title">Light curve</div>
       <canvas class="chart" id="lightcurve"></canvas>
@@ -461,8 +461,6 @@ var DEFAULT_FLAG_BITS = {
   TRANSIENT: 0,
   OVERFLOW: 1,
   SUR_ERROR: 2,
-  PHANTOM: 4,
-  REFERENCE: 5,
   NONFUNC: 6,
   DICHROIC: 7,
   MISSING_DATA: 9,
@@ -473,20 +471,59 @@ var DEFAULT_FLAG_BITS = {
   NONLINEAR: 15,
   PERSIST: 17,
   OUTLIER: 19,
-  SOURCE: 21
-}, INFORMATIONAL = /* @__PURE__ */ new Set(["SOURCE", "FULLSAMPLE", "REFERENCE"]);
+  CROSSTALK: 20,
+  SOURCE: 21,
+  GHOST: 22,
+  GHOST_FPA: 23,
+  GHOST_EXT: 24,
+  STREAK: 25,
+  BLOOM: 26,
+  SNOWBALL: 27,
+  HALO: 28
+}, ARTIFACTS = /* @__PURE__ */ new Set([
+  "NONFUNC",
+  "DICHROIC",
+  "MISSING_DATA",
+  "HOT",
+  "COLD",
+  "PERSIST",
+  "OUTLIER",
+  "CROSSTALK",
+  "GHOST",
+  "GHOST_FPA",
+  "GHOST_EXT",
+  "STREAK",
+  "SNOWBALL"
+]);
 function flagBits(flagsHeader) {
   let bits = {};
   if (flagsHeader)
-    for (let [k, v] of Object.entries(flagsHeader))
-      k.startsWith("MP_") && Number.isInteger(v) && (bits[k.slice(3)] = v);
+    for (let [k, v] of Object.entries(flagsHeader)) {
+      let m = k.match(/^MSKN(\d+)$/);
+      m && typeof v == "string" ? bits[v.trim()] = Number(m[1]) : k.startsWith("MP_") && Number.isInteger(v) && (bits[k.slice(3)] = v);
+    }
   return Object.keys(bits).length ? bits : DEFAULT_FLAG_BITS;
 }
 function badPixelMask(flagsHeader) {
   let mask = 0;
   for (let [name, bit] of Object.entries(flagBits(flagsHeader)))
-    !INFORMATIONAL.has(name) && bit < 31 && (mask |= 1 << bit);
+    ARTIFACTS.has(name) && bit < 31 && (mask |= 1 << bit);
   return mask >>> 0;
+}
+function interpIndex(knots, v) {
+  if (v <= knots[0]) return 0;
+  let n = knots.length;
+  if (v >= knots[n - 1]) return n - 1;
+  let i = 0;
+  for (; knots[i + 1] < v; ) i++;
+  return i + (v - knots[i]) / (knots[i + 1] - knots[i]);
+}
+function wavelengthAt(table, header, x, y) {
+  if (!table || header.CRPIX1W === void 0) return null;
+  let psi1 = (header.CDELT1W ?? 1) * (x + 1 - header.CRPIX1W) + (header.CRVAL1W ?? 1), psi2 = (header.CDELT2W ?? 1) * (y + 1 - header.CRPIX2W) + (header.CRVAL2W ?? 1), X = table.X, Y = table.Y, V = table.VALUES, nx = X.length, ny = Y.length, nv = V.length / (nx * ny), fx = interpIndex(X, psi1), fy = interpIndex(Y, psi2), ix = Math.min(nx - 2, Math.floor(fx)), iy = Math.min(ny - 2, Math.floor(fy)), tx = fx - ix, ty = fy - iy, at = (i, j, k) => V[k + nv * (i + nx * j)], out = [];
+  for (let k = 0; k < nv; k++)
+    out.push(at(ix, iy, k) * (1 - tx) * (1 - ty) + at(ix + 1, iy, k) * tx * (1 - ty) + at(ix, iy + 1, k) * (1 - tx) * ty + at(ix + 1, iy + 1, k) * tx * ty);
+  return out;
 }
 function wavelengthColor(wl, alpha = 1) {
   return `hsla(${(260 - 260 * Math.min(1, Math.max(0, (wl - 0.75) / 4.25))).toFixed(0)}, 80%, 58%, ${alpha})`;
@@ -611,16 +648,24 @@ async function detectProxy() {
   }
   return useProxy;
 }
-async function fetchRemote(url, opts = {}) {
-  let target = useProxy ? `proxy?url=${encodeURIComponent(url)}` : url, r;
-  try {
-    r = await fetch(target, opts);
-  } catch {
-    let hint = useProxy ? "" : ' (the archive may block cross-origin requests \u2014 run "python3 server.py" and open the app from it)';
-    throw new Error(`Network error fetching ${new URL(url).host}${hint}`);
+var RETRY_STATUS = /* @__PURE__ */ new Set([429, 502, 503, 504]);
+async function fetchRemote(url, opts = {}, retries = 3) {
+  let target = useProxy ? `proxy?url=${encodeURIComponent(url)}` : url;
+  for (let attempt = 0; ; attempt++) {
+    let r;
+    try {
+      r = await fetch(target, opts);
+    } catch {
+      let hint = useProxy ? "" : ' (the archive may block cross-origin requests \u2014 run "python3 server.py" and open the app from it)';
+      throw new Error(`Network error fetching ${new URL(url).host}${hint}`);
+    }
+    if (r.ok) return r;
+    if (RETRY_STATUS.has(r.status) && attempt < retries) {
+      await new Promise((res) => setTimeout(res, 1500 * 2 ** attempt * (0.75 + Math.random() / 2)));
+      continue;
+    }
+    throw new Error(`HTTP ${r.status} from ${new URL(url).host}`);
   }
-  if (!r.ok) throw new Error(`HTTP ${r.status} from ${new URL(url).host}`);
-  return r;
 }
 async function pool(items, limit, worker, onProgress) {
   let results = new Array(items.length), next = 0, done = 0;
@@ -729,6 +774,29 @@ function readImage(view, offset, header) {
   }
   return { data: out, width: w, height: h };
 }
+var TFORM_BYTES = { L: 1, X: 1, B: 1, I: 2, J: 4, K: 8, A: 1, E: 4, D: 8, C: 8, M: 16 };
+function readTableRow0(view, offset, header) {
+  let table = {}, pos = offset;
+  for (let k = 1; k <= (header.TFIELDS || 0); k++) {
+    let m = String(header[`TFORM${k}`] || "").trim().match(/^(\d*)([LXBIJKAEDCM])/);
+    if (!m) return null;
+    let count = m[1] === "" ? 1 : Number(m[1]), type = m[2], name = String(header[`TTYPE${k}`] || `COL${k}`).trim().toUpperCase(), read = {
+      B: (o) => view.getUint8(o),
+      I: (o) => view.getInt16(o, !1),
+      J: (o) => view.getInt32(o, !1),
+      K: (o) => Number(view.getBigInt64(o, !1)),
+      E: (o) => view.getFloat32(o, !1),
+      D: (o) => view.getFloat64(o, !1)
+    }[type];
+    if (read) {
+      let arr = new Float64Array(count);
+      for (let i = 0; i < count; i++) arr[i] = read(pos + i * TFORM_BYTES[type]);
+      table[name] = arr;
+    }
+    pos += count * TFORM_BYTES[type];
+  }
+  return table;
+}
 function parseFits(buffer) {
   let bytes = new Uint8Array(buffer), view = new DataView(buffer), hdus = [], off = 0;
   for (; off + 2880 <= bytes.length; ) {
@@ -749,7 +817,7 @@ function parseFits(buffer) {
     let naxis = header.NAXIS || 0, count = naxis > 0 ? 1 : 0;
     for (let k = 1; k <= naxis; k++) count *= header[`NAXIS${k}`];
     let pcount = header.PCOUNT || 0, gcount = header.GCOUNT || 1, nbytes = naxis > 0 ? Math.abs(header.BITPIX) / 8 * gcount * (pcount + count) : 0, hdu = { header, cards, name: (header.EXTNAME || (hdus.length ? "" : "PRIMARY")).toUpperCase() }, isImage = hdus.length === 0 || header.XTENSION === "IMAGE";
-    header.ZIMAGE === !0 && (hdu.compressed = !0), isImage && naxis >= 2 && off + nbytes <= bytes.length && Object.assign(hdu, readImage(view, off, header)), hdus.push(hdu), off += Math.ceil(nbytes / 2880) * 2880;
+    header.ZIMAGE === !0 && (hdu.compressed = !0), isImage && naxis >= 2 && off + nbytes <= bytes.length && Object.assign(hdu, readImage(view, off, header)), header.XTENSION === "BINTABLE" && header.NAXIS2 <= 4 && off + nbytes <= bytes.length && (hdu.table = readTableRow0(view, off, header)), hdus.push(hdu), off += Math.ceil(nbytes / 2880) * 2880;
   }
   return hdus;
 }
@@ -757,7 +825,22 @@ function spherexPlanes(hdus) {
   let byName = (n) => hdus.find((h) => h.name === n && h.data), image = byName("IMAGE") || hdus.find((h) => h.data);
   if (!image)
     throw hdus.some((h) => h.compressed) ? new Error("Tile-compressed FITS is not supported yet") : new Error("No image data in FITS file");
-  return { image, flags: byName("FLAGS"), zodi: byName("ZODI"), variance: byName("VARIANCE"), primary: hdus[0] };
+  return {
+    image,
+    flags: byName("FLAGS"),
+    zodi: byName("ZODI"),
+    variance: byName("VARIANCE"),
+    primary: hdus[0],
+    waveTable: hdus.find((h) => h.name === "WCS-WAVE" && h.table)?.table || null
+  };
+}
+function hasPlanes(buffer, names) {
+  try {
+    let hdus = parseFits(buffer);
+    return names.every((n) => hdus.some((h) => h.name === n && h.data));
+  } catch {
+    return !1;
+  }
 }
 function card(key, value, comment = "") {
   let v;
@@ -1063,29 +1146,62 @@ function fmt(v) {
 }
 
 // app/js/providers/irsa.js
-var SIA = "https://irsa.ipac.caltech.edu/SIA", irsaProvider = {
+var SIA = "https://irsa.ipac.caltech.edu/SIA", DEFAULT_COLLECTIONS = "spherex_dr1,spherex_qr3", NEEDED = ["IMAGE", "FLAGS", "ZODI"];
+function cutoutUrl(url, ra, dec, sizeDeg) {
+  let sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}center=${ra.toFixed(6)},${dec.toFixed(6)}d&size=${sizeDeg.toFixed(5)}`;
+}
+async function readPlanes(response) {
+  if (!response.body?.getReader) return response.arrayBuffer();
+  let reader = response.body.getReader(), buf = new Uint8Array(0), checkedAt = 0;
+  for (; ; ) {
+    let { done, value } = await reader.read();
+    if (done) break;
+    let next = new Uint8Array(buf.length + value.length);
+    if (next.set(buf), next.set(value, buf.length), buf = next, buf.length - checkedAt >= 16384 && (checkedAt = buf.length, hasPlanes(buf.buffer, NEEDED))) {
+      reader.cancel().catch(() => {
+      });
+      break;
+    }
+  }
+  return buf.buffer;
+}
+var irsaProvider = {
   id: "irsa",
   label: "NASA SPHEREx (IRSA)",
   simulated: !1,
+  _waveTables: /* @__PURE__ */ new Map(),
   async search({ ra, dec, collection }) {
-    let params = new URLSearchParams({
-      COLLECTION: collection || "spherex_qr",
-      POS: `circle ${ra} ${dec} 0.002`,
-      RESPONSEFORMAT: "votable",
-      MAXREC: "5000"
-    }), r = await fetchRemote(`${SIA}?${params}`);
+    let params = new URLSearchParams();
+    for (let c of (collection || DEFAULT_COLLECTIONS).split(/[\s,]+/).filter(Boolean)) params.append("COLLECTION", c);
+    params.set("POS", `circle ${ra} ${dec} 0.002`), params.set("RESPONSEFORMAT", "votable"), params.set("MAXREC", "5000");
+    let r = await fetchRemote(`${SIA}?${params}`);
     return parseVoTable(await r.text()).filter((row) => row.access_url && (!row.dataproduct_type || row.dataproduct_type === "image")).map((row) => toDescriptor(row)).sort((a, b) => a.mjd - b.mjd);
   },
   async fetchCutout(desc, { ra, dec, sizeDeg }) {
-    let sep = desc.url.includes("?") ? "&" : "?", url = `${desc.url}${sep}center=${ra.toFixed(6)},${dec.toFixed(6)}&size=${sizeDeg.toFixed(5)}`;
-    return (await fetchRemote(url)).arrayBuffer();
+    let r = await fetchRemote(cutoutUrl(desc.url, ra, dec, sizeDeg));
+    return readPlanes(r);
+  },
+  concurrency: 4,
+  // IRSA answers 503 when pushed harder
+  /**
+   * The WCS-WAVE lookup table for a detector. It is identical for every exposure from the
+   * same detector, so one small full download per detector serves all of its cutouts.
+   */
+  waveTable(desc, { ra, dec }) {
+    let key = desc.detector;
+    if (!this._waveTables.has(key)) {
+      let p = fetchRemote(cutoutUrl(desc.url, ra, dec, 0.01)).then((r) => r.arrayBuffer()).then((b) => spherexPlanes(parseFits(b)).waveTable);
+      p.catch(() => this._waveTables.delete(key)), this._waveTables.set(key, p);
+    }
+    return this._waveTables.get(key);
   }
 };
 function toDescriptor(row) {
-  let wlMin = row.em_min * 1e6, wlMax = row.em_max * 1e6, wl = (wlMin + wlMax) / 2, m = String(row.energy_bandpassname || "").match(/D(\d)/i) || String(row.obs_id || "").match(/D(\d)\b/);
+  let wlMin = row.em_min * 1e6, wlMax = row.em_max * 1e6, wl = (wlMin + wlMax) / 2, m = String(row.energy_bandpassname || "").match(/D(\d)/i);
   return {
     id: row.obs_publisher_did || row.obs_id || row.access_url,
-    obsId: row.obs_id || "",
+    obsId: [row.obs_id, m ? `D${m[1]}` : ""].filter(Boolean).join(" "),
     url: row.access_url,
     mjd: row.t_min,
     mjdEnd: row.t_max,
@@ -1093,6 +1209,7 @@ function toDescriptor(row) {
     wlMax,
     wl,
     detector: m ? Number(m[1]) : detectorFromWavelength(wl),
+    release: row.obs_collection || "",
     meta: row
   };
 }
@@ -1223,7 +1340,7 @@ var simulatedProvider = {
     }
     return writeFits([
       { header, data: img, width: n, height: n },
-      { header: [["EXTNAME", "FLAGS"], ["MP_HOT", 10], ["MP_SOURCE", 21], ["MP_NONFUNC", 6]], data: flags, width: n, height: n },
+      { header: [["EXTNAME", "FLAGS"], ["MSKN0006", "NONFUNC"], ["MSKN0010", "HOT"], ["MSKN0021", "SOURCE"]], data: flags, width: n, height: n },
       { header: [["EXTNAME", "ZODI"], ["BUNIT", "MJy/sr"]], data: zodi, width: n, height: n }
     ]);
   }
@@ -1332,18 +1449,26 @@ async function run() {
     state.provider = provider;
     let sizeArcmin = Number($("size").value);
     state.grid = makeGrid(ra, dec, sizeArcmin, PIXEL_SCALE_ARCSEC), centerAladin(ra, dec, sizeArcmin), setStatus(`Searching ${provider.label} at ${formatRa(ra)} ${formatDec(dec)}\u2026`), setProgress(0);
-    let all = await provider.search({ ra, dec, collection: $("collection").value.trim(), target }), wmin = Number($("wmin").value), wmax = Number($("wmax").value), dets = selectedDetectors(), list = all.filter((d) => d.wl >= wmin && d.wl <= wmax && dets.includes(d.detector));
+    let all = await provider.search({ ra, dec, collection: $("collection").value.trim(), target }), wmin = Number($("wmin").value), wmax = Number($("wmax").value), dets = selectedDetectors(), list = all.filter((d) => d.wlMax >= wmin && d.wlMin <= wmax && dets.includes(d.detector));
     if (!list.length)
       throw new Error(all.length ? `${all.length} images cover this spot, but none match the wavelength/detector filter.` : "No SPHEREx images cover this position yet.");
     let max = Math.max(1, Number($("max").value));
     list.length > max && (list = evenlySample(list, max)), setStatus(`Downloading ${list.length} cutouts (of ${all.length} images)\u2026`);
-    let sizeDeg = sizeArcmin / 60 * 1.45, opts = { subtractZodi: $("zodi").checked, maskFlags: $("mask").checked }, results = await pool(list, 6, async (desc) => {
+    let sizeDeg = sizeArcmin / 60 * 1.45, opts = { subtractZodi: $("zodi").checked, maskFlags: $("mask").checked }, results = await pool(list, provider.concurrency || 6, async (desc) => {
       let key = `${provider.id}|${desc.id}|${ra.toFixed(5)}|${dec.toFixed(5)}|${sizeDeg.toFixed(4)}`, buf = state.cache.get(key);
       buf || (buf = await provider.fetchCutout(desc, { ra, dec, sizeDeg }), state.cache.set(key, buf));
       let frame = await decodeCutout(buf, desc, opts);
-      return frame.aligned = reproject(frame, state.grid), frame;
-    }, (done, total) => setProgress(done / total)), frames = results.filter((r) => r && !r.error), failed = results.length - frames.length;
-    if (!frames.length) throw results.find((r) => r?.error)?.error || new Error("All downloads failed");
+      if (frame.aligned = reproject(frame, state.grid), provider.waveTable) {
+        let table = await provider.waveTable(desc, { ra, dec }).catch(() => null);
+        table && (frame.lambdaAt = (r, d) => {
+          let [px, py] = frame.wcs.worldToPix(r, d);
+          return wavelengthAt(table, frame.header, px, py)?.[0] ?? frame.wl;
+        }, frame.wl = frame.lambdaAt(ra, dec), frame.wlExact = !0);
+      }
+      return frame;
+    }, (done, total) => setProgress(done / total)), frames = results.filter((r) => r && !r.error && (!r.wlExact || r.wl >= wmin && r.wl <= wmax)), failed = results.length - frames.length;
+    if (!frames.length)
+      throw results.find((r) => r?.error)?.error || new Error("No exposure has this spot inside the chosen wavelength range. Widen the range.");
     state.frames = frames, state.pick = null, state.measurements = [], rebuildSequence(), $("empty").hidden = !0;
     try {
       history.replaceState(null, "", shareUrl());
@@ -1504,7 +1629,7 @@ function updateMeasurements() {
     let p = pickPosition(f.mjd);
     return {
       mjd: f.mjd,
-      wl: f.wl,
+      wl: f.lambdaAt ? f.lambdaAt(...state.grid.wcs.pixToWorld(p.x, p.y)) : f.wl,
       detector: f.detector,
       id: f.obsId || f.id,
       visit: visitOf.get(f) ?? 0,

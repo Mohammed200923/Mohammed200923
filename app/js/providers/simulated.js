@@ -166,7 +166,7 @@ export const simulatedProvider = {
     }
     return writeFits([
       { header, data: img, width: n, height: n },
-      { header: [['EXTNAME', 'FLAGS'], ['MP_HOT', 10], ['MP_SOURCE', 21], ['MP_NONFUNC', 6]], data: flags, width: n, height: n },
+      { header: [['EXTNAME', 'FLAGS'], ['MSKN0006', 'NONFUNC'], ['MSKN0010', 'HOT'], ['MSKN0021', 'SOURCE']], data: flags, width: n, height: n },
       { header: [['EXTNAME', 'ZODI'], ['BUNIT', 'MJy/sr']], data: zodi, width: n, height: n },
     ]);
   },

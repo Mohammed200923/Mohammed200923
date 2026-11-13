@@ -1,5 +1,5 @@
 import { TARGETS } from './targets.js';
-import { DETECTORS, PIXEL_SCALE_ARCSEC, wavelengthColor } from './spherex.js';
+import { DETECTORS, PIXEL_SCALE_ARCSEC, wavelengthColor, wavelengthAt } from './spherex.js';
 import { parseCoordinates, makeGrid, propagate, mjdToYear, mjdToDate, formatRa, formatDec } from './wcs.js';
 import { detectProxy, pool } from './net.js';
 import { decodeCutout, reproject, buildSequence, percentiles, coadd, aperturePhotometry } from './stack.js';
@@ -146,7 +146,8 @@ async function run() {
     const all = await provider.search({ ra, dec, collection: $('collection').value.trim(), target });
     const wmin = Number($('wmin').value), wmax = Number($('wmax').value);
     const dets = selectedDetectors();
-    let list = all.filter((d) => d.wl >= wmin && d.wl <= wmax && dets.includes(d.detector));
+    // Each SPHEREx image spans a range of wavelengths across the detector; keep any that overlap.
+    let list = all.filter((d) => d.wlMax >= wmin && d.wlMin <= wmax && dets.includes(d.detector));
     if (!list.length) {
       throw new Error(all.length
         ? `${all.length} images cover this spot, but none match the wavelength/detector filter.`
@@ -158,7 +159,7 @@ async function run() {
     setStatus(`Downloading ${list.length} cutouts (of ${all.length} images)…`);
     const sizeDeg = (sizeArcmin / 60) * 1.45; // covers the grid at any roll angle
     const opts = { subtractZodi: $('zodi').checked, maskFlags: $('mask').checked };
-    const results = await pool(list, 6, async (desc) => {
+    const results = await pool(list, provider.concurrency || 6, async (desc) => {
       const key = `${provider.id}|${desc.id}|${ra.toFixed(5)}|${dec.toFixed(5)}|${sizeDeg.toFixed(4)}`;
       let buf = state.cache.get(key);
       if (!buf) {
@@ -167,12 +168,27 @@ async function run() {
       }
       const frame = await decodeCutout(buf, desc, opts);
       frame.aligned = reproject(frame, state.grid);
+      if (provider.waveTable) {
+        // Exact wavelength at the target for this exposure (linear variable filter).
+        const table = await provider.waveTable(desc, { ra, dec }).catch(() => null);
+        if (table) {
+          frame.lambdaAt = (r, d) => {
+            const [px, py] = frame.wcs.worldToPix(r, d);
+            return wavelengthAt(table, frame.header, px, py)?.[0] ?? frame.wl;
+          };
+          frame.wl = frame.lambdaAt(ra, dec);
+          frame.wlExact = true;
+        }
+      }
       return frame;
     }, (done, total) => setProgress(done / total));
 
-    const frames = results.filter((r) => r && !r.error);
+    const frames = results.filter((r) => r && !r.error && (!r.wlExact || (r.wl >= wmin && r.wl <= wmax)));
     const failed = results.length - frames.length;
-    if (!frames.length) throw results.find((r) => r?.error)?.error || new Error('All downloads failed');
+    if (!frames.length) {
+      throw results.find((r) => r?.error)?.error ||
+        new Error('No exposure has this spot inside the chosen wavelength range. Widen the range.');
+    }
     state.frames = frames;
     state.pick = null;
     state.measurements = [];
@@ -409,7 +425,8 @@ function updateMeasurements() {
   state.measurements = state.frames.map((f) => {
     const p = pickPosition(f.mjd);
     return {
-      mjd: f.mjd, wl: f.wl, detector: f.detector, id: f.obsId || f.id,
+      mjd: f.mjd, wl: f.lambdaAt ? f.lambdaAt(...state.grid.wcs.pixToWorld(p.x, p.y)) : f.wl,
+      detector: f.detector, id: f.obsId || f.id,
       visit: visitOf.get(f) ?? 0,
       flux: aperturePhotometry(f.aligned, n, p.x, p.y, state.grid.scaleArcsec),
     };
