@@ -5,8 +5,9 @@
 
 - dist/skyshift.html: the app plus the team briefing. Opens by double-click and starts on
   simulated data; live NASA SPHEREx mode needs `python3 server.py` (IRSA blocks direct requests).
-- dist/huggingface/: four flat files for a Hugging Face Docker Space (its web uploader drops
-  folders). The page is the same app bundled into one index.html, starting on real data.
+- dist/huggingface/: the two files a Hugging Face Docker Space needs (README.md, Dockerfile).
+  The Dockerfile downloads the full project from GitHub at build time, because the Space's
+  web uploader drops folders.
 """
 import shutil
 import os
@@ -32,7 +33,7 @@ def bundled_app():
         with open(out, encoding="utf-8") as f:
             bundle = f.read().replace("</script", "<\\/script")
 
-    html = read("app", "index.html")
+    html = read("app", "analysis.html")
     css = read("app", "css", "style.css") + "\n" + read("scripts", "standalone", "extra.css")
     html = html.replace('<link rel="stylesheet" href="css/style.css">', f"<style>\n{css}</style>")
     return html.replace('<script type="module" src="js/main.js"></script>', f'<script type="module">\n{bundle}</script>')
@@ -46,17 +47,15 @@ def write(rel, text):
     print(f"wrote {rel} ({len(text) // 1024} KB)")
 
 
-def build_huggingface(app_html):
-    write("dist/huggingface/index.html", app_html)
+def build_huggingface():
+    shutil.rmtree(os.path.join(ROOT, "dist", "huggingface"), ignore_errors=True)
     write("dist/huggingface/README.md", read("deploy", "huggingface", "README.md"))
     write("dist/huggingface/Dockerfile", read("deploy", "huggingface", "Dockerfile"))
-    shutil.copy(os.path.join(ROOT, "server.py"), os.path.join(ROOT, "dist", "huggingface", "server.py"))
-    print("wrote dist/huggingface/server.py")
 
 
 def main():
     app_html = bundled_app()
-    build_huggingface(app_html)
+    build_huggingface()
     html = app_html
     html = html.replace('<input id="target" name="target"', '<input id="target" name="target" value="Barnard\'s Star"')
     old = '<option value="irsa">NASA SPHEREx (IRSA)</option>\n              <option value="sim" hidden>Simulated (offline tests)</option>'

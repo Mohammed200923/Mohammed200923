@@ -54,7 +54,7 @@ try {
     // Aladin Lite's own background fetches (usage logger, survey mirrors) are not ours to fix.
     page.on('pageerror', (e) => { if (!String(e.stack).includes('aladin-lite')) errors.push(e.message); });
     // A link with a target starts loading by itself.
-    await page.goto(`${base}/?src=irsa&q=${encodeURIComponent(name)}&wmin=${plan.wmin}&wmax=${plan.wmax}&max=${max}`);
+    await page.goto(`${base}/analysis.html?src=irsa&q=${encodeURIComponent(name)}&wmin=${plan.wmin}&wmax=${plan.wmax}&max=${max}`);
     await page.waitForFunction(() => {
       const s = window.__skyshift, st = document.getElementById('status');
       return (s?.seq?.length > 0 && !document.getElementById('go').disabled) || st.classList.contains('error');

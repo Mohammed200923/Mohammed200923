@@ -1,62 +1,48 @@
-# Combining SkyShift with SPHEREx Explorer
+# How SkyShift and Ibrahim's interfaces fit together
 
-Two projects from the same team, built for the same challenge:
+One site, three views, one data engine:
 
-- **SPHEREx Explorer** ([Ibrahim-oss1/Nasa-spaceapps.](https://github.com/Ibrahim-oss1/Nasa-spaceapps.)): a Next.js / React / TypeScript app with a polished interface.
-- **SkyShift** (this repo): a browser engine that loads **real** SPHEREx data and turns it into aligned frames.
-
-They fit together well. SPHEREx Explorer's README says its SPHEREx time sequence is simulated, and that `src/services/index.ts` is *"the one file to change when real SPHEREx/IRSA APIs are wired in"*. SkyShift is that real SPHEREx/IRSA layer, already checked against the live archive.
-
-## Blocker: the Explorer source code isn't on GitHub yet
-
-The Explorer repo has one commit ("Add files via upload") that contains only config files (`package.json`, `tsconfig.json`, `next.config.ts`, …). The whole `src/` folder is missing, so the app can't be built from the repo. Ibrahim needs to push it, either with `git push` or by dragging the whole `src` folder into GitHub's "Upload files" page. Uploading single files drops the folder structure.
-
-Everything below is based on the Explorer README and the file list in its `tsconfig.tsbuildinfo`, not on its source.
-
-## Who does what best
-
-| Area | SPHEREx Explorer | SkyShift | Combined product uses |
+| URL | View | Built by | What it is for |
 |---|---|---|---|
-| Interface, onboarding, guided tour | ✅ polished | basic | **Explorer** |
-| English / Arabic (i18n) | ✅ | – | **Explorer** (strong for Saudi local judging) |
-| Blink, 6 comparison modes, zoom/pan, keyboard | ✅ | play / scrub / difference | **Explorer** UI |
-| Provenance badges (Real / Simulated / Computed) | ✅ | watermark only | **Explorer** |
-| Context sky imagery (AllWISE / 2MASS / DSS2) via Aladin + `/api/hips` | ✅ real | Aladin (browser only) | **Explorer** |
-| Archival cutouts DSS2 → Pan-STARRS via `/api/cutout` | ✅ real | – | **Explorer** |
-| **SPHEREx images** | simulated | ✅ **real** (IRSA SIA + cutouts) | **SkyShift** |
-| FITS reading, SIP distortion, reprojection, visit stacking | – | ✅ tested vs astropy | **SkyShift** |
-| Zodiacal-light subtraction, artifact masking | – | ✅ | **SkyShift** |
-| Spectra | illustrative templates | ✅ real photometry at exact per-pixel λ | **SkyShift** |
-| Change detection (threshold + regions on difference image) | ✅ on simulated frames | – | **Explorer's algorithm on SkyShift's real frames** |
-| Gaia DR3 proper-motion overlay | metadata | ✅ per-frame overlay | **SkyShift** |
-| Video export | – | ✅ | **SkyShift** |
-| Assistant | scripted, no AI | – | Keep only if clearly labelled; it's the weakest part for "Validity" |
+| `/` | Landing page | SkyShift | Three doors and the five challenge targets |
+| `/spherex-immersive/` | **3D sky** | Ibrahim | Fly to a target on a three.js globe, step through its observations, compare, Star Stories |
+| `/spherex-explorer/` | **Explorer** | Ibrahim | Target list, side-by-side comparison, image details, English and Arabic |
+| `/analysis.html` | **Analysis** | SkyShift | Any RA/Dec, all 102 bands, mover search, light curves and spectra, overlays, video export |
 
-## How to merge
+Each view links to the others: the 3D sky toolbar has an **Analysis** button that opens the current target there, and the Explorer rail has **Analysis** and **3D sky** links.
 
-Keep **Explorer as the app** and move SkyShift's engine into it as a library.
+## How the data reaches Ibrahim's interfaces
 
-1. Copy SkyShift's modules into `src/lib/spherex/` and add types:
-   `fits.js`, `wcs.js`, `stack.js`, `spherex.js`, `catalogs.js`, `providers/irsa.js`. They are plain ES modules with no dependencies, so `allowJs` already lets Next.js import them; convert them to `.ts` later if time allows.
-2. Add a Next.js route `src/app/api/irsa/route.ts` to replace `server.py`'s proxy. It must allow-list `irsa.ipac.caltech.edu` and stream the response, so the browser can stop reading after ~120 KB of each ~4 MB cutout. IRSA sends no CORS headers, so this proxy is required.
-3. Write `src/services/real/observations.ts` implementing Explorer's observation contract (`src/services/types.ts`):
-   - `irsaProvider.search()` gives the list of SPHEREx images
-   - `fetchCutout()` + `decodeCutout()` + `reproject()` give aligned frames
-   - `buildSequence(mode: 'visit')` gives one frame per six-month visit (Explorer's timeline already expects ~6-month visits)
-4. Write `src/services/real/spectra.ts` with `aperturePhotometry()` + `wavelengthAt()`, so spectra become **Real** instead of **Illustrative**.
-5. Switch `src/services/index.ts` to the real services, keeping the mock ones as an offline fallback, and set provenance badges from the data source.
-6. Run Explorer's `detect.ts` on the real difference images, then compare its detections against the predicted track and Gaia overlay.
-7. Port SkyShift's tests into Vitest (`src/**/*.test.ts`): the WCS-vs-astropy and wavelength-vs-astropy checks, and the live Barnard's Star check.
+Ibrahim's interfaces never call an archive directly. They call `SX.data`, which wraps a *provider* and checks every answer against `spherex-explorer/js/data/contracts.js`. His repository ships a mock provider. We added a real one:
 
-Estimated effort: steps 1–5 take one builder about half a day; step 6 and testing take about a quarter day.
+```
+spherex-explorer/js/data/providers/skyshift.js   ← the real provider (new)
+        │  getFeaturedTargets, searchTargets, getObservations,
+        │  getObservationImage, getObservationMetadata, getComparisonResult …
+        ▼
+js/field.js   loadField({ra, dec, …})   ← UI-free SkyShift engine (new)
+        │
+        ├─ IRSA SIA + cutouts: SPHEREx Wide and Deep, DR1 + QR3 (FITS, WCS, EPSF)
+        ├─ AllWISE + NEOWISE W2 frames (2010–2024), CatWISE2020
+        ├─ Gaia DR3 at MAST, JPL small bodies
+        └─ mover search + WISE 15-year refit
+```
 
-## New challenge resources (released 13 Nov)
+- **Observations**: one per SPHEREx survey visit (a weighted stack of every exposure in it), plus WISE frames about every 3 years back to 2010.
+- **Images**: rendered to PNG from the real FITS data. The "composite" band is a false-colour RGB: blue = detectors 1–2, green = 3–4, red = 5–6.
+- **Metadata**: real dates, wavelengths, exposure counts and masked-pixel fractions, plus the movers found in the field with their measured speeds.
+- **Comparison**: a noise-normalised difference of two real frames; gold = brighter, cyan = fainter. The candidates are the measured movers, e.g. *"Target: 10.32 ± 0.10″/yr (Gaia DR3 10.39″/yr)"*.
+- **Targets**: Ibrahim's 21-object catalogue plus the challenge targets, with positions propagated to 2026. Nothing is marked simulated.
 
-- **IRSA SPHEREx tutorials:** used to verify SkyShift. Collections are now `spherex_dr1` and `spherex_qr3`. The cutout syntax `?center=RA,DECd&size=DEG`, the FLAGS names (`MSKNnnnn`) and the `WCS-WAVE` lookup all match the code.
-- **WiseView:** the model for this tool (a flip-book of WISE epochs). Our blink/difference and the visit flip-book follow the same idea, and the pitch can say "WiseView for SPHEREx".
-- **Gaia DR3 at MAST:** SkyShift reads the same DR3 catalogue from CDS VizieR; either source is fine.
-- **NEOSSat / CADC (CSA partner data, optional):** an add-on for asteroids, e.g. showing NEOSSat observations of a known asteroid next to the SPHEREx movie. Do it only after the core works.
+The first visit to a field takes a few minutes (it downloads every exposure), so the provider allows longer time-outs than the mock. After that the server cache serves it in seconds.
 
-## Rule 01
+## What we changed in Ibrahim's code
 
-Building is allowed only on 14–15 November. Do the merge itself during the hackathon, and declare both earlier prototypes and the AI tools used on the project page.
+Kept to a minimum, so his updates can be merged again:
+
+- `spherex-explorer/index.html` loads `js/boot-skyshift.js` (the real provider, then his `app.js`) and has two rail links.
+- `spherex-explorer/js/app.js` uses `SX.providers.skyshift` when it is present, else his mock.
+- `spherex-explorer/js/data/service.js`: a provider may set longer per-call time-outs.
+- `spherex-immersive/js/main.js` builds its provider from the SkyShift one; `js/data/provider.js` turns off the decorative extras; an **Analysis** link in `index.html` and `js/ui/hud.js`.
+
+Source: [Ibrahim-oss1/Nasa-spaceapps.](https://github.com/Ibrahim-oss1/Nasa-spaceapps.), copied at commit `dca1d9d`.

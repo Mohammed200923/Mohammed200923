@@ -1,200 +1,58 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SkyShift — SPHEREx sky time-lapse</title>
-  <meta name="description" content="Type sky coordinates, get a time-lapse of NASA SPHEREx infrared images, and spot what moves.">
-  <link rel="stylesheet" href="css/style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkyShift</title>
+<meta name="description" content="Real SPHEREx, WISE and Gaia data: watch the sky change and find what moves.">
+<style>
+  :root { --bg:#0b0e17; --panel:#121726; --ink:#e8ecf6; --muted:#8d97b0; --line:#273150; --accent:#ffb347; color-scheme:dark; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; display:grid; place-items:center; padding:32px 16px; }
+  main { width:100%; max-width:960px; }
+  h1 { margin:0; font-size:34px; letter-spacing:.02em; }
+  .lead { color:var(--muted); margin:6px 0 28px; max-width:62ch; }
+  .doors { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+  .door { display:flex; flex-direction:column; gap:8px; padding:20px; background:var(--panel); border:1px solid var(--line); border-radius:12px; color:inherit; text-decoration:none; transition:border-color .15s, transform .15s; }
+  .door:hover, .door:focus-visible { border-color:var(--accent); transform:translateY(-2px); outline:none; }
+  .door h2 { margin:0; font-size:18px; }
+  .door p { margin:0; color:var(--muted); font-size:14px; }
+  .door .by { margin-top:auto; padding-top:10px; font-size:12px; color:var(--accent); }
+  .targets { margin-top:26px; color:var(--muted); font-size:14px; }
+  .targets a { color:var(--ink); }
+  footer { margin-top:28px; color:var(--muted); font-size:12px; }
+  @media (max-width:760px) { .doors { grid-template-columns:1fr; } h1 { font-size:28px; } }
+</style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><circle cx="11" cy="16" r="4" fill="currentColor" opacity=".35"/><circle cx="17" cy="16" r="4" fill="currentColor" opacity=".6"/><circle cx="23" cy="16" r="4" fill="currentColor"/></svg>
-      <div>
-        <h1>SkyShift</h1>
-        <p>Watch the infrared sky move — NASA SPHEREx time-lapse explorer</p>
-      </div>
-    </div>
-    <div class="status" id="status" role="status" aria-live="polite"></div>
-  </header>
-
-  <main class="layout">
-    <!-- Controls -->
-    <section class="panel controls" aria-label="Search">
-      <form id="search-form">
-        <label for="target">Object name or coordinates (RA, Dec)</label>
-        <div class="row">
-          <input id="target" name="target" placeholder="e.g. Barnard's Star or 08h55m10.8s -07d14m42.5s" autocomplete="off">
-        </div>
-        <div class="chips" id="quick-targets" aria-label="Challenge test targets"></div>
-
-        <div class="grid2">
-          <label>Field of view <span class="val" id="size-val"></span>
-            <input type="range" id="size" min="2" max="20" step="1" value="6">
-          </label>
-          <label>Data source
-            <select id="source">
-              <option value="irsa">NASA SPHEREx (IRSA)</option>
-              <option value="sim" hidden>Simulated (offline tests)</option>
-            </select>
-          </label>
-        </div>
-
-        <fieldset>
-          <legend>Wavelength</legend>
-          <div class="grid2">
-            <label>From (µm) <input type="number" id="wmin" min="0.75" max="5" step="0.05" value="0.75"></label>
-            <label>To (µm) <input type="number" id="wmax" min="0.75" max="5" step="0.05" value="5.0"></label>
-          </div>
-          <div class="detectors" id="detectors"></div>
-          <div class="presets">
-            <button type="button" data-wl="0.75,5">All</button>
-            <button type="button" data-wl="0.75,1.6">Near-IR (stars)</button>
-            <button type="button" data-wl="3.8,5">3.8–5 µm (cold brown dwarfs)</button>
-          </div>
-        </fieldset>
-
-        <fieldset>
-          <legend>Frames</legend>
-          <div class="grid2">
-            <label>Show
-              <select id="mode">
-                <option value="visit">One stacked frame per survey visit</option>
-                <option value="exposure">Every exposure</option>
-              </select>
-            </label>
-            <label>Max cutouts <input type="number" id="max" min="4" max="3000" step="1" value="60"></label>
-          </div>
-          <label class="check"><input type="checkbox" id="zodi" checked> Subtract zodiacal light model</label>
-          <label class="check"><input type="checkbox" id="mask" checked> Mask flagged pixels</label>
-          <details>
-            <summary>Advanced</summary>
-            <label>IRSA collections <input id="collection" value="spherex_dr1,spherex_qr3,spherex_dr1_deep,spherex_qr3_deep"></label>
-            <label>Visit gap (days) <input type="number" id="gap" min="1" max="90" value="20"></label>
-          </details>
-        </fieldset>
-
-        <button class="primary" type="submit" id="go">Make time-lapse</button>
-        <div class="progress" hidden><div class="bar" id="bar"></div></div>
-        <p class="sample-note small muted" id="sample-note" hidden></p>
-        <button type="button" id="load-all" hidden>Use all images</button>
-      </form>
-    </section>
-
-    <!-- Viewer -->
-    <section class="panel viewer" aria-label="Time-lapse viewer">
-      <div class="stage">
-        <canvas id="view" width="640" height="640" aria-label="SPHEREx time-lapse frame"></canvas>
-        <div class="empty" id="empty">
-          <h2>Loading real NASA SPHEREx images…</h2>
-          <p>SkyShift fetches every SPHEREx image of this spot from NASA's archive, lines them up, and plays them as a short movie, so anything that moves or changes brightness jumps out. A field takes up to a minute the first time; fields other people have opened come back in seconds.</p>
-        </div>
-      </div>
-
-      <div class="transport">
-        <button id="prev" title="Previous frame (←)" aria-label="Previous frame">⏮</button>
-        <button id="play" title="Play / pause (space)" aria-label="Play">▶</button>
-        <button id="next" title="Next frame (→)" aria-label="Next frame">⏭</button>
-        <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Frame">
-        <span class="frame-label" id="frame-label">–</span>
-      </div>
-
-      <div class="display-opts">
-        <label>Speed <input type="range" id="fps" min="0.5" max="10" step="0.5" value="2"></label>
-        <label>Stretch
-          <select id="stretch">
-            <option value="asinh">asinh</option><option value="linear">linear</option>
-            <option value="sqrt">sqrt</option><option value="log">log</option>
-          </select>
-        </label>
-        <label>Colours
-          <select id="cmap"><option value="inferno">inferno</option><option value="gray">grey</option><option value="ice">ice</option></select>
-        </label>
-        <label class="check"><input type="checkbox" id="diff"> Difference vs. median sky</label>
-        <label class="check"><input type="checkbox" id="smooth"> Smooth pixels</label>
-        <label class="check"><input type="checkbox" id="ov-track" checked> Predicted track</label>
-        <label class="check"><input type="checkbox" id="ov-gaia"> Gaia DR3 stars</label>
-        <label class="check"><input type="checkbox" id="ov-movers" checked> Detected movers</label>
-        <label class="check"><input type="checkbox" id="show-masked"> Show masked pixels</label>
-        <label class="check"><input type="checkbox" id="wise-frame" checked> WISE frames (2010–2024)</label>
-        <label class="check"><input type="checkbox" id="ov-catwise"> CatWISE2020 stars</label>
-        <label class="check"><input type="checkbox" id="ov-bodies" checked> Known asteroids &amp; comets</label>
-      </div>
-
-      <details class="guide" id="guide">
-        <summary>How to read this</summary>
-        <div class="guide-body">
-          <p><strong>What you see.</strong> Each frame stacks all the SPHEREx images from one survey visit (about every six months; monthly near the ecliptic poles). The first frames are NASA's WISE telescope: AllWISE in 2010, then NEOWISE every six months from 2014 to 2024. Press play: stars that stay put are distant; anything that slides is nearby, or in the Solar System.</p>
-          <ul class="legend">
-            <li><span class="key" style="--c:#7ee0ff"></span><span><strong>Dashed line + crosshair:</strong> where the chosen object should be on each date, from its catalogued motion.</span></li>
-            <li><span class="key" style="--c:#7fe0a0"></span><span><strong>Green arrow:</strong> a moving object SkyShift found by itself, already known to Gaia or WISE.</span></li>
-            <li><span class="key" style="--c:#ffb347"></span><span><strong>Orange arrow:</strong> a moving object found by SkyShift with <em>no</em> catalogue match: a candidate worth a closer look.</span></li>
-            <li><span class="key" style="--c:#b8ff5c"></span><span><strong>Lime circle:</strong> a known asteroid or comet in that exposure (NASA JPL).</span></li>
-            <li><span class="key" style="--c:#ffe066"></span><span class="key" style="--c:#ff7ad9"></span><span><strong>Yellow / pink circles:</strong> fast-moving stars in the Gaia DR3 / CatWISE2020 catalogues (turn on below the image).</span></li>
-          </ul>
-          <p><strong>Difference view.</strong> Subtracts the average sky: still stars vanish, and a moving object becomes an orange spot (where it is now) next to a blue one (where it usually is).</p>
-          <p><strong>Measure.</strong> Click any star, or a mover in the list, to see its spectrum across SPHEREx's 0.75–5 µm colours and how its brightness changes over time. Hollow points are saturated and not used.</p>
-          <p><strong>Data.</strong> NASA SPHEREx (IRSA), NASA WISE (AllWISE, NEOWISE, CatWISE2020), NASA JPL (Small-Body Identification, Horizons), ESA Gaia DR3 (NASA MAST), and the Canadian Space Agency's NEOSSat (CADC), all fetched live.</p>
-        </div>
-      </details>
-
-      <div class="export">
-        <button id="export-video">Download video</button>
-        <button id="export-png">Save frame (PNG)</button>
-        <button id="copy-link">Copy link</button>
-        <button id="copy-embed">Copy embed code</button>
-      </div>
-    </section>
-
-    <!-- Context + inspector -->
-    <section class="panel side" aria-label="Details">
-      <h3>Sky context</h3>
-      <div class="aladin-wrap">
-        <div id="aladin"></div>
-        <select id="hips" aria-label="Background survey">
-          <option value="https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube" selected>SPHEREx DR1 all-sky</option>
-          <option value="P/2MASS/color">2MASS colour</option>
-          <option value="P/allWISE/color">AllWISE colour</option>
-          <option value="P/DSS2/color">DSS2 optical</option>
-          <option value="P/PanSTARRS/DR1/color-z-zg-g">Pan-STARRS</option>
-        </select>
-      </div>
-
-      <h3>This frame</h3>
-      <table class="meta" id="meta"><tbody><tr><td colspan="2" class="muted">No data loaded</td></tr></tbody></table>
-
-      <p class="muted small" id="wise-status"></p>
-
-      <h3>Moving objects</h3>
-      <div id="movers" class="movers" aria-live="polite"><p class="muted small">Load a field to search it automatically.</p></div>
-
-      <h3>Known asteroids &amp; comets</h3>
-      <div id="bodies" class="bodies"><p class="muted small">Load a field to look them up (NASA JPL).</p></div>
-
-      <h3>Partner data: NEOSSat (CSA)</h3>
-      <div id="neossat" class="neossat"><p class="muted small">Load a field to look for NEOSSat observations.</p></div>
-
-      <h3>Click a source</h3>
-      <p class="muted small" id="pick-info">Click in the viewer to measure brightness across all frames.</p>
-      <div class="chart-title">Spectrum</div>
-      <canvas class="chart" id="spectrum"></canvas>
-      <div class="chart-title">Brightness over time <span class="muted small">(1 = this source's average at the same wavelength)</span></div>
-      <canvas class="chart" id="lightcurve"></canvas>
-      <button id="export-csv" disabled>Download measurements (CSV)</button>
-    </section>
-  </main>
-
-  <footer class="foot">
-    Data: NASA SPHEREx via NASA/IPAC Infrared Science Archive (IRSA); Gaia DR3 (ESA) via CDS VizieR; sky context by Aladin Lite (CDS, Strasbourg).
-    Built for NASA Space Apps 2026 — “Planet X and SPHEREx”.
-  </footer>
-
-  <script type="module">
-    // Aladin Lite ships as an ES module; expose it for main.js (module scripts run in order).
-    import A from 'https://cdn.jsdelivr.net/npm/aladin-lite@3.6.5/dist/aladin.js';
-    window.A = A;
-  </script>
-  <script type="module" src="js/main.js"></script>
+<main>
+  <h1>SkyShift</h1>
+  <p class="lead">Type any position in the sky and watch NASA's SPHEREx images play as a time-lapse, with WISE and NEOWISE going back to 2010. Anything that moves or changes brightness stands out, and is checked against Gaia DR3, CatWISE2020 and JPL's list of known asteroids and comets.</p>
+  <div class="doors">
+    <a class="door" href="spherex-immersive/">
+      <h2>3D sky</h2>
+      <p>Fly to a target on an all-sky globe and step through its observations. Best place to start.</p>
+      <span class="by">Interface: Ibrahim</span>
+    </a>
+    <a class="door" href="spherex-explorer/">
+      <h2>Explorer</h2>
+      <p>Browse targets, compare two dates side by side, and read each image's details. English and Arabic.</p>
+      <span class="by">Interface: Ibrahim</span>
+    </a>
+    <a class="door" href="analysis.html">
+      <h2>Analysis</h2>
+      <p>The full engine: any RA/Dec, the 102 SPHEREx bands, automatic moving-object search, light curves, overlays, export.</p>
+      <span class="by">Engine: SkyShift</span>
+    </a>
+  </div>
+  <p class="targets">Challenge targets in the analysis view:
+    <a href="analysis.html?src=irsa&q=Barnard%27s%20Star">Barnard's Star</a> ·
+    <a href="analysis.html?src=irsa&q=Epsilon%20Indi%20B">Epsilon Indi B</a> ·
+    <a href="analysis.html?src=irsa&q=WISE%200855%E2%88%920714&wmin=3.8&wmax=5&max=200&size=8">WISE 0855−0714</a> ·
+    <a href="analysis.html?src=irsa&q=RW%20Aurigae">RW Aur</a> ·
+    <a href="analysis.html?src=irsa&q=R%20Draconis">R Dra</a>
+  </p>
+  <footer>Data: NASA/IPAC IRSA (SPHEREx, AllWISE, NEOWISE, CatWISE2020), Gaia DR3 at MAST, JPL Small-Body Identification and Horizons, CSA NEOSSat at CADC. All three views run on the same live data. First visit to a new field takes a few minutes; after that it is cached.</footer>
+</main>
 </body>
 </html>

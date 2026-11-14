@@ -1,0 +1,46 @@
+/* Star Stories: cinematic full-screen presentations. Each story sets --a/--b (accents) and --c1/--c2 (backdrop) inline.
+   Stories use "exhibition lighting" (always dark) in both themes so the artwork reads the same everywhere.            */
+.story { --text: #F4FFF9; --muted: #B9CEC7; --line: rgba(244, 255, 249, 0.4); --line-soft: rgba(244, 255, 249, 0.18); --glass: rgba(0, 0, 0, 0.38); --glass-strong: rgba(6, 10, 9, 0.84); --glass-hi: rgba(244, 255, 249, 0.14); --hi-bg: #F4FFF9; --hi-text: #06100D; --accent: var(--a, #38f2c2); --accent-2: var(--b, #ffd84d); --warn: #FFD84D; --danger: #FF8A7A; --ok: #7DFF5A; --on-accent: #04100C;
+  background: linear-gradient(135deg, var(--c1, #040807), var(--c2, #0b1614)); color: var(--text); overflow: hidden; }
+.story .scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.story .s-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.25) 55%, transparent); }
+:root[dir='rtl'] .story .s-shade { background: linear-gradient(270deg, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.25) 55%, transparent); }
+.s-top { position: absolute; top: calc(var(--safe-t) + 14px); inset-inline: calc(var(--safe-l) + 18px) calc(var(--safe-r) + 18px); display: flex; gap: 10px; align-items: center; z-index: 3; }
+.s-top .x { margin-inline-start: auto; }
+.s-text { position: absolute; z-index: 2; inset-inline-start: clamp(20px, 6vw, 96px); top: 50%; transform: translateY(-50%); width: min(560px, 46vw); max-height: calc(100% - 190px); overflow: auto; display: grid; gap: 14px; padding: 6px 4px; scrollbar-width: thin; }
+.s-text .eyebrow { color: var(--accent); }
+.s-title { font-size: clamp(2.3rem, 6.2vw, 4.6rem); line-height: 1.02; outline: none; }
+:root[lang='ar'] .s-title { line-height: 1.25; font-size: clamp(2rem, 5.2vw, 3.8rem); }
+.s-title .w { display: inline-block; margin-inline-end: 0.26em; opacity: 0; transform: translateY(0.45em); animation: wrd 0.8s var(--ease) forwards; animation-delay: calc(var(--i) * 90ms + 80ms); }
+@keyframes wrd { to { opacity: 1; transform: none; } }
+.s-body { font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.6; max-width: 46ch; animation: fade-in 0.8s var(--ease) 0.3s both; }
+.s-text.from-r > * { animation: slide-r 0.55s var(--ease) both; } .s-text.from-l > * { animation: slide-l 0.55s var(--ease) both; }
+.s-text.from-r .s-title .w, .s-text.from-l .s-title .w { animation: wrd 0.8s var(--ease) forwards; }
+@keyframes slide-r { from { opacity: 0; transform: translateX(34px); } } @keyframes slide-l { from { opacity: 0; transform: translateX(-34px); } }
+:root[dir='rtl'] .s-text.from-r > * { animation-name: slide-l; } :root[dir='rtl'] .s-text.from-l > * { animation-name: slide-r; }
+.s-inter { display: grid; gap: 10px; max-width: 460px; }
+.s-inter .sl2.glass { padding: 12px 14px; }
+.s-more { border-top: 1px solid var(--line-soft); padding-top: 8px; max-width: 460px; }
+.s-more summary { cursor: pointer; font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.08em; min-height: 36px; display: flex; align-items: center; }
+.s-more > div { display: grid; gap: 10px; padding: 6px 0 10px; }
+.s-nav { position: absolute; z-index: 3; bottom: calc(var(--safe-b) + 18px); inset-inline: 0; display: flex; justify-content: center; align-items: center; gap: 14px; padding: 0 12px; }
+.s-dots { display: flex; gap: 8px; align-items: center; }
+.sdot { width: 12px; height: 12px; border-radius: 999px; border: 1.5px solid var(--text); position: relative; transition: width 0.3s var(--ease), background 0.3s; }
+.sdot::after { content: ''; position: absolute; inset: -12px -4px; }
+.sdot[aria-current='step'] { width: 30px; background: var(--accent); border-color: var(--accent); }
+.draft-note { font-size: 0.75rem; color: var(--muted); max-width: 70ch; }
+.s-draft { position: absolute; z-index: 2; bottom: calc(var(--safe-b) + 74px); inset-inline-start: clamp(20px, 6vw, 96px); max-width: min(520px, 46vw); }
+.ladder { display: grid; gap: 6px; padding: 12px; } .lrow { display: flex; align-items: center; gap: 10px; font-size: 0.8125rem; } .lrow i { width: calc(30px + (3 - var(--k)) * 26px); height: 8px; border-radius: 4px; background: linear-gradient(90deg, #ffb36b, #7fd8ff); opacity: calc(1 - var(--k) * 0.12); flex: none; } .lrow.me { font-weight: 800; color: var(--accent); }
+.obs-strip { padding: 12px; display: grid; gap: 10px; }
+.thumbs { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; } .thumbs figure { margin: 0; display: grid; gap: 4px; text-align: center; font-size: 0.6875rem; flex: none; } .thumbs figure.miss .thumb { opacity: 0.3; }
+
+/* gallery */
+.story.gal { overflow: auto; display: grid; place-items: start center; padding: calc(var(--safe-t) + 60px) var(--pad) var(--pad); background: radial-gradient(70% 60% at 50% 0%, rgba(56, 242, 194, 0.16), transparent 70%), linear-gradient(180deg, #040807, #0b1614); }
+.story.gal .x { position: absolute; top: calc(var(--safe-t) + 14px); inset-inline-end: 18px; }
+.gal-in { width: min(1000px, 100%); display: grid; gap: 22px; } .gal-in h2 { font-size: clamp(2rem, 5vw, 3.4rem); }
+.gal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 14px; }
+.gcard { position: relative; display: grid; align-content: end; gap: 6px; text-align: start; min-height: 200px; padding: 18px; border-radius: 18px; border: 1px solid var(--line); overflow: hidden; background: linear-gradient(150deg, var(--c1, #0b1614), var(--c2, #0b1614)); transition: transform 0.35s var(--ease), border-color 0.3s; }
+.gcard::before { content: ''; position: absolute; inset: 0; background: radial-gradient(60% 70% at 80% 10%, color-mix(in srgb, var(--a, #38f2c2) 55%, transparent), transparent 70%); opacity: 0.8; transition: opacity 0.3s; }
+.gcard > * { position: relative; } .gcard:hover { transform: translateY(-4px); border-color: var(--a, var(--text)); } .gcard .gname { font-size: 1.7rem; line-height: 1.1; } .gcard .gtone { font-size: 0.6875rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--a, var(--text)); font-weight: 700; } .gcard .gtype { color: var(--muted); font-size: 0.8125rem; } .gcard .chip { justify-self: start; }
+.gcard.generic { --a: #38f2c2; --b: #ffd84d; }
+:root[lang='ar'] .gcard .gtone { letter-spacing: 0; text-transform: none; font-size: 0.8125rem; }

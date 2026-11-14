@@ -22,7 +22,7 @@ try {
   const errors = [];
   // Aladin Lite's own background fetches (usage logger, survey mirrors) are not ours to fix.
   page.on('pageerror', (e) => { if (!String(e.stack).includes('aladin-lite')) errors.push(e.message); });
-  await page.goto(`http://127.0.0.1:${port}/?src=sim&q=${encodeURIComponent("Barnard's Star")}&size=6`);
+  await page.goto(`http://127.0.0.1:${port}/analysis.html?src=sim&q=${encodeURIComponent("Barnard's Star")}&size=6`);
   await page.waitForFunction(() => window.__skyshift?.seq?.length > 0, null, { timeout: 60000 });
 
   const info = await page.evaluate(() => {
@@ -94,7 +94,7 @@ try {
   await page.screenshot({ path: `${shots}mobile.png`, fullPage: false });
 
   // Embed mode hides the chrome.
-  await page.goto(`http://127.0.0.1:${port}/?src=sim&q=R%20Draconis&embed=1`);
+  await page.goto(`http://127.0.0.1:${port}/analysis.html?src=sim&q=R%20Draconis&embed=1`);
   await page.waitForFunction(() => window.__skyshift?.seq?.length > 0, null, { timeout: 60000 });
   assert.equal(await page.isVisible('.controls'), false);
 

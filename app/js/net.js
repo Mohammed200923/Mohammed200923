@@ -2,10 +2,13 @@
 // remote archives go through its allow-listed /proxy endpoint (avoids CORS issues).
 
 let useProxy = false;
+// The proxy sits at the site root (server.py). Resolve it from this module's location, so pages
+// in sub-folders (e.g. /spherex-immersive/) find it too; net.js lives in /js/.
+const PROXY = new URL('../proxy', import.meta.url).href;
 
 export async function detectProxy() {
   try {
-    const r = await fetch('proxy/health', { cache: 'no-store' });
+    const r = await fetch(`${PROXY}/health`, { cache: 'no-store' });
     useProxy = r.ok && (await r.text()).trim() === 'ok';
   } catch {
     useProxy = false;
@@ -25,7 +28,7 @@ const RETRY_STATUS = new Set([429, 502, 503, 504]);
  */
 export async function fetchRemote(url, opts = {}, retries = 3, proxyParams = null) {
   const extra = proxyParams ? `&${new URLSearchParams(proxyParams)}` : '';
-  const target = useProxy ? `proxy?url=${encodeURIComponent(url)}${extra}` : url;
+  const target = useProxy ? `${PROXY}?url=${encodeURIComponent(url)}${extra}` : url;
   for (let attempt = 0; ; attempt++) {
     let r;
     try {

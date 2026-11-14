@@ -1,0 +1,63 @@
+/* Design tokens. Palette from the project's nebula inspiration; every colour has a dark and a light value. */
+:root {
+  --deep: #040807; --emerald: #0B1614; --teal: #38F2C2; --green: #7DFF5A; --gold: #FFD84D;
+
+  --bg: #040807;
+  --bg-2: #0B1614;
+  --text: #F4FFF9;
+  --muted: #9EB7B0;
+  --accent: #38F2C2;
+  --accent-2: #FFD84D;
+  --on-accent: #04100C;
+  --glass: rgba(9, 20, 18, 0.46);
+  --glass-strong: rgba(7, 16, 14, 0.78);
+  --glass-hi: rgba(244, 255, 249, 0.14);
+  --line: rgba(244, 255, 249, 0.34);
+  --line-soft: rgba(244, 255, 249, 0.14);
+  --hi-bg: #F4FFF9; --hi-text: #06100D;
+  --danger: #FF8A7A; --warn: #FFD84D; --ok: #7DFF5A;
+  --shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  --atmos-1: rgba(56, 242, 194, 0.16); --atmos-2: rgba(255, 216, 77, 0.07); --atmos-3: rgba(125, 255, 90, 0.07);
+  --grid: rgba(244, 255, 249, 0.045);
+  --gold: #FFD84D;
+
+  --font: 'Manrope', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-ar: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, 'Noto Sans Arabic', system-ui, sans-serif;
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --safe-t: env(safe-area-inset-top, 0px); --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px); --safe-l: env(safe-area-inset-left, 0px);
+  --pad: clamp(12px, 2vw, 24px);
+  --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --blur: 14px;
+}
+
+:root[data-theme='light'] {
+  --bg: #E7F1EC; --bg-2: #D3E6DD;
+  --text: #0A1A16; --muted: #3F5B54;
+  --accent: #067A64; --accent-2: #8A6400; --on-accent: #FFFFFF;
+  --glass: rgba(246, 252, 249, 0.58); --glass-strong: rgba(250, 254, 252, 0.9);
+  --glass-hi: rgba(10, 26, 22, 0.1);
+  --line: rgba(10, 26, 22, 0.42); --line-soft: rgba(10, 26, 22, 0.16);
+  --hi-bg: #0A1A16; --hi-text: #F4FFF9;
+  --danger: #B3261E; --warn: #8A6400; --ok: #1B6E2B;
+  --shadow: 0 10px 34px rgba(10, 40, 30, 0.18);
+  --atmos-1: rgba(6, 122, 100, 0.2); --atmos-2: rgba(255, 190, 60, 0.18); --atmos-3: rgba(100, 200, 120, 0.16);
+  --grid: rgba(10, 26, 22, 0.06);
+  --gold: #B07F00;
+}
+
+:root[data-contrast='high'] {
+  --glass: rgba(0, 0, 0, 0.82); --glass-strong: #000; --line: rgba(255, 255, 255, 0.85); --line-soft: rgba(255, 255, 255, 0.5);
+  --muted: #D5E6E0; --text: #FFFFFF; --grid: rgba(255, 255, 255, 0.07);
+}
+:root[data-theme='light'][data-contrast='high'] {
+  --glass: rgba(255, 255, 255, 0.94); --glass-strong: #fff; --line: #000; --line-soft: rgba(0, 0, 0, 0.6);
+  --muted: #1D332D; --text: #000; --accent: #00574A; --grid: rgba(0, 0, 0, 0.08);
+}
+
+html { font-size: 16px; }
+:root[data-text='large'] { font-size: 19px; }
+:root[lang='ar'] { --font: var(--font-ar); }
+:root[data-perf='low'] { --blur: 0px; }

@@ -133,6 +133,9 @@ body.embed .panel { border: 0; border-radius: 0; }
 .thumbs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
 .thumbs a { display: grid; gap: 2px; color: var(--muted); font-size: 11px; text-decoration: none; text-align: center; }
 .thumbs img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; background: var(--panel-2); max-width: 100%; }
+.views { display: flex; gap: 8px; }
+.views a { color: var(--ink); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.views a:hover { border-color: var(--accent); }
 
   .topbar, .foot { padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
   .layout { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -170,6 +173,10 @@ body.embed .panel { border: 0; border-radius: 0; }
         <p>Watch the infrared sky move — NASA SPHEREx time-lapse explorer</p>
       </div>
     </div>
+    <nav class="views" aria-label="Other views">
+      <a href="spherex-immersive/">3D sky</a>
+      <a href="spherex-explorer/">Explorer</a>
+    </nav>
     <div class="status" id="status" role="status" aria-live="polite"></div>
   </header>
 
@@ -735,10 +742,10 @@ function formatDec(dec) {
 }
 
 // app/js/net.js
-var useProxy = !1;
+var useProxy = !1, PROXY = new URL("../proxy", import.meta.url).href;
 async function detectProxy() {
   try {
-    let r = await fetch("proxy/health", { cache: "no-store" });
+    let r = await fetch(`${PROXY}/health`, { cache: "no-store" });
     useProxy = r.ok && (await r.text()).trim() === "ok";
   } catch {
     useProxy = !1;
@@ -750,7 +757,7 @@ function proxyEnabled() {
 }
 var RETRY_STATUS = /* @__PURE__ */ new Set([429, 502, 503, 504]);
 async function fetchRemote(url, opts = {}, retries = 3, proxyParams = null) {
-  let extra = proxyParams ? `&${new URLSearchParams(proxyParams)}` : "", target = useProxy ? `proxy?url=${encodeURIComponent(url)}${extra}` : url;
+  let extra = proxyParams ? `&${new URLSearchParams(proxyParams)}` : "", target = useProxy ? `${PROXY}?url=${encodeURIComponent(url)}${extra}` : url;
   for (let attempt = 0; ; attempt++) {
     let r;
     try {

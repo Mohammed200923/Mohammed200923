@@ -40,9 +40,9 @@ az containerapp up --name skyshift --source . --ingress external --target-port 8
 
 1. Create a free account at huggingface.co.
 2. Go to **New → Space**, name it `skyshift`, choose **Docker → Blank** and **Public**, then **Create Space**.
-3. Take the four files in `dist/huggingface/`: `README.md`, `Dockerfile`, `server.py` and `index.html`. The whole app is bundled into `index.html`, because the Space's web uploader drops folders. Rebuild them with `python3 scripts/build_standalone.py`.
-4. In the Space, open **Files → Add file → Upload files**, drag in the four files, and click **Commit**.
-5. Wait for the build (2–3 minutes; status at the top). The app appears on the Space page, and its direct link is `https://<username>-skyshift.hf.space`.
+3. Make the GitHub repository **public** (GitHub → Settings → General → Danger Zone → Change visibility). The Space downloads the project from it at build time.
+4. Upload the two files in `dist/huggingface/` (`README.md` and `Dockerfile`) with **Files → Add file → Upload files**, and click **Commit**. Delete any older `index.html` and `server.py` from the Space. The Dockerfile fetches every folder (all three views and `server.py`) from GitHub, so the uploader's folder problem no longer matters.
+5. Wait for the build (2–3 minutes; status at the top). To deploy a newer version later, push to GitHub, then **Settings → Factory rebuild** in the Space. The app appears on the Space page, and its direct link is `https://<username>-skyshift.hf.space`.
 
 ## Optional: a short domain (GoDaddy free domain)
 

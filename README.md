@@ -4,6 +4,8 @@
 
 **Live demo: <https://mohammed200923-skyshift.hf.space>** (Hugging Face Space, real NASA SPHEREx data)
 
+The site has three views on the same live data: a **3D sky** and an **Explorer** (interfaces by Ibrahim) and the **Analysis** engine. See [docs/COMBINE.md](docs/COMBINE.md).
+
 SkyShift is a public web tool. You type an object name or sky coordinates (RA/Dec), and it fetches every image of that spot from NASA's **SPHEREx** all-sky infrared survey. It lines the images up on a common north-up grid and plays them as a short time-lapse video. Anything that moves (nearby stars, brown dwarfs, asteroids, comets) or changes brightness (variable stars) stands out at a glance.
 
 ![Barnard's Star in real SPHEREx data, difference mode](docs/img/live-barnard-difference.png)
@@ -51,13 +53,13 @@ Everything runs in the browser with plain ES modules: no build step and no frame
 python3 server.py
 ```
 
-Then open <http://localhost:8000>. It opens straight onto Barnard's Star.
+Then open <http://localhost:8000>: the landing page leads to the 3D sky (`/spherex-immersive/`), the Explorer (`/spherex-explorer/`) and the Analysis view (`/analysis.html`, opens straight onto Barnard's Star).
 
 **The server caches what it fetches.** SPHEREx cutouts are trimmed on the server to the four planes the app uses (~120 KB instead of ~4 MB) and kept on disk (`SKYSHIFT_CACHE`, default 2 GB cap; archive searches refresh after 6 h). The first visitor to a field waits ~1 minute; the next one gets it in seconds. To warm a fresh deployment, load the challenge targets once: `BASE_URL=https://<your-site> node tests/live.mjs "Barnard's Star" "Epsilon Indi B" "WISE 0855−0714" "RW Aurigae" "R Draconis"`. **Use the server for real SPHEREx data:** IRSA sends no CORS headers, so a browser can't call it directly from a static page. The proxy is what makes live data work.
 
 **Public hosting:** the repo has a `Dockerfile`; see [docs/DEPLOY.md](docs/DEPLOY.md) for Google Cloud Run or Azure (both are free Space Apps offers).
 
-**Single-file version:** `dist/skyshift.html` contains the whole app and the team briefing in one file, so you can email it or double-click it. Rebuild it with `python3 scripts/build_standalone.py`.
+**Single-file version:** `dist/skyshift.html` contains the Analysis view and the team briefing in one file, so you can email it or double-click it. Rebuild it with `python3 scripts/build_standalone.py`.
 
 To try it offline, choose **Data source → Simulated demo**. This generates realistic SPHEREx-like FITS files (TAN-SIP WCS, FLAGS, ZODI) containing a fast brown dwarf, a variable star and an asteroid. Every frame is watermarked **SIMULATED DATA**.
 

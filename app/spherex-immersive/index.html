@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="dark" data-level="beginner" data-motion="full">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>SPHEREx Immersive Explorer</title>
+<meta name="description" content="Immersive infrared sky explorer front end. Everything shown is simulated demonstration data until a real data provider is connected.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%23040807%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2710%27 fill=%27none%27 stroke=%27%2338F2C2%27 stroke-width=%273%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%273.5%27 fill=%27%23FFD84D%27/%3E%3C/svg%3E">
+<script>
+  /* Apply saved appearance before first paint (no flash). */
+  (function () {
+    try {
+      var p = JSON.parse(localStorage.getItem('sxi.prefs.v1') || '{}'), d = document.documentElement;
+      var dark = p.theme === 'dark' || ((!p.theme || p.theme === 'system') && matchMedia('(prefers-color-scheme: dark)').matches);
+      d.dataset.theme = dark ? 'dark' : 'light';
+      if (p.lang === 'ar') { d.lang = 'ar'; d.dir = 'rtl'; }
+      if (p.level) d.dataset.level = p.level;
+      if (p.largeText) d.dataset.text = 'large';
+      if (p.contrast) d.dataset.contrast = 'high';
+      var rm = p.reducedMotion === 'on' || ((!p.reducedMotion || p.reducedMotion === 'system') && matchMedia('(prefers-reduced-motion: reduce)').matches);
+      d.dataset.motion = rm ? 'reduced' : 'full';
+    } catch (e) {}
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/hud.css">
+<link rel="stylesheet" href="css/panels.css">
+<link rel="stylesheet" href="css/story.css">
+<link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-explore" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-observe" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 16l4.5-4.5 3.5 3.5 3-3 5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="9" cy="9.5" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-compare" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 5v14" stroke="currentColor" stroke-width="1.5"/><path d="M8.5 10.5L7 12l1.5 1.5M15.5 10.5L17 12l-1.5 1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-story" viewBox="0 0 24 24"><path d="M12 3.5l1.9 5.2 5.2 1.9-5.2 1.9L12 17.7l-1.9-5.2L4.9 10.6l5.2-1.9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M18.5 16.5v4M16.5 18.5h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9.6 9.6a2.5 2.5 0 114 2c-.9.6-1.6 1.1-1.6 2.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="16.9" r="1" fill="currentColor"/></symbol>
+    <symbol id="i-assistant" viewBox="0 0 24 24"><path d="M5 6.5A2.5 2.5 0 017.5 4h9A2.5 2.5 0 0119 6.5v6a2.5 2.5 0 01-2.5 2.5H11l-4 3.5V15h-.5A1.5 1.5 0 015 13.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 9.5h6M9 12h3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M18 6l-1.6 1.6M7.6 16.4L6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5.5h3v13H8zM13 5.5h3v13h-3z" fill="currentColor"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="M7 5.5v13M18 6l-9 6 9 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M17 5.5v13M6 6l9 6-9 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-shrink" viewBox="0 0 24 24"><path d="M20 10h-6V4M4 14h6v6M14 10l7-7M10 14l-7 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-ir" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-7-6 15-2.5-6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 11v5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="7.8" r="1" fill="currentColor"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 15.5H3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 10v4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 4l8.5 4.5L12 13 3.5 8.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M3.5 12.5L12 17l8.5-4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 9.5V13l2.5 1.5M9.5 3.5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<a class="skip" href="#sky" data-i18n="a11y.skip">Skip to the sky</a>
+
+<div id="app" class="app">
+  <!-- ============ 3D SKY STAGE ============ -->
+  <div class="stage" id="stage">
+    <div class="atmos" aria-hidden="true"></div>
+    <canvas id="sky" tabindex="0" role="application" data-i18n-attr="aria-label:sky.aria"></canvas>
+    <div class="gridlines" id="gridlines" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <div id="labels" class="labels" aria-hidden="true"></div>
+    <div id="pin" class="pin" hidden aria-hidden="true"><span></span></div>
+    <div id="sel" class="sel" hidden>
+      <div class="sel-box" aria-hidden="true">
+        <i class="h tl"></i><i class="h tc"></i><i class="h tr"></i><i class="h ml"></i><i class="h mr"></i><i class="h bl"></i><i class="h bc"></i><i class="h br"></i>
+      </div>
+      <div class="sel-label" id="sel-label"></div>
+      <ul class="ctx" id="sel-menu" role="menu"></ul>
+    </div>
+    <div class="webgl-fail" id="webgl-fail" hidden>
+      <h2 data-i18n="sky.nowebgl.title"></h2>
+      <p data-i18n="sky.nowebgl.body"></p>
+      <button class="btn" id="webgl-retry" data-i18n="common.retry"></button>
+    </div>
+    <div class="prov-badge" id="prov-badge"><span class="dot"></span><span data-i18n="prov.decor">Decorative sky</span></div>
+  </div>
+
+  <!-- ============ HUD ============ -->
+  <header class="tl">
+    <button class="back" id="btn-back" type="button">
+      <span class="circ"><svg class="ic"><use href="#i-back"/></svg></span>
+      <span class="back-text"><span id="back-label" data-i18n="nav.back.reset">Start over</span></span>
+    </button>
+    <div class="crumb" id="crumb" aria-live="polite"></div>
+  </header>
+
+  <nav class="toolbar" id="toolbar" data-i18n-attr="aria-label:nav.aria">
+    <button class="tool" data-act="home" type="button"><span class="circ"><svg class="ic"><use href="#i-explore"/></svg></span><span class="lbl" data-i18n="nav.explore">Explore</span></button>
+    <button class="tool" data-act="search" type="button"><span class="circ"><svg class="ic"><use href="#i-search"/></svg></span><span class="lbl" data-i18n="nav.search">Search</span></button>
+    <button class="tool" data-act="observe" type="button"><span class="circ"><svg class="ic"><use href="#i-observe"/></svg></span><span class="lbl" data-i18n="nav.observations">Observations</span></button>
+    <button class="tool" data-act="compare" type="button"><span class="circ"><svg class="ic"><use href="#i-compare"/></svg></span><span class="lbl" data-i18n="nav.compare">Compare</span></button>
+    <button class="tool" data-act="stories" type="button"><span class="circ"><svg class="ic"><use href="#i-story"/></svg></span><span class="lbl" data-i18n="nav.stories">Star Stories</span></button>
+    <a class="tool" data-link="analysis" href="../analysis.html" title="Open this target in the SkyShift analysis view"><span class="circ"><svg class="ic"><use href="#i-ir"/></svg></span><span class="lbl">Analysis</span></a>
+    <span class="tool-gap" aria-hidden="true"></span>
+    <button class="tool" data-act="assistant" type="button"><span class="circ"><svg class="ic"><use href="#i-assistant"/></svg></span><span class="lbl" data-i18n="nav.ask">Ask</span></button>
+    <button class="tool" data-act="settings" type="button"><span class="circ"><svg class="ic"><use href="#i-settings"/></svg></span><span class="lbl" data-i18n="nav.settings">Settings</span></button>
+    <button class="tool" data-act="help" type="button"><span class="circ"><svg class="ic"><use href="#i-help"/></svg></span><span class="lbl" data-i18n="nav.help">Help</span></button>
+  </nav>
+
+  <div class="tr">
+    <div class="tr-row"><button class="tr-btn" data-act="help" type="button" data-i18n-attr="aria-label:nav.help;title:nav.help"><svg class="ic"><use href="#i-help"/></svg></button><button class="tr-btn" data-act="settings" type="button" data-i18n-attr="aria-label:nav.settings;title:nav.settings"><svg class="ic"><use href="#i-settings"/></svg></button>
+    <button class="msg-pill" id="btn-ask" type="button"><svg class="ic"><use href="#i-assistant"/></svg><span id="ask-label" data-i18n="ask.pill">Ask the guide</span></button></div>
+    <section class="minimap" id="minimap" data-i18n-attr="aria-label:map.aria">
+      <div class="mm-frame">
+        <canvas id="mm-canvas" width="460" height="230"></canvas>
+        <button class="mm-expand" id="mm-expand" type="button" data-i18n-attr="aria-label:map.expand"><svg class="ic"><use href="#i-expand"/></svg></button>
+        <div class="mm-read" id="mm-read" aria-hidden="true"></div>
+      </div>
+      <button class="mm-btn" id="mm-btn" type="button" data-i18n="map.cta">SKY CHART</button>
+    </section>
+  </div>
+
+  <section class="bl" id="bl">
+    <button class="lights" id="btn-ir" type="button" aria-pressed="false">
+      <span class="circ"><svg class="ic"><use href="#i-ir"/></svg></span><span class="lbl" data-i18n="ir.toggle">Infrared view</span>
+    </button>
+    <div class="sliders">
+      <label class="sl"><span data-i18n="ir.amount">Infrared</span><input id="rg-ir" type="range" min="0" max="100" value="0"><b id="rg-ir-v">0%</b></label>
+      <label class="sl lvl-int"><span data-i18n="sky.stars">Stars</span><input id="rg-stars" type="range" min="40" max="200" value="100"><b id="rg-stars-v">100%</b></label>
+      <label class="sl lvl-int"><span data-i18n="sky.grid">Grid</span><input id="rg-grid" type="range" min="0" max="100" value="60"><b id="rg-grid-v">60%</b></label>
+      <div class="sl bands lvl-int" role="group" data-i18n-attr="aria-label:band.group"><span data-i18n="band.label">Wavelength</span><div class="dots" id="band-dots"></div><b id="band-v">All</b></div>
+    </div>
+  </section>
+
+  <div class="coord-line mono" id="coord-line" aria-hidden="true"></div>
+
+  <div class="stats" id="stats">
+    <div class="stat"><span class="k" data-i18n="stat.ra">RA</span><span class="v mono ltr" id="st-ra">--</span></div>
+    <div class="stat"><span class="k" data-i18n="stat.dec">Dec</span><span class="v mono ltr" id="st-dec">--</span></div>
+    <div class="stat"><span class="k" data-i18n="stat.fov">Field of view</span><span class="v ltr" id="st-fov">--</span></div>
+    <div class="stat lvl-int"><span class="k" data-i18n="stat.visits">Visits</span><span class="v" id="st-visits">--</span></div>
+    <div class="stat lvl-adv"><span class="k" data-i18n="stat.band">Band</span><span class="v ltr" id="st-band">--</span></div>
+    <div class="stat"><span class="k" data-i18n="stat.data">Data</span><span class="v" id="st-data">--</span></div>
+  </div>
+
+  <section class="timeline" id="timeline" data-i18n-attr="aria-label:tl.aria">
+    <button class="tl-toggle" id="tl-toggle" type="button" aria-expanded="true"><svg class="ic"><use href="#i-chev"/></svg><span id="tl-title" data-i18n="tl.title">Observations</span><span class="tl-sum" id="tl-sum"></span></button>
+    <div class="tl-body" id="tl-body"></div>
+  </section>
+
+  <div class="dial-wrap" id="dial-wrap">
+    <button class="zoomx" id="btn-zoomx" type="button">1x</button>
+    <div class="dial" id="dial" role="slider" tabindex="0" aria-valuemin="-180" aria-valuemax="180" aria-valuenow="0" data-i18n-attr="aria-label:dial.aria">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <g id="dial-ticks"></g>
+        <path id="dial-arc" fill="none" stroke="var(--text)" stroke-width="3" stroke-linecap="round"/>
+        <g id="dial-north"><path d="M100 10l-5 9h10z" fill="var(--gold)"/></g>
+      </svg>
+      <div class="dial-center"><span data-i18n="dial.label">Rotate sky</span><small id="dial-val" class="ltr mono">0°</small></div>
+    </div>
+    <button class="dial-reset" id="dial-reset" type="button" data-i18n-attr="aria-label:dial.reset;title:dial.reset"><svg class="ic"><use href="#i-target"/></svg></button>
+  </div>
+
+  <div id="panels"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="live" class="sr" aria-live="polite" aria-atomic="true"></div>
+  <div class="boot" id="boot"><span class="boot-dot"></span><span data-i18n="boot.loading">Opening the sky…</span></div>
+</div>
+
+<noscript><p style="padding:2rem;font:16px system-ui;color:#F4FFF9;background:#040807">The SPHEREx Immersive Explorer needs JavaScript. Please enable it in your browser.</p></noscript>
+
+<!-- Shared data layer (read-only re-use of the Style 2 app: contracts, mock provider, SX.data). Classic scripts, order matters. -->
+<script src="../spherex-explorer/js/core/util.js"></script>
+<script src="../spherex-explorer/js/core/coords.js"></script>
+<script src="../spherex-explorer/js/data/contracts.js"></script>
+<script src="../spherex-explorer/js/engine/render.js"></script>
+<script src="../spherex-explorer/js/data/mock/catalog.js"></script>
+<script src="../spherex-explorer/js/data/mock/sim.js"></script>
+<script src="../spherex-explorer/js/data/mock/provider.js"></script>
+<script src="../spherex-explorer/js/data/service.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

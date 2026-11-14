@@ -1,0 +1,121 @@
+/* Design tokens. Palette from the brief (green / teal / gold):
+   Dark  : bg #040807 · bg2 #0B1614 · panel #10211D · accent #38F2C2 · accent2 #7DFF5A · gold #FFD84D · ink #F4FFF9 · ink2 #9EB7B0
+   Light : bg #F5FAF8 · panel #FFFFFF · surface #EDF7F2 · accent #0F9F84 · accent2 #4EA83D · gold #D6A11D · ink #10211D · ink2 #58706A
+   Derived "-text" tokens exist because the raw light accents do not reach 4.5:1 as text on white. */
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #040807;
+  --bg2: #0B1614;
+  --panel: #10211D;
+  --panel2: #173029;
+  --accent: #38F2C2;
+  --accent2: #7DFF5A;
+  --gold: #FFD84D;
+  --ink: #F4FFF9;
+  --ink2: #9EB7B0;
+  --on-accent: #03140F;
+  --accent-text: #38F2C2;
+  --gold-text: #FFD84D;
+  --danger: #FF8A80;
+  --line: rgba(244, 255, 249, .10);
+  --line2: rgba(244, 255, 249, .20);
+  --accent-soft: rgba(56, 242, 194, .12);
+  --gold-soft: rgba(255, 216, 77, .13);
+  --danger-soft: rgba(255, 138, 128, .12);
+  --shadow: 0 18px 50px rgba(0, 0, 0, .45);
+  --card-shadow: none;
+  --page-glow: radial-gradient(900px 520px at 88% -8%, rgba(56, 242, 194, .08), transparent 62%), radial-gradient(700px 420px at 4% 108%, rgba(255, 216, 77, .04), transparent 60%);
+  --mini-bg: #06100e;
+  --skeleton: rgba(244, 255, 249, .07);
+  --focus: #FFD84D;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #F5FAF8;
+  --bg2: #EDF7F2;
+  --panel: #FFFFFF;
+  --panel2: #E4F2EB;
+  --accent: #0F9F84;
+  --accent2: #4EA83D;
+  --gold: #D6A11D;
+  --ink: #10211D;
+  --ink2: #58706A;
+  --on-accent: #03140F;
+  --accent-text: #0A7A66;
+  --gold-text: #7A5700;
+  --danger: #B3261E;
+  --line: rgba(16, 33, 29, .12);
+  --line2: rgba(16, 33, 29, .22);
+  --accent-soft: rgba(15, 159, 132, .10);
+  --gold-soft: rgba(214, 161, 29, .16);
+  --danger-soft: rgba(179, 38, 30, .08);
+  --shadow: 0 18px 44px rgba(16, 33, 29, .14);
+  --card-shadow: 0 1px 2px rgba(16, 33, 29, .06), 0 8px 24px rgba(16, 33, 29, .05);
+  --page-glow: radial-gradient(900px 520px at 88% -8%, rgba(15, 159, 132, .09), transparent 62%), radial-gradient(700px 420px at 4% 108%, rgba(214, 161, 29, .06), transparent 60%);
+  --mini-bg: #0B1614;
+  --skeleton: rgba(16, 33, 29, .07);
+  --focus: #8A5A00;
+}
+
+/* The sky viewer is always a night sky; its overlays use these fixed tokens in both themes. */
+:root {
+  --map-glass: rgba(6, 18, 15, .62);
+  --map-glass2: rgba(6, 18, 15, .86);
+  --map-ink: #F4FFF9;
+  --map-ink2: #A9C4BC;
+  --map-accent: #38F2C2;
+  --map-gold: #FFD84D;
+  --map-line: rgba(244, 255, 249, .18);
+
+  --font: 'Manrope', 'IBM Plex Sans Arabic', 'Segoe UI Variable', 'Segoe UI', Tahoma, system-ui, -apple-system, Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
+  --r: 22px;
+  --r-sm: 14px;
+  --rail-w: 5.9rem;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+:root[lang="ar"] {
+  --font: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, 'Manrope', system-ui, sans-serif;
+}
+
+/* ---------- accessibility preferences ---------- */
+:root[data-text="large"] { font-size: 118.75%; }
+
+:root[data-contrast="high"][data-theme="dark"],
+:root[data-contrast="high"]:not([data-theme]) {
+  --ink: #FFFFFF;
+  --ink2: #DDF2EB;
+  --line: rgba(255, 255, 255, .45);
+  --line2: rgba(255, 255, 255, .7);
+  --panel: #0C1A17;
+  --bg2: #071210;
+  --accent-soft: rgba(56, 242, 194, .22);
+  --map-glass: rgba(0, 0, 0, .82);
+}
+:root[data-contrast="high"][data-theme="light"] {
+  --ink: #000000;
+  --ink2: #1F2F2A;
+  --line: rgba(0, 0, 0, .55);
+  --line2: rgba(0, 0, 0, .8);
+  --accent: #006B58;
+  --accent-text: #00594A;
+  --on-accent: #FFFFFF;
+  --gold-text: #5E4200;
+  --bg2: #E3F0E9;
+  --accent-soft: rgba(0, 107, 88, .16);
+  --map-glass: rgba(0, 0, 0, .82);
+}
+
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
