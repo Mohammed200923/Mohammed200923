@@ -164,7 +164,7 @@ body.embed .panel { border: 0; border-radius: 0; }
   @media (prefers-reduced-motion: reduce) { .progress .bar { transition: none; } }
 </style>
 </head>
-<body>
+<body data-app="analysis">
   <header class="topbar">
     <div class="brand">
       <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><circle cx="11" cy="16" r="4" fill="currentColor" opacity=".35"/><circle cx="17" cy="16" r="4" fill="currentColor" opacity=".6"/><circle cx="23" cy="16" r="4" fill="currentColor"/></svg>
@@ -175,7 +175,6 @@ body.embed .panel { border: 0; border-radius: 0; }
     </div>
     <nav class="views" aria-label="Other views">
       <a href="spherex-immersive/">3D sky</a>
-      <a href="spherex-explorer/">Explorer</a>
     </nav>
     <div class="status" id="status" role="status" aria-live="polite"></div>
   </header>
@@ -815,9 +814,9 @@ function parseVoTable(xmlText) {
 }
 
 // app/js/fits.js
-function ascii(bytes, start, len) {
+function ascii(bytes, start2, len) {
   let s = "";
-  for (let i = 0; i < len; i++) s += String.fromCharCode(bytes[start + i]);
+  for (let i = 0; i < len; i++) s += String.fromCharCode(bytes[start2 + i]);
   return s;
 }
 function parseValue(raw) {
@@ -2026,7 +2025,7 @@ async function neossatObservations(ra, dec, radiusDeg) {
 }
 
 // app/js/main.js
-var PROVIDERS = { irsa: irsaProvider, sim: simulatedProvider }, $ = (id) => document.getElementById(id), canvas = $("view"), ctx = canvas.getContext("2d"), state = {
+var PROVIDERS = { irsa: irsaProvider, sim: simulatedProvider }, $ = (id) => document.getElementById(id), canvas, ctx, ANALYSIS_PAGE = new URL("../analysis.html", import.meta.url), state = {
   target: null,
   provider: null,
   grid: null,
@@ -2111,7 +2110,7 @@ function shareUrl(extra = {}) {
   });
   state.target && (p.set("ra", state.target.ra.toFixed(5)), p.set("dec", state.target.dec.toFixed(5))), $("diff").checked && p.set("diff", "1");
   for (let [k, v] of Object.entries(extra)) p.set(k, v);
-  return `${location.origin}${location.pathname}?${p}`;
+  return `${extra.embed ? `${ANALYSIS_PAGE.origin}${ANALYSIS_PAGE.pathname}` : `${location.origin}${location.pathname}`}?${p}`;
 }
 async function resolveTarget(text) {
   let quick = TARGETS.find((t) => t.name.toLowerCase() === text.toLowerCase() || t.key === text.toLowerCase());
@@ -2667,7 +2666,7 @@ function updateMeasurements() {
   }).filter((m) => Number.isFinite(m.flux)));
   let p0 = pickPosition(state.seq[state.idx].mjd), [ra, dec] = state.grid.wcs.pixToWorld(p0.x, p0.y), following = state.pick.mover ? ` \xB7 following mover #${state.pick.mover.n}'s measured motion` : state.pick.follow ? ` \xB7 following ${state.target.name}'s predicted motion` : "", nSat = state.measurements.filter((m) => m.saturated).length, satNote = nSat ? `<br><strong>\u26A0 ${nSat} of ${state.measurements.length} measurements are saturated</strong> (SPHEREx OVERFLOW/NONLINEAR flags): drawn hollow and left out of the brightness-over-time chart. This source is too bright for reliable SPHEREx photometry${nSat === state.measurements.length ? "" : " in those exposures"}.` : "";
   $("pick-info").innerHTML = `${formatRa(ra)} ${formatDec(dec)}${following} \xB7 ${state.measurements.length} measurements${satNote}`;
-  let visits = state.seq.length, current = state.seq[state.idx];
+  let visits = state.seq.length, current2 = state.seq[state.idx];
   scatterPlot(spec, state.measurements.map((m) => ({
     x: m.wl,
     y: m.flux,
@@ -2679,7 +2678,7 @@ function updateMeasurements() {
     xLabel: "wavelength (\xB5m) \u2014 colour = visit",
     yLabel: "flux (mJy)",
     xFormat: (v) => v.toFixed(1),
-    highlight: (p) => current.members.some((f) => (f.obsId || f.id) === p.m.id)
+    highlight: (p) => current2.members.some((f) => (f.obsId || f.id) === p.m.id)
   });
   let perVisit = visitBrightness(state.measurements);
   scatterPlot(lc, [
@@ -2808,18 +2807,32 @@ function wire() {
       } catch {
       }
   }), document.addEventListener("keydown", (e) => {
-    e.target.closest("input, select, textarea") || (e.key === " " && (e.preventDefault(), state.playing ? stop() : play()), e.key === "ArrowLeft" && (stop(), step(-1)), e.key === "ArrowRight" && (stop(), step(1)), e.key.toLowerCase() === "d" && ($("diff").checked = !$("diff").checked, render()));
+    !canvas.offsetParent || e.target.closest("input, select, textarea") || (e.key === " " && (e.preventDefault(), state.playing ? stop() : play()), e.key === "ArrowLeft" && (stop(), step(-1)), e.key === "ArrowRight" && (stop(), step(1)), e.key.toLowerCase() === "d" && ($("diff").checked = !$("diff").checked, render()));
   }), window.addEventListener("resize", () => updateMeasurements());
 }
-async function main() {
-  buildControls(), wire();
+async function start({ query = null } = {}) {
+  canvas = $("view"), ctx = canvas.getContext("2d"), buildControls(), wire();
   let hasQuery = readUrl();
-  hasQuery || ($("target").value = "Barnard's Star", $("max").value = "36", hasQuery = !0);
+  query && (applyQuery(query), hasQuery = !0), hasQuery || ($("target").value = "Barnard's Star", $("max").value = "36", hasQuery = !0);
   let proxy = await detectProxy();
   setStatus(proxy ? "Connected via local archive proxy." : "Ready. Direct archive access (run server.py if requests are blocked)."), scatterPlot($("spectrum"), []), scatterPlot($("lightcurve"), []), initAladin(), hasQuery && run();
 }
-main();
+function applyQuery(q) {
+  let quick = q.q && TARGETS.find((t) => t.name.toLowerCase() === String(q.q).toLowerCase());
+  $("target").value = q.q || `${Number(q.ra).toFixed(5)} ${Number(q.dec).toFixed(5)}`, $("size").value = q.size ?? quick?.sizeArcmin ?? 6, $("wmin").value = q.wmin ?? quick?.wmin ?? 0.75, $("wmax").value = q.wmax ?? quick?.wmax ?? 5, $("max").value = q.max ?? quick?.max ?? 36, document.querySelectorAll("#detectors input").forEach((i) => i.checked = !0), updateSizeLabel();
+}
+function analyse(query) {
+  return applyQuery(query), run();
+}
+var current = () => ({ text: $("target")?.value.trim() || "", target: state.target, playing: state.playing });
+document.body.dataset.app === "analysis" && start();
 window.__skyshift = state;
+export {
+  analyse,
+  current,
+  stop as pause,
+  start
+};
 </script>
 </body>
 </html>

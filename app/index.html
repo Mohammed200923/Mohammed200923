@@ -4,55 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SkyShift</title>
-<meta name="description" content="Real SPHEREx, WISE and Gaia data: watch the sky change and find what moves.">
-<style>
-  :root { --bg:#0b0e17; --panel:#121726; --ink:#e8ecf6; --muted:#8d97b0; --line:#273150; --accent:#ffb347; color-scheme:dark; }
-  * { box-sizing:border-box; }
-  body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; display:grid; place-items:center; padding:32px 16px; }
-  main { width:100%; max-width:960px; }
-  h1 { margin:0; font-size:34px; letter-spacing:.02em; }
-  .lead { color:var(--muted); margin:6px 0 28px; max-width:62ch; }
-  .doors { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
-  .door { display:flex; flex-direction:column; gap:8px; padding:20px; background:var(--panel); border:1px solid var(--line); border-radius:12px; color:inherit; text-decoration:none; transition:border-color .15s, transform .15s; }
-  .door:hover, .door:focus-visible { border-color:var(--accent); transform:translateY(-2px); outline:none; }
-  .door h2 { margin:0; font-size:18px; }
-  .door p { margin:0; color:var(--muted); font-size:14px; }
-  .door .by { margin-top:auto; padding-top:10px; font-size:12px; color:var(--accent); }
-  .targets { margin-top:26px; color:var(--muted); font-size:14px; }
-  .targets a { color:var(--ink); }
-  footer { margin-top:28px; color:var(--muted); font-size:12px; }
-  @media (max-width:760px) { .doors { grid-template-columns:1fr; } h1 { font-size:28px; } }
-</style>
+<meta name="description" content="Real SPHEREx, WISE and Gaia data on a 3D sky: watch the sky change and find what moves.">
+<!-- The product is the 3D sky; keep any query (?q=…, ?ra=…&dec=…) so shared links open the analysis. -->
+<script>location.replace('spherex-immersive/' + location.search + location.hash);</script>
+<meta http-equiv="refresh" content="0; url=spherex-immersive/">
+<style>body{margin:0;background:#040807;color:#F4FFF9;font:15px system-ui,sans-serif;display:grid;place-items:center;min-height:100vh}a{color:#38F2C2}</style>
 </head>
-<body>
-<main>
-  <h1>SkyShift</h1>
-  <p class="lead">Type any position in the sky and watch NASA's SPHEREx images play as a time-lapse, with WISE and NEOWISE going back to 2010. Anything that moves or changes brightness stands out, and is checked against Gaia DR3, CatWISE2020 and JPL's list of known asteroids and comets.</p>
-  <div class="doors">
-    <a class="door" href="spherex-immersive/">
-      <h2>3D sky</h2>
-      <p>Fly to a target on an all-sky globe and step through its observations. Best place to start.</p>
-      <span class="by">Interface: Ibrahim</span>
-    </a>
-    <a class="door" href="spherex-explorer/">
-      <h2>Explorer</h2>
-      <p>Browse targets, compare two dates side by side, and read each image's details. English and Arabic.</p>
-      <span class="by">Interface: Ibrahim</span>
-    </a>
-    <a class="door" href="analysis.html">
-      <h2>Analysis</h2>
-      <p>The full engine: any RA/Dec, the 102 SPHEREx bands, automatic moving-object search, light curves, overlays, export.</p>
-      <span class="by">Engine: SkyShift</span>
-    </a>
-  </div>
-  <p class="targets">Challenge targets in the analysis view:
-    <a href="analysis.html?src=irsa&q=Barnard%27s%20Star">Barnard's Star</a> ·
-    <a href="analysis.html?src=irsa&q=Epsilon%20Indi%20B">Epsilon Indi B</a> ·
-    <a href="analysis.html?src=irsa&q=WISE%200855%E2%88%920714&wmin=3.8&wmax=5&max=200&size=8">WISE 0855−0714</a> ·
-    <a href="analysis.html?src=irsa&q=RW%20Aurigae">RW Aur</a> ·
-    <a href="analysis.html?src=irsa&q=R%20Draconis">R Dra</a>
-  </p>
-  <footer>Data: NASA/IPAC IRSA (SPHEREx, AllWISE, NEOWISE, CatWISE2020), Gaia DR3 at MAST, JPL Small-Body Identification and Horizons, CSA NEOSSat at CADC. All three views run on the same live data. First visit to a new field takes a few minutes; after that it is cached.</footer>
-</main>
-</body>
+<body><p>Opening the <a href="spherex-immersive/">SkyShift 3D sky</a>…</p></body>
 </html>

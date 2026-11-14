@@ -1,15 +1,16 @@
 # How SkyShift and Ibrahim's interfaces fit together
 
-One site, three views, one data engine:
+The product is Ibrahim's **3D sky**, running on the SkyShift engine. Opening the site (`/`) goes straight to it.
 
-| URL | View | Built by | What it is for |
-|---|---|---|---|
-| `/` | Landing page | SkyShift | Three doors and the five challenge targets |
-| `/spherex-immersive/` | **3D sky** | Ibrahim | Fly to a target on a three.js globe, step through its observations, compare, Star Stories |
-| `/spherex-explorer/` | **Explorer** | Ibrahim | Target list, side-by-side comparison, image details, English and Arabic |
-| `/analysis.html` | **Analysis** | SkyShift | Any RA/Dec, all 102 bands, mover search, light curves and spectra, overlays, video export |
+| Where | What | Built by |
+|---|---|---|
+| `/spherex-immersive/` | **3D sky**: fly to a target on a three.js globe, step through its real observations, compare dates, Star Stories, English and Arabic | Ibrahim (interface), SkyShift (data) |
+| **Analysis** button in the 3D sky toolbar (also "Full analysis" in the observation viewer) | The complete SkyShift tool as a full-screen panel, opened on the selected target: time-lapse, every SPHEREx band, mover search with WISE 2010–2024, Gaia / CatWISE / JPL overlays, difference view, click-to-measure spectrum and light curve, NEOSSat, sky context, video / PNG / CSV export, share link and embed code | SkyShift |
+| `/analysis.html` | The same analysis tool as a standalone page: the target of embed codes, and used by the automated tests | SkyShift |
 
-Each view links to the others: the 3D sky toolbar has an **Analysis** button that opens the current target there, and the Explorer rail has **Analysis** and **3D sky** links.
+Shared links work: `/?q=Barnard's Star` or `/spherex-immersive/?ra=…&dec=…` open the 3D sky with the analysis already showing that field.
+
+The analysis panel is not a copy: it loads the markup of `analysis.html` and runs the same `js/main.js`, restyled with the 3D sky's colour tokens (`spherex-immersive/css/analysis.css`, generated from `css/style.css`). Every function therefore behaves identically in both places. (`/spherex-explorer/`, Ibrahim's earlier interface, is still in the repository because the shared data provider lives in it, but the site no longer links to it.)
 
 ## How the data reaches Ibrahim's interfaces
 
@@ -43,6 +44,7 @@ Kept to a minimum, so his updates can be merged again:
 - `spherex-explorer/index.html` loads `js/boot-skyshift.js` (the real provider, then his `app.js`) and has two rail links.
 - `spherex-explorer/js/app.js` uses `SX.providers.skyshift` when it is present, else his mock.
 - `spherex-explorer/js/data/service.js`: a provider may set longer per-call time-outs.
-- `spherex-immersive/js/main.js` builds its provider from the SkyShift one; `js/data/provider.js` turns off the decorative extras; an **Analysis** link in `index.html` and `js/ui/hud.js`.
+- `spherex-immersive/js/main.js` builds its provider from the SkyShift one and starts the Analysis panel; `js/data/provider.js` turns off the decorative extras.
+- New `spherex-immersive/js/ui/analysis.js` and `css/analysis.css`; an **Analysis** toolbar button (`index.html`, `js/ui/hud.js`) and a **Full analysis** button in `js/ui/viewer.js`.
 
 Source: [Ibrahim-oss1/Nasa-spaceapps.](https://github.com/Ibrahim-oss1/Nasa-spaceapps.), copied at commit `dca1d9d`.

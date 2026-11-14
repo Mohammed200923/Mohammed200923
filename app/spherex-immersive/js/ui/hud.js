@@ -16,7 +16,6 @@ export function init(skyApi) {
   /* toolbar */
   const onAct = (e) => {
     const b = e.target.closest('.tool, .tr-btn'); if (!b) return; const a = b.dataset.act;
-    if (b.dataset.link === 'analysis' && S.target && Number.isFinite(S.target.ra)) b.href = `../analysis.html?src=irsa&ra=${S.target.ra}&dec=${S.target.dec}`;
     if (a === 'home') { UI.anyOverlayOpen() && ['search', 'viewer', 'stories', 'settings', 'help'].forEach((n) => UI.close(n)); C.reset(); }
     else if (a === 'search') UI.toggle('search');
     else if (a === 'observe') needPos(() => UI.toggle('viewer', { mode: 'single' }));
@@ -25,6 +24,7 @@ export function init(skyApi) {
     else if (a === 'assistant') UI.toggle('assistant');
     else if (a === 'settings') UI.toggle('settings');
     else if (a === 'help') UI.toggle('help');
+    else if (a === 'analysis') UI.toggle('analysis');
   };
   $('#toolbar').addEventListener('click', onAct); $('.tr-row').addEventListener('click', onAct);
   $('#btn-ask').addEventListener('click', () => UI.toggle('assistant'));
@@ -66,7 +66,7 @@ function needPos(fn) {
 }
 
 function refreshTools() {
-  const map = { search: 'search', observe: 'viewer', compare: null, stories: 'stories', assistant: 'assistant', settings: 'settings', help: 'help' };
+  const map = { search: 'search', observe: 'viewer', compare: null, stories: 'stories', assistant: 'assistant', settings: 'settings', help: 'help', analysis: 'analysis' };
   $$('.tool, .tr-btn').forEach((b) => { const n = map[b.dataset.act]; b.classList.toggle('on', !!n && UI.isOpen(n)); });
   $('#btn-ask').classList.toggle('on', UI.isOpen('assistant'));
   document.documentElement.dataset.dock = UI.isOpen('info') || UI.isOpen('assistant') ? '1' : '';

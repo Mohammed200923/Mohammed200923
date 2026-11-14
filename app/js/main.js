@@ -15,8 +15,10 @@ import { neossatObservations } from './providers/neossat.js';
 
 const PROVIDERS = { irsa: irsaProvider, sim: simulatedProvider };
 const $ = (id) => document.getElementById(id);
-const canvas = $('view');
-const ctx = canvas.getContext('2d');
+// Set by start(): the page (analysis.html or the 3D sky's Analysis panel) supplies the markup.
+let canvas, ctx;
+// The embeddable viewer is always the standalone analysis page, whichever page made the link.
+const ANALYSIS_PAGE = new URL('../analysis.html', import.meta.url);
 
 const state = {
   target: null, provider: null, grid: null,
@@ -115,7 +117,8 @@ function shareUrl(extra = {}) {
   if (state.target) { p.set('ra', state.target.ra.toFixed(5)); p.set('dec', state.target.dec.toFixed(5)); }
   if ($('diff').checked) p.set('diff', '1');
   for (const [k, v] of Object.entries(extra)) p.set(k, v);
-  return `${location.origin}${location.pathname}?${p}`;
+  const base = extra.embed ? `${ANALYSIS_PAGE.origin}${ANALYSIS_PAGE.pathname}` : `${location.origin}${location.pathname}`;
+  return `${base}?${p}`;
 }
 
 // ---------- target resolution ----------
@@ -1084,7 +1087,8 @@ function wire() {
     try { al.setBaseImageLayer ? al.setBaseImageLayer(hipsLayer($('hips').value)) : al.setImageSurvey(hipsLayer($('hips').value)); } catch {}
   });
   document.addEventListener('keydown', (e) => {
-    if (e.target.closest('input, select, textarea')) return;
+    // In the 3D sky the analysis lives in a panel: keys belong to it only while it is showing.
+    if (!canvas.offsetParent || e.target.closest('input, select, textarea')) return;
     if (e.key === ' ') { e.preventDefault(); state.playing ? stop() : play(); }
     if (e.key === 'ArrowLeft') { stop(); step(-1); }
     if (e.key === 'ArrowRight') { stop(); step(1); }
@@ -1093,10 +1097,18 @@ function wire() {
   window.addEventListener('resize', () => updateMeasurements());
 }
 
-async function main() {
+/**
+ * Start the analysis tool on markup already in the page.
+ * query (optional): { q } or { ra, dec } plus wmin, wmax, max, size; otherwise the URL is read,
+ * and with no URL query it opens on Barnard's Star.
+ */
+export async function start({ query = null } = {}) {
+  canvas = $('view');
+  ctx = canvas.getContext('2d');
   buildControls();
   wire();
   let hasQuery = readUrl();
+  if (query) { applyQuery(query); hasQuery = true; }
   if (!hasQuery) {
     // Open on a real result rather than an empty page: Barnard's Star, the fastest star in the sky.
     $('target').value = "Barnard's Star";
@@ -1111,7 +1123,28 @@ async function main() {
   if (hasQuery) run();
 }
 
-main();
+function applyQuery(q) {
+  const quick = q.q && TARGETS.find((t) => t.name.toLowerCase() === String(q.q).toLowerCase());
+  $('target').value = q.q || `${Number(q.ra).toFixed(5)} ${Number(q.dec).toFixed(5)}`;
+  $('size').value = q.size ?? quick?.sizeArcmin ?? 6;
+  $('wmin').value = q.wmin ?? quick?.wmin ?? 0.75;
+  $('wmax').value = q.wmax ?? quick?.wmax ?? 5;
+  $('max').value = q.max ?? quick?.max ?? 36;
+  document.querySelectorAll('#detectors input').forEach((i) => (i.checked = true));
+  updateSizeLabel();
+}
+
+/** Load a new field (used by the 3D sky when the selected target changes). */
+export function analyse(query) {
+  applyQuery(query);
+  return run();
+}
+
+/** Current field, so a host page can tell whether it needs to reload. */
+export const current = () => ({ text: $('target')?.value.trim() || '', target: state.target, playing: state.playing });
+export { stop as pause };
+
+if (document.body.dataset.app === 'analysis') start();
 
 // Exposed for automated tests.
 window.__skyshift = state;

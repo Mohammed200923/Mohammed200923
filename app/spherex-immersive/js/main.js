@@ -20,6 +20,7 @@ import * as assistant from './ui/assistant.js';
 import * as onboarding from './ui/onboarding.js';
 import * as settings from './ui/settings.js';
 import * as help from './ui/help.js';
+import * as analysis from './ui/analysis.js';
 import { UI } from './core/ui.js';
 
 const SX = window.SX;
@@ -61,12 +62,14 @@ C.attachSky(sky);
 /* ---- 4. UI ---- */
 bus.on('prefs', (p) => { applyAppearance(sky); if ('theme' in p) bus.emit('theme'); });
 hud.init(sky); selection.init(sky); minimap.init(sky); timeline.init(); info.init(sky); viewer.init(); search.init(sky); stories.init(); assistant.init(sky);
-settings.init(); help.init(); onboarding.init();
+settings.init(); help.init(); onboarding.init(); analysis.init();
 
 /* ---- 5. data bootstrap: never blocks the UI; failures appear as states ---- */
 C.init().then(() => document.getElementById('boot').classList.add('gone'));
 setTimeout(() => document.getElementById('boot').classList.add('gone'), 1800);
 setTimeout(() => { const b = document.getElementById('boot'); b && b.remove(); }, 2800);
 
-if (!prefs.onboarded) UI.open('onboarding');
+// A shared analysis link goes straight to the analysis, not the welcome screen.
+const sharedQuery = /[?&](q|ra)=/.test(location.search);
+if (!prefs.onboarded && !sharedQuery) UI.open('onboarding');
 void setPrefs; void t;

@@ -135,6 +135,7 @@ function buildSide(side, canCompare) {
   const det = h('div', { id: 'vw-detail' });
   side.append(sec(t('viewer.details'), det, 'lvl-adv'));
   side.append(h('div', { class: 'vw-foot' }, h('button', { class: 'btn small', type: 'button', onclick: () => UI.open('assistant', { ask: vw.mode === 'diff' || compare ? 'q.changed' : 'q.what' }), text: t('viewer.ask') }),
+    h('button', { class: 'btn small primary', type: 'button', onclick: () => UI.open('analysis'), text: 'Full analysis' }),
     h('button', { class: 'btn small lvl-adv', type: 'button', onclick: exportCurrent, text: t('viewer.export') })));
 }
 
