@@ -34,6 +34,14 @@ az login
 az containerapp up --name skyshift --source . --ingress external --target-port 8080
 ```
 
+## Option C: Hugging Face Spaces (free, no card, no approval)
+
+1. Create a free account at huggingface.co.
+2. Go to **New → Space**, name it `skyshift`, choose **Docker → Blank** and **Public**, then **Create Space**.
+3. Unzip `dist/skyshift-huggingface-space.zip` on your computer.
+4. In the Space, open **Files → Add file → Upload files**. Drag in *everything* from the unzipped folder: `README.md`, `Dockerfile`, `server.py` and the `app` folder. Then click **Commit**.
+5. Wait for the build (2–3 minutes; status at the top). The app appears on the Space page, and its direct link is `https://<username>-skyshift.hf.space`.
+
 ## Optional: a short domain (GoDaddy free domain)
 
 Point the free domain at whichever host you used. Both Cloud Run and Azure Container Apps let you add a custom domain from their console; they show the DNS records to create in GoDaddy. A domain is a nice touch, not a requirement: the `run.app` or `azurecontainerapps.io` link is enough for submission.
