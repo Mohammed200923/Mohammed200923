@@ -117,6 +117,8 @@
         <label class="check"><input type="checkbox" id="ov-gaia"> Gaia DR3 stars</label>
         <label class="check"><input type="checkbox" id="ov-movers" checked> Detected movers</label>
         <label class="check"><input type="checkbox" id="show-masked"> Show masked pixels</label>
+        <label class="check"><input type="checkbox" id="wise-frame" checked> WISE 2010 frame</label>
+        <label class="check"><input type="checkbox" id="ov-catwise"> CatWISE2020 stars</label>
       </div>
 
       <div class="export">
@@ -142,6 +144,8 @@
 
       <h3>This frame</h3>
       <table class="meta" id="meta"><tbody><tr><td colspan="2" class="muted">No data loaded</td></tr></tbody></table>
+
+      <p class="muted small" id="wise-status"></p>
 
       <h3>Moving objects</h3>
       <div id="movers" class="movers" aria-live="polite"><p class="muted small">Load a field to search it automatically.</p></div>

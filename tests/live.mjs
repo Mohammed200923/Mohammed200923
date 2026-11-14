@@ -66,7 +66,7 @@ try {
       const s = window.__skyshift, n = s.grid?.n, t = s.target;
       const status = document.getElementById('status').textContent;
       if (!s.seq.length) return { status, visits: [] };
-      const visits = s.seq.map((f) => {
+      const visits = s.seq.filter((f) => !f.instrument).map((f) => {
         const [ra, dec] = propagate(t.ra, t.dec, t.pmra || 0, t.pmdec || 0, t.epoch ?? 2000, mjdToYear(f.mjd));
         const [x, y] = s.grid.wcs.worldToPix(ra, dec);
         let best = [0, 0], bv = -Infinity;

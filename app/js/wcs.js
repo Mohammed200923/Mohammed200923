@@ -1,4 +1,5 @@
-// Celestial WCS for gnomonic (TAN) projections with optional SIP distortion.
+// Celestial WCS for gnomonic (TAN, with optional SIP distortion) and orthographic (SIN)
+// projections. SPHEREx images use TAN-SIP; WISE/AllWISE Atlas images use SIN.
 // Pixel coordinates in this module are 0-based (FITS pixel = x + 1).
 
 const D2R = Math.PI / 180;
@@ -27,7 +28,9 @@ function evalSip(terms, u, v) {
 export class Wcs {
   constructor(h) {
     const ctype1 = String(h.CTYPE1 || '');
-    if (!ctype1.includes('TAN')) throw new Error(`Unsupported projection ${ctype1 || '(none)'}`);
+    if (ctype1.includes('TAN')) this.proj = 'TAN';
+    else if (ctype1.includes('SIN') && !h.PV2_1 && !h.PV2_2) this.proj = 'SIN';
+    else throw new Error(`Unsupported projection ${ctype1 || '(none)'}`);
     this.crpix = [h.CRPIX1, h.CRPIX2];
     this.crval = [h.CRVAL1, h.CRVAL2];
     let cd;
@@ -59,9 +62,18 @@ export class Wcs {
     const xi = (this.cd[0][0] * u + this.cd[0][1] * v) * D2R;
     const eta = (this.cd[1][0] * u + this.cd[1][1] * v) * D2R;
     const ra0 = this.crval[0] * D2R, dec0 = this.crval[1] * D2R;
-    const denom = Math.cos(dec0) - eta * Math.sin(dec0);
-    const ra = ra0 + Math.atan2(xi, denom);
-    const dec = Math.atan2(Math.sin(dec0) + eta * Math.cos(dec0), Math.hypot(xi, denom));
+    let ra, dec;
+    if (this.proj === 'SIN') {
+      const rho2 = xi * xi + eta * eta;
+      if (rho2 > 1) return [NaN, NaN];
+      const cosc = Math.sqrt(1 - rho2);
+      dec = Math.asin(cosc * Math.sin(dec0) + eta * Math.cos(dec0));
+      ra = ra0 + Math.atan2(xi, cosc * Math.cos(dec0) - eta * Math.sin(dec0));
+    } else {
+      const denom = Math.cos(dec0) - eta * Math.sin(dec0);
+      ra = ra0 + Math.atan2(xi, denom);
+      dec = Math.atan2(Math.sin(dec0) + eta * Math.cos(dec0), Math.hypot(xi, denom));
+    }
     return [((ra * R2D) % 360 + 360) % 360, dec * R2D];
   }
 
@@ -70,8 +82,10 @@ export class Wcs {
     const ra0 = this.crval[0] * D2R, dec0 = this.crval[1] * D2R;
     const cosc = Math.sin(dec0) * Math.sin(dec) + Math.cos(dec0) * Math.cos(dec) * Math.cos(ra - ra0);
     if (cosc <= 0) return [NaN, NaN];
-    const xi = (Math.cos(dec) * Math.sin(ra - ra0)) / cosc * R2D;
-    const eta = (Math.cos(dec0) * Math.sin(dec) - Math.sin(dec0) * Math.cos(dec) * Math.cos(ra - ra0)) / cosc * R2D;
+    // TAN divides by cos(c); SIN (orthographic) does not.
+    const k = this.proj === 'SIN' ? 1 : 1 / cosc;
+    const xi = Math.cos(dec) * Math.sin(ra - ra0) * k * R2D;
+    const eta = (Math.cos(dec0) * Math.sin(dec) - Math.sin(dec0) * Math.cos(dec) * Math.cos(ra - ra0)) * k * R2D;
     const up = this.cdInv[0][0] * xi + this.cdInv[0][1] * eta;
     const vp = this.cdInv[1][0] * xi + this.cdInv[1][1] * eta;
     let u = up, v = vp;

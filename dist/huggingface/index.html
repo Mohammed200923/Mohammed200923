@@ -258,6 +258,8 @@ body.embed .panel { border: 0; border-radius: 0; }
         <label class="check"><input type="checkbox" id="ov-gaia"> Gaia DR3 stars</label>
         <label class="check"><input type="checkbox" id="ov-movers" checked> Detected movers</label>
         <label class="check"><input type="checkbox" id="show-masked"> Show masked pixels</label>
+        <label class="check"><input type="checkbox" id="wise-frame" checked> WISE 2010 frame</label>
+        <label class="check"><input type="checkbox" id="ov-catwise"> CatWISE2020 stars</label>
       </div>
 
       <div class="export">
@@ -283,6 +285,8 @@ body.embed .panel { border: 0; border-radius: 0; }
 
       <h3>This frame</h3>
       <table class="meta" id="meta"><tbody><tr><td colspan="2" class="muted">No data loaded</td></tr></tbody></table>
+
+      <p class="muted small" id="wise-status"></p>
 
       <h3>Moving objects</h3>
       <div id="movers" class="movers" aria-live="polite"><p class="muted small">Load a field to search it automatically.</p></div>
@@ -474,7 +478,9 @@ function evalSip(terms, u, v) {
 var Wcs = class {
   constructor(h) {
     let ctype1 = String(h.CTYPE1 || "");
-    if (!ctype1.includes("TAN")) throw new Error(`Unsupported projection ${ctype1 || "(none)"}`);
+    if (ctype1.includes("TAN")) this.proj = "TAN";
+    else if (ctype1.includes("SIN") && !h.PV2_1 && !h.PV2_2) this.proj = "SIN";
+    else throw new Error(`Unsupported projection ${ctype1 || "(none)"}`);
     this.crpix = [h.CRPIX1, h.CRPIX2], this.crval = [h.CRVAL1, h.CRVAL2];
     let cd;
     if (h.CD1_1 !== void 0 || h.CD2_2 !== void 0)
@@ -495,13 +501,22 @@ var Wcs = class {
   pixToWorld(x, y) {
     let u = x + 1 - this.crpix[0], v = y + 1 - this.crpix[1], du = evalSip(this.sipA, u, v), dv = evalSip(this.sipB, u, v);
     u += du, v += dv;
-    let xi = (this.cd[0][0] * u + this.cd[0][1] * v) * D2R, eta = (this.cd[1][0] * u + this.cd[1][1] * v) * D2R, ra0 = this.crval[0] * D2R, dec0 = this.crval[1] * D2R, denom = Math.cos(dec0) - eta * Math.sin(dec0), ra = ra0 + Math.atan2(xi, denom), dec = Math.atan2(Math.sin(dec0) + eta * Math.cos(dec0), Math.hypot(xi, denom));
+    let xi = (this.cd[0][0] * u + this.cd[0][1] * v) * D2R, eta = (this.cd[1][0] * u + this.cd[1][1] * v) * D2R, ra0 = this.crval[0] * D2R, dec0 = this.crval[1] * D2R, ra, dec;
+    if (this.proj === "SIN") {
+      let rho2 = xi * xi + eta * eta;
+      if (rho2 > 1) return [NaN, NaN];
+      let cosc = Math.sqrt(1 - rho2);
+      dec = Math.asin(cosc * Math.sin(dec0) + eta * Math.cos(dec0)), ra = ra0 + Math.atan2(xi, cosc * Math.cos(dec0) - eta * Math.sin(dec0));
+    } else {
+      let denom = Math.cos(dec0) - eta * Math.sin(dec0);
+      ra = ra0 + Math.atan2(xi, denom), dec = Math.atan2(Math.sin(dec0) + eta * Math.cos(dec0), Math.hypot(xi, denom));
+    }
     return [(ra * R2D % 360 + 360) % 360, dec * R2D];
   }
   worldToPix(raDeg, decDeg) {
     let ra = raDeg * D2R, dec = decDeg * D2R, ra0 = this.crval[0] * D2R, dec0 = this.crval[1] * D2R, cosc = Math.sin(dec0) * Math.sin(dec) + Math.cos(dec0) * Math.cos(dec) * Math.cos(ra - ra0);
     if (cosc <= 0) return [NaN, NaN];
-    let xi = Math.cos(dec) * Math.sin(ra - ra0) / cosc * R2D, eta = (Math.cos(dec0) * Math.sin(dec) - Math.sin(dec0) * Math.cos(dec) * Math.cos(ra - ra0)) / cosc * R2D, up = this.cdInv[0][0] * xi + this.cdInv[0][1] * eta, vp = this.cdInv[1][0] * xi + this.cdInv[1][1] * eta, u = up, v = vp;
+    let k = this.proj === "SIN" ? 1 : 1 / cosc, xi = Math.cos(dec) * Math.sin(ra - ra0) * k * R2D, eta = (Math.cos(dec0) * Math.sin(dec) - Math.sin(dec0) * Math.cos(dec) * Math.cos(ra - ra0)) * k * R2D, up = this.cdInv[0][0] * xi + this.cdInv[0][1] * eta, vp = this.cdInv[1][0] * xi + this.cdInv[1][1] * eta, u = up, v = vp;
     if (this.sipA || this.sipB)
       for (let i = 0; i < 20; i++) {
         let nu = up - evalSip(this.sipA, u, v), nv = vp - evalSip(this.sipB, u, v), done = Math.abs(nu - u) < 1e-8 && Math.abs(nv - v) < 1e-8;
@@ -1525,6 +1540,62 @@ var simulatedProvider = {
   }
 };
 
+// app/js/providers/wise.js
+var IRSA = "https://irsa.ipac.caltech.edu", CATWISE_EPOCH = 2015.4;
+async function allwiseCutout(ra, dec, sizeDeg) {
+  let params = new URLSearchParams({
+    COLLECTION: "wise_allwise",
+    POS: `circle ${ra} ${dec} 0.002`,
+    RESPONSEFORMAT: "votable"
+  }), rows = parseVoTable(await (await fetchRemote(`${IRSA}/SIA?${params}`)).text()).filter((r) => r.energy_bandpassname === "W2" && r.dataproduct_subtype === "science" && /-w2-int-3\.fits$/.test(r.access_url));
+  if (!rows.length) throw new Error("No AllWISE W2 image covers this position");
+  rows.sort((a, b) => Math.hypot(a.s_ra - ra, a.s_dec - dec) - Math.hypot(b.s_ra - ra, b.s_dec - dec));
+  let row = rows[0], url = `${row.access_url}?center=${ra.toFixed(6)},${dec.toFixed(6)}&size=${sizeDeg.toFixed(5)}`, buf = await maybeGunzip(await (await fetchRemote(url, {}, 3)).arrayBuffer()), hdu = parseFits(buf).find((h) => h.data);
+  if (!hdu) throw new Error("Empty AllWISE cutout");
+  return {
+    data: hdu.data,
+    width: hdu.width,
+    height: hdu.height,
+    wcs: new Wcs(hdu.header),
+    header: hdu.header,
+    mjd: (row.t_min + row.t_max) / 2,
+    mjdRange: [row.t_min, row.t_max],
+    id: row.obs_id || row.access_url
+  };
+}
+async function catwiseCone(ra, dec, radiusDeg, maxRows = 5e3) {
+  let query = `SELECT TOP ${maxRows} source_name, ra_pm, dec_pm, pmra, pmdec, sigpmra, sigpmdec, w2mpro_pm, w2snr_pm FROM catwise_2020 WHERE CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', ${ra.toFixed(6)}, ${dec.toFixed(6)}, ${radiusDeg.toFixed(5)})) = 1`, params = new URLSearchParams({ QUERY: query, FORMAT: "csv" }), text = await (await fetchRemote(`${IRSA}/TAP/sync?${params}`, {}, 2)).text();
+  return parseCsv(text).map((r) => ({
+    id: r.source_name,
+    ra: Number(r.ra_pm),
+    dec: Number(r.dec_pm),
+    pmra: Number(r.pmra) * 1e3,
+    pmdec: Number(r.pmdec) * 1e3,
+    pmErr: Math.hypot(Number(r.sigpmra) || 0, Number(r.sigpmdec) || 0) * 1e3,
+    w2: Number(r.w2mpro_pm),
+    w2snr: Number(r.w2snr_pm)
+  })).filter((s) => Number.isFinite(s.ra) && Number.isFinite(s.dec));
+}
+function significantMotion(s, minMasYr = 300) {
+  let pm = Math.hypot(s.pmra, s.pmdec);
+  return pm >= minMasYr && pm >= 8 * (s.pmErr || 1 / 0) && s.w2snr >= 20;
+}
+function cleanCatwiseMovers(list, brightStars = []) {
+  let D2R2 = Math.PI / 180, sepArcsec = (a, b) => Math.hypot((a.ra - b.ra) * Math.cos(b.dec * D2R2), a.dec - b.dec) * 3600, candidates = list.filter(significantMotion).filter((s) => !brightStars.some((b) => sepArcsec(s, b) < (b.g <= 9 ? 220 : 100))).sort((a, b) => (a.w2 || 99) - (b.w2 || 99)), kept = [];
+  for (let s of candidates)
+    kept.some((k) => sepArcsec(s, k) < 20 && Math.hypot(s.pmra - k.pmra, s.pmdec - k.pmdec) < 1500) || kept.push(s);
+  return kept;
+}
+function parseCsv(text) {
+  let lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  let cols = lines[0].split(",").map((c) => c.trim());
+  return lines.slice(1).map((l) => {
+    let cells = l.split(","), row = {};
+    return cols.forEach((c, k) => row[c] = (cells[k] ?? "").trim()), row;
+  });
+}
+
 // app/js/main.js
 var PROVIDERS = { irsa: irsaProvider, sim: simulatedProvider }, $ = (id) => document.getElementById(id), canvas = $("view"), ctx = canvas.getContext("2d"), state = {
   target: null,
@@ -1544,6 +1615,9 @@ var PROVIDERS = { irsa: irsaProvider, sim: simulatedProvider }, $ = (id) => docu
   measurements: [],
   movers: [],
   sample: null,
+  wiseFrame: null,
+  catwise: null,
+  wiseKey: "",
   aladin: null,
   aladinOverlay: null,
   cache: /* @__PURE__ */ new Map()
@@ -1666,7 +1740,7 @@ async function run() {
       history.replaceState(null, "", shareUrl());
     } catch {
     }
-    setStatus(`${state.target.name}: ${frames.length} exposures \u2192 ${state.seq.length} frames` + (failed ? ` (${failed} cutouts failed: ${firstError?.message || "unknown error"})` : "") + (outside ? ` (${outside} outside the wavelength range at this position)` : "") + (provider.simulated ? " \u2014 SIMULATED data" : "")), loadGaia({ quiet: !$("ov-gaia").checked }), play();
+    setStatus(`${state.target.name}: ${frames.length} exposures \u2192 ${state.seq.length} frames` + (failed ? ` (${failed} cutouts failed: ${firstError?.message || "unknown error"})` : "") + (outside ? ` (${outside} outside the wavelength range at this position)` : "") + (provider.simulated ? " \u2014 SIMULATED data" : "")), loadGaia({ quiet: !$("ov-gaia").checked }), provider.simulated ? (state.wiseFrame = null, state.catwise = null, state.wiseKey = "", $("wise-status").textContent = "The WISE comparison (2010 image, CatWISE2020) needs real NASA data.") : loadWise(), play();
   } catch (e) {
     console.error(e), setStatus(e.message || String(e), !0);
   } finally {
@@ -1688,8 +1762,9 @@ function evenlySample(list, max) {
 }
 function rebuildSequence() {
   if (!state.frames.length) return;
-  state.seq = buildSequence(state.frames, { mode: $("mode").value, gapDays: Number($("gap").value) });
-  let arrays = state.seq.map((s) => s.data), [lo, hi] = percentiles(arrays, [1, 99.7]);
+  let sphx = buildSequence(state.frames, { mode: $("mode").value, gapDays: Number($("gap").value) });
+  state.seq = state.wiseFrame && $("wise-frame").checked ? [state.wiseFrame, ...sphx] : sphx;
+  let arrays = sphx.map((s) => s.data), [lo, hi] = percentiles(arrays, [1, 99.7]);
   if (state.stats = { lo, hi }, state.reference = arrays.length > 1 ? coadd(arrays, "median") : null, state.reference) {
     let diffs = arrays.map((a) => a.map((v, i) => Math.abs(v - state.reference[i]))), [d] = percentiles(diffs, [99.5]);
     state.diffStats = { lo: -d, hi: d };
@@ -1697,7 +1772,7 @@ function rebuildSequence() {
   state.idx = Math.min(state.idx, state.seq.length - 1), $("scrub").max = String(state.seq.length - 1), searchMovers(), render(), updateMeasurements();
 }
 function searchMovers() {
-  let visits = $("mode").value === "visit" ? state.seq : buildSequence(state.frames, { mode: "visit", gapDays: Number($("gap").value) });
+  let visits = $("mode").value === "visit" ? state.seq.filter((s) => !s.instrument) : buildSequence(state.frames, { mode: "visit", gapDays: Number($("gap").value) });
   if (visits.length < 2) {
     state.movers = [], renderMovers("Needs at least two survey visits.");
     return;
@@ -1719,20 +1794,26 @@ function searchMovers() {
       tier,
       first: Math.min(...years),
       last: Math.max(...years),
-      gaia: classifyWithGaia(ra, dec, m.t0, pm)
+      gaia: classifyMover(ra, dec, m.t0, pm)
     };
   }), renderMovers();
 }
-function classifyWithGaia(ra, dec, year, pm) {
-  if (!state.gaia) return { kind: "unchecked" };
+function matchCatalogue(list, epoch, ra, dec, year, pm) {
   let radius = 2.5 * state.grid.scaleArcsec, tolerance = Math.max(0.6, 3 * pm.err), best = null, bestDiff = 1 / 0;
-  for (let g of state.gaia) {
-    let [gr, gd] = propagate(g.ra, g.dec, g.pmra, g.pmdec, 2016, year);
+  for (let g of list) {
+    let [gr, gd] = propagate(g.ra, g.dec, g.pmra, g.pmdec, epoch, year);
     if (separationArcsec(ra, dec, gr, gd) > radius) continue;
     let diff = Math.hypot(g.pmra / 1e3 - pm.pmra, g.pmdec / 1e3 - pm.pmdec);
     diff < bestDiff && (bestDiff = diff, best = g);
   }
-  return !best || bestDiff > tolerance ? { kind: "new" } : { kind: "known", id: best.id, gmag: best.gmag, gaiaTotal: Math.hypot(best.pmra, best.pmdec) / 1e3 };
+  return best && bestDiff <= tolerance ? best : null;
+}
+function classifyMover(ra, dec, year, pm) {
+  if (!state.gaia && !state.catwise) return { kind: "unchecked" };
+  let g = state.gaia && matchCatalogue(state.gaia, 2016, ra, dec, year, pm);
+  if (g) return { kind: "known", id: g.id, gmag: g.gmag, gaiaTotal: Math.hypot(g.pmra, g.pmdec) / 1e3 };
+  let c = state.catwise && matchCatalogue(state.catwise, CATWISE_EPOCH, ra, dec, year, pm);
+  return c ? { kind: "catwise", id: c.id, w2: c.w2, total: Math.hypot(c.pmra, c.pmdec) / 1e3 } : { kind: "new", checked: [state.gaia && "Gaia DR3", state.catwise && "CatWISE2020"].filter(Boolean) };
 }
 function renderMovers(message) {
   let box = $("movers");
@@ -1743,7 +1824,8 @@ function renderMovers(message) {
   box.innerHTML = state.movers.map((m) => {
     let pa = (Math.atan2(m.pmra, m.pmdec) * 180 / Math.PI + 360) % 360, badge = {
       known: `<span class="badge known">Gaia DR3 ${m.gaia.gaiaTotal?.toFixed(2)}\u2033/yr</span>`,
-      new: '<span class="badge new">No Gaia DR3 match</span>',
+      catwise: `<span class="badge known" title="${m.gaia.id}">CatWISE2020 ${m.gaia.total?.toFixed(2)}\u2033/yr</span>`,
+      new: `<span class="badge new">No match in ${m.gaia.checked?.join(" or ")}</span>`,
       unchecked: '<span class="badge unchecked">Gaia not checked</span>'
     }[m.gaia.kind], name = m.isTarget ? ` \xB7 ${state.target.name}` : "", faint = m.tier === "possible" ? ' <span class="badge unchecked">Faint: check by eye</span>' : "", pressed = state.pick?.mover === m ? "true" : "false";
     return `<button type="button" class="mover" data-n="${m.n}" aria-pressed="${pressed}">
@@ -1757,7 +1839,10 @@ function renderMovers(message) {
   }));
 }
 function currentImage(i) {
-  let s = state.seq[i], n = state.grid.n, diff = $("diff").checked && state.reference, data = diff ? s.data.map((v, k) => v - state.reference[k]) : s.data, { lo, hi } = diff ? state.diffStats : state.stats;
+  let s = state.seq[i], n = state.grid.n;
+  if (s.instrument)
+    return toImageData(s.data, n, { ...s.stats, stretch: $("stretch").value, cmap: $("cmap").value, showMasked: $("show-masked").checked });
+  let diff = $("diff").checked && state.reference, data = diff ? s.data.map((v, k) => v - state.reference[k]) : s.data, { lo, hi } = diff ? state.diffStats : state.stats;
   return toImageData(data, n, {
     lo,
     hi,
@@ -1788,6 +1873,14 @@ function overlays(s) {
     }
     out.push({ type: "circles", color: "rgba(160,255,160,0.55)", width: 1, r: 1.6, points: slow }), out.push({ type: "circles", color: "#ffe066", width: 2, r: 2.6, points: fast });
   }
+  if ($("ov-catwise").checked && state.catwise) {
+    let year = mjdToYear(s.mjd), movers = catwiseMovers(), slow = [], fast = [];
+    for (let c of state.catwise) {
+      let moving = movers.includes(c), [ra, dec] = moving ? propagate(c.ra, c.dec, c.pmra, c.pmdec, CATWISE_EPOCH, year) : [c.ra, c.dec], [x, y] = state.grid.wcs.worldToPix(ra, dec);
+      x < -2 || y < -2 || x > n + 1 || y > n + 1 || (moving ? fast : slow).push({ x, y });
+    }
+    out.push({ type: "circles", color: "rgba(110,200,255,0.5)", width: 1, r: 1.2, points: slow }), out.push({ type: "circles", color: "#ff7ad9", width: 2, r: 3, points: fast });
+  }
   if ($("ov-movers").checked) {
     let year = mjdToYear(s.mjd);
     for (let m of state.movers)
@@ -1807,6 +1900,14 @@ function overlays(s) {
   return out;
 }
 function captions(s) {
+  if (s.instrument) {
+    let iso2 = (m) => mjdToDate(m).toISOString().slice(0, 7);
+    return {
+      title: state.target?.name || "",
+      lines: [`${s.label} \xB7 ${iso2(s.mjdRange[0])} \u2192 ${iso2(s.mjdRange[1])}`, "\u03BB 4.6 \xB5m (W2) \xB7 15-year baseline"],
+      footer: "NASA WISE (AllWISE Atlas) \xB7 IRSA \xB7 SkyShift"
+    };
+  }
   let d0 = mjdToDate(s.mjdRange ? s.mjdRange[0] : s.mjd), d1 = s.mjdRange ? mjdToDate(s.mjdRange[1]) : null, iso = (d) => d.toISOString().slice(0, 10), date = d1 && iso(d1) !== iso(d0) ? `${iso(d0)} \u2192 ${iso(d1)}` : `${iso(d0)} ${d0.toISOString().slice(11, 16)} UTC`, wl = s.wlMin === s.wlMax ? `\u03BB \u2248 ${s.wlMin.toFixed(2)} \xB5m` : `\u03BB ${s.wlMin.toFixed(2)}\u2013${s.wlMax.toFixed(2)} \xB5m`;
   return {
     title: state.target?.name || "",
@@ -1826,6 +1927,18 @@ function render() {
   }), $("scrub").value = String(state.idx), $("frame-label").textContent = `${state.idx + 1}/${state.seq.length} \xB7 ${mjdToDate(s.mjd).toISOString().slice(0, 10)}`, updateMeta(s);
 }
 function updateMeta(s) {
+  if (s.instrument) {
+    let rows2 = [
+      ["Source", "NASA WISE, AllWISE Atlas image (IRSA)"],
+      ["Band", "W2, 4.6 \xB5m"],
+      ["Dates", `${mjdToDate(s.mjdRange[0]).toISOString().slice(0, 10)} \u2192 ${mjdToDate(s.mjdRange[1]).toISOString().slice(0, 10)}`],
+      ["Pixel scale", "1.375\u2033 (resampled to 6.15\u2033)"],
+      ["Units", "DN (own brightness scale)"],
+      ["Image", s.id]
+    ];
+    $("meta").tBodies[0].innerHTML = rows2.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+    return;
+  }
   let dets = [...new Set(s.members.map((m) => m.detector))].sort().map((d) => `D${d}`).join(", "), masked = s.members.reduce((a, m) => a + m.maskedFraction, 0) / s.members.length, ids = s.members.slice(0, 4).map((m) => m.obsId || m.id).join("<br>") + (s.members.length > 4 ? `<br>\u2026 +${s.members.length - 4} more` : ""), rows = [
     ["Source", state.provider.label],
     ["Centre", `${formatRa(state.grid.wcs.crval[0])}<br>${formatDec(state.grid.wcs.crval[1])}`],
@@ -1863,11 +1976,60 @@ async function loadGaia({ quiet = !1 } = {}) {
     state.gaia = await gaiaCone(state.grid.wcs.crval[0], state.grid.wcs.crval[1], radius), state.gaiaKey = key;
     let fast = state.gaia.filter((g) => Math.hypot(g.pmra, g.pmdec) > 150).length;
     quiet || setStatus(`Gaia DR3: ${state.gaia.length} stars (${fast} with proper motion > 150 mas/yr, yellow).`);
-    for (let m of state.movers) m.gaia = classifyWithGaia(m.ra, m.dec, m.t0, m);
-    renderMovers(), render();
+    for (let m of state.movers) m.gaia = classifyMover(m.ra, m.dec, m.t0, m);
+    renderMovers(), state.catwise && updateWiseStatus(state.wiseProblems || []), render();
   } catch (e) {
     quiet || setStatus(`Gaia overlay unavailable: ${e.message}`, !0);
   }
+}
+function catwiseMovers() {
+  let key = `${state.catwise?.length}|${state.gaia?.length}`;
+  if (state.catwiseMoversKey !== key) {
+    let bright = (state.gaia || []).filter((g) => g.gmag <= 11).map((g) => {
+      let [ra, dec] = propagate(g.ra, g.dec, g.pmra, g.pmdec, 2016, CATWISE_EPOCH);
+      return { ra, dec, g: g.gmag };
+    });
+    state.catwiseMoversList = state.catwise ? cleanCatwiseMovers(state.catwise, bright) : [], state.catwiseMoversKey = key;
+  }
+  return state.catwiseMoversList;
+}
+function updateWiseStatus(problems = []) {
+  if (problems.length) {
+    $("wise-status").textContent = `WISE comparison partly unavailable (${problems.join("; ")}).`;
+    return;
+  }
+  let parts = [];
+  state.wiseFrame && parts.push("2010 WISE image added as the first frame"), state.catwise && parts.push(`${state.catwise.length} CatWISE2020 sources, ${catwiseMovers().length} with reliable motion (pink)`), $("wise-status").textContent = parts.length ? `WISE: ${parts.join("; ")}.` : "";
+}
+async function loadWise() {
+  let g = state.grid;
+  if (!g) return;
+  let key = `${g.wcs.crval.join(",")}|${g.n}`;
+  if (state.wiseKey === key) return;
+  state.wiseKey = key, state.wiseFrame = null, state.catwise = null;
+  let sizeDeg = g.n * g.scaleArcsec / 3600 * 1.45, image = allwiseCutout(g.wcs.crval[0], g.wcs.crval[1], sizeDeg).then((cut) => {
+    if (state.wiseKey !== key) return;
+    let data = reproject({ ...cut }, g), [lo, hi] = percentiles([data], [1, 99.7]);
+    state.wiseFrame = {
+      instrument: "WISE",
+      label: "WISE 2010",
+      mjd: cut.mjd,
+      mjdRange: cut.mjdRange,
+      data,
+      members: [],
+      wlMin: 4.6,
+      wlMax: 4.6,
+      stats: { lo, hi },
+      id: cut.id
+    }, rebuildSequence();
+  }), catalogue = catwiseCone(g.wcs.crval[0], g.wcs.crval[1], g.n * g.scaleArcsec * 0.75 / 3600).then((list) => {
+    if (state.wiseKey === key) {
+      state.catwise = list;
+      for (let m of state.movers) m.gaia = classifyMover(m.ra, m.dec, m.t0, m);
+      renderMovers(), render();
+    }
+  }), [img, cat] = await Promise.allSettled([image, catalogue]), problems = [img.status === "rejected" && `WISE image: ${img.reason.message}`, cat.status === "rejected" && `CatWISE: ${cat.reason.message}`].filter(Boolean);
+  problems.length && console.warn(problems.join("; ")), state.wiseProblems = problems, updateWiseStatus(problems);
 }
 function pickPosition(mjd) {
   let p = state.pick;
@@ -2036,8 +2198,10 @@ function wire() {
   }), $("scrub").addEventListener("input", () => {
     stop(), state.idx = Number($("scrub").value), render();
   }), $("fps").addEventListener("input", () => state.playing && play());
-  for (let id of ["stretch", "cmap", "diff", "smooth", "ov-track", "ov-movers", "show-masked"]) $(id).addEventListener("change", render);
-  $("load-all").addEventListener("click", () => {
+  for (let id of ["stretch", "cmap", "diff", "smooth", "ov-track", "ov-movers", "show-masked", "ov-catwise"]) $(id).addEventListener("change", render);
+  $("wise-frame").addEventListener("change", () => {
+    state.idx = 0, rebuildSequence();
+  }), $("load-all").addEventListener("click", () => {
     state.sample && ($("max").value = String(state.sample.available), run());
   }), $("ov-gaia").addEventListener("change", () => {
     $("ov-gaia").checked && !state.gaia ? loadGaia() : render();

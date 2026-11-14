@@ -192,3 +192,30 @@ test('relative brightness removes the spectrum and reveals a variable', async ()
   assert.equal(v.length, 3);
   assert.ok(v[1].rel > 1.35 && v[0].rel < 0.85 && v[2].rel < 0.85, JSON.stringify(v.map((x) => x.rel)));
 });
+
+test('SIN projection (AllWISE Atlas images) matches astropy and round-trips', () => {
+  const fx = JSON.parse(readFileSync(new URL('./wise_sin_fixture.json', import.meta.url)));
+  const w = new Wcs(fx.header);
+  for (const p of fx.points) {
+    const [ra, dec] = w.pixToWorld(p.x, p.y);
+    assert.ok(separationArcsec(ra, dec, p.ra, p.dec) < 1e-3, `pix ${p.x},${p.y}`);
+    const [x, y] = w.worldToPix(p.ra, p.dec);
+    assert.ok(Math.abs(x - p.x) < 1e-6 && Math.abs(y - p.y) < 1e-6);
+  }
+});
+
+test('CatWISE clean-up drops glare around bright stars and merges duplicate entries', async () => {
+  const { cleanCatwiseMovers } = await import('../app/js/providers/wise.js');
+  const src = (ra, dec, pmra, pmdec, w2, extra = {}) => ({ ra, dec, pmra, pmdec, pmErr: 50, w2, w2snr: 50, ...extra });
+  const bright = [{ ra: 10, dec: 0, g: 8 }];
+  const list = [
+    src(10 + 60 / 3600, 0, 9000, 0, 12),           // 60″ from a G=8 star: glare
+    src(10.2, 0, -8000, 700, 13.8),                 // real fast mover
+    src(10.2 + 5 / 3600, 0, -7900, 900, 14.1),      // its duplicate entry
+    src(10.3, 0.1, 400, 0, 16, { w2snr: 5 }),       // poorly detected
+    src(10.3, -0.1, 200, 0, 15),                    // too slow
+  ];
+  const kept = cleanCatwiseMovers(list, bright);
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].w2, 13.8);
+});

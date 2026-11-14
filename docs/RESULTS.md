@@ -31,6 +31,21 @@ The app now searches every field for moving objects without being told where to 
 - **WISE 0855 needs depth.** With 26 images it sits at S/N ≈ 5 and isn't found. With all available images it is found automatically, and flagged as having no Gaia DR3 match, which is what a genuinely new cold brown dwarf would look like. (A slow, unrelated Gaia star sits within 15″, so a mover is only matched to a Gaia star that also moves like it.)
 - **Measured speeds run 5–15% low.** The likely cause is that positions in mixed-wavelength stacks are slightly pulled toward neighbouring sources. Still inside ~1–1.5σ.
 
+## WISE comparison (real data)
+
+The 2010 AllWISE W2 (4.6 µm) image opens each movie, and CatWISE2020 sources are overlaid. Detected movers are checked against Gaia DR3 first, then CatWISE2020.
+
+| Field | WISE 2010 frame | CatWISE2020 sources | With reliable motion | Mover check |
+|---|---|---|---|---|
+| Barnard's Star | ✅ star ~2.5′ south of its 2026 position, on the predicted track | 1,050 | 0 (139 before clean-up: all glare from Barnard's Star) | Gaia DR3 10.39″/yr |
+| Epsilon Indi B | ✅ | 518 | 2 | Gaia DR3 4.68″/yr |
+| WISE 0855−0714 | ✅ faint source at the predicted 2010 position, where SkyShift's measured motion extrapolates | 737 | 2 (WISE 0855 among them) | **CatWISE2020 8.09″/yr** (not in Gaia) |
+| RW Aurigae | ✅ | 874 | 0 | – |
+
+**Rules for "reliable motion"** in CatWISE: at least 0.3″/yr and 8σ, W2 S/N ≥ 20, outside the glare zones of bright Gaia stars (220″ for G ≤ 9, 100″ for G ≤ 11), with duplicate entries of the same mover merged.
+
+![WISE 2010 frame, WISE 0855](img/live/wise-2010-wise0855.png)
+
 ## Brightness over time (real data, 60 images each)
 
 Each exposure is divided by the source's own brightness at the same wavelength in the other visits, so a steady star should sit at 1. Values are per-visit medians; visits with only 1–2 exposures are left out here because they're much noisier.

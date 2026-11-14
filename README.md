@@ -23,7 +23,7 @@ SkyShift is a public web tool. You type an object name or sky coordinates (RA/De
 | Generate spectra on the fly | Click a source, or a detected mover, to run aperture photometry across every exposure, with **error bars** from the VARIANCE plane. You get a **spectrum** (flux at each exposure's exact wavelength) and a **brightness-over-time** chart, both exportable as CSV. Each exposure is divided by the source's own brightness at that wavelength in other visits, so wavelength differences between visits don't masquerade as variability. The aperture follows the object's measured or predicted motion. |
 | Add/subtract images | Visit coadds (add) and difference imaging (subtract) |
 | Larger field of view | 2′–20′ field slider |
-| Overlay other telescopes | Gaia DR3 (ESA) proper-motion overlay; Aladin Lite context panel with 2MASS, AllWISE, DSS2 and Pan-STARRS |
+| Overlay other telescopes | **Gaia DR3** (ESA) stars moved to each frame's date. **NASA WISE**: the 2010 **AllWISE W2 (4.6 µm) image** opens the movie, a 15-year baseline, and **CatWISE2020** sources (WISE/NEOWISE motions, including cold brown dwarfs Gaia can't see) are drawn at each frame's date. Detected movers are checked against both Gaia DR3 and CatWISE2020. Aladin Lite context panel with 2MASS, AllWISE, DSS2 and Pan-STARRS. |
 | Query by URL / embed | Every view is a shareable link (`?q=…&ra=…&dec=…&size=…&wmin=…&wmax=…&det=…&mode=…&diff=1`). **Copy embed code** gives an `<iframe>` (`&embed=1` shows the viewer only). |
 | Show metadata like contamination flags | **Show masked pixels** highlights flagged pixels in magenta on the image. Per-frame table: dates, MJD, λ range, detectors, exposure count, % flagged pixels masked (bits read from the FLAGS header), zodiacal-light status, image IDs |
 | Update quickly with new data releases | Nothing is pre-computed: every query asks the IRSA archive live, so new SPHEREx data appears automatically. The IRSA collection name is a setting. |
@@ -76,6 +76,7 @@ npm run test:live
 
 ## NASA and partner data
 
+- **NASA WISE**: AllWISE Atlas images (IRSA SIA collection `wise_allwise`, W2) and the CatWISE2020 catalogue (IRSA TAP table `catwise_2020`)
 - **NASA SPHEREx** Level-2 spectral images — NASA/IPAC Infrared Science Archive (IRSA): SIA v2 `https://irsa.ipac.caltech.edu/SIA` (collections `spherex_dr1` and `spherex_qr3`) and its cutout service
 - **ESA Gaia DR3** (`I/355/gaiadr3`) via CDS VizieR — proper-motion overlay
 - **CDS Sesame / SIMBAD** — name resolution

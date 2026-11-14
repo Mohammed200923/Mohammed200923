@@ -9,6 +9,7 @@ import { gaiaCone, resolveName } from './catalogs.js';
 import { scatterPlot } from './charts.js';
 import { irsaProvider } from './providers/irsa.js';
 import { simulatedProvider } from './providers/simulated.js';
+import { allwiseCutout, catwiseCone, cleanCatwiseMovers, CATWISE_EPOCH } from './providers/wise.js';
 
 const PROVIDERS = { irsa: irsaProvider, sim: simulatedProvider };
 const $ = (id) => document.getElementById(id);
@@ -20,6 +21,7 @@ const state = {
   frames: [], seq: [], idx: 0, playing: false, timer: null,
   stats: null, reference: null, diffStats: null,
   gaia: null, gaiaKey: '', pick: null, measurements: [], movers: [], sample: null,
+  wiseFrame: null, catwise: null, wiseKey: '',
   aladin: null, aladinOverlay: null, cache: new Map(),
 };
 
@@ -219,6 +221,11 @@ async function run() {
       (provider.simulated ? ' — SIMULATED data' : ''));
     // Gaia is needed to tell known movers from new ones, whether or not its overlay is shown.
     loadGaia({ quiet: !$('ov-gaia').checked });
+    if (!provider.simulated) loadWise();
+    else {
+      state.wiseFrame = null; state.catwise = null; state.wiseKey = '';
+      $('wise-status').textContent = 'The WISE comparison (2010 image, CatWISE2020) needs real NASA data.';
+    }
     play();
   } catch (e) {
     console.error(e);
@@ -248,8 +255,11 @@ function evenlySample(list, max) {
 
 function rebuildSequence() {
   if (!state.frames.length) return;
-  state.seq = buildSequence(state.frames, { mode: $('mode').value, gapDays: Number($('gap').value) });
-  const arrays = state.seq.map((s) => s.data);
+  const sphx = buildSequence(state.frames, { mode: $('mode').value, gapDays: Number($('gap').value) });
+  // The 2010 WISE frame, when loaded, opens the movie; it has its own brightness scale and is
+  // kept out of the SPHEREx statistics, difference reference and mover search.
+  state.seq = state.wiseFrame && $('wise-frame').checked ? [state.wiseFrame, ...sphx] : sphx;
+  const arrays = sphx.map((s) => s.data);
   const [lo, hi] = percentiles(arrays, [1, 99.7]);
   state.stats = { lo, hi };
   state.reference = arrays.length > 1 ? coadd(arrays, 'median') : null;
@@ -270,7 +280,7 @@ function rebuildSequence() {
 function searchMovers() {
   // Always on survey visits (stacked), whatever the player shows: single exposures mix wavelengths.
   const visits = $('mode').value === 'visit'
-    ? state.seq
+    ? state.seq.filter((s) => !s.instrument)
     : buildSequence(state.frames, { mode: 'visit', gapDays: Number($('gap').value) });
   if (visits.length < 2) {
     state.movers = [];
@@ -291,29 +301,38 @@ function searchMovers() {
     }
     return {
       ...m, ...pm, ra, dec, n: i + 1, isTarget, tier,
-      first: Math.min(...years), last: Math.max(...years), gaia: classifyWithGaia(ra, dec, m.t0, pm),
+      first: Math.min(...years), last: Math.max(...years), gaia: classifyMover(ra, dec, m.t0, pm),
     };
   });
   renderMovers();
 }
 
 /**
- * Compare a detected mover with Gaia DR3: is there a Gaia star at this position (at the
- * mover's epoch) that also moves like it? Unrelated slow stars nearby don't count.
+ * Find a catalogue star at this position (at the mover's epoch) that also moves like it.
+ * Unrelated slow stars nearby don't count. pm in arcsec/yr; catalogue pm in mas/yr.
  */
-function classifyWithGaia(ra, dec, year, pm) {
-  if (!state.gaia) return { kind: 'unchecked' };
+function matchCatalogue(list, epoch, ra, dec, year, pm) {
   const radius = 2.5 * state.grid.scaleArcsec;
   const tolerance = Math.max(0.6, 3 * pm.err);
   let best = null, bestDiff = Infinity;
-  for (const g of state.gaia) {
-    const [gr, gd] = propagate(g.ra, g.dec, g.pmra, g.pmdec, 2016.0, year);
+  for (const g of list) {
+    const [gr, gd] = propagate(g.ra, g.dec, g.pmra, g.pmdec, epoch, year);
     if (separationArcsec(ra, dec, gr, gd) > radius) continue;
     const diff = Math.hypot(g.pmra / 1000 - pm.pmra, g.pmdec / 1000 - pm.pmdec);
     if (diff < bestDiff) { bestDiff = diff; best = g; }
   }
-  if (!best || bestDiff > tolerance) return { kind: 'new' };
-  return { kind: 'known', id: best.id, gmag: best.gmag, gaiaTotal: Math.hypot(best.pmra, best.pmdec) / 1000 };
+  return best && bestDiff <= tolerance ? best : null;
+}
+
+/** Known to Gaia DR3, known to CatWISE2020 (WISE/NEOWISE, sees cold brown dwarfs), or neither. */
+function classifyMover(ra, dec, year, pm) {
+  if (!state.gaia && !state.catwise) return { kind: 'unchecked' };
+  const g = state.gaia && matchCatalogue(state.gaia, 2016.0, ra, dec, year, pm);
+  if (g) return { kind: 'known', id: g.id, gmag: g.gmag, gaiaTotal: Math.hypot(g.pmra, g.pmdec) / 1000 };
+  const c = state.catwise && matchCatalogue(state.catwise, CATWISE_EPOCH, ra, dec, year, pm);
+  if (c) return { kind: 'catwise', id: c.id, w2: c.w2, total: Math.hypot(c.pmra, c.pmdec) / 1000 };
+  const checked = [state.gaia && 'Gaia DR3', state.catwise && 'CatWISE2020'].filter(Boolean);
+  return { kind: 'new', checked };
 }
 
 function renderMovers(message) {
@@ -326,7 +345,8 @@ function renderMovers(message) {
     const pa = ((Math.atan2(m.pmra, m.pmdec) * 180) / Math.PI + 360) % 360;
     const badge = {
       known: `<span class="badge known">Gaia DR3 ${m.gaia.gaiaTotal?.toFixed(2)}″/yr</span>`,
-      new: `<span class="badge new">No Gaia DR3 match</span>`,
+      catwise: `<span class="badge known" title="${m.gaia.id}">CatWISE2020 ${m.gaia.total?.toFixed(2)}″/yr</span>`,
+      new: `<span class="badge new">No match in ${m.gaia.checked?.join(' or ')}</span>`,
       unchecked: `<span class="badge unchecked">Gaia not checked</span>`,
     }[m.gaia.kind];
     const name = m.isTarget ? ` · ${state.target.name}` : '';
@@ -352,6 +372,9 @@ function renderMovers(message) {
 function currentImage(i) {
   const s = state.seq[i];
   const n = state.grid.n;
+  if (s.instrument) {
+    return toImageData(s.data, n, { ...s.stats, stretch: $('stretch').value, cmap: $('cmap').value, showMasked: $('show-masked').checked });
+  }
   const diff = $('diff').checked && state.reference;
   const data = diff ? s.data.map((v, k) => v - state.reference[k]) : s.data;
   const { lo, hi } = diff ? state.diffStats : state.stats;
@@ -392,6 +415,20 @@ function overlays(s) {
     out.push({ type: 'circles', color: 'rgba(160,255,160,0.55)', width: 1, r: 1.6, points: slow });
     out.push({ type: 'circles', color: '#ffe066', width: 2, r: 2.6, points: fast });
   }
+  if ($('ov-catwise').checked && state.catwise) {
+    const year = mjdToYear(s.mjd);
+    const movers = catwiseMovers();
+    const slow = [], fast = [];
+    for (const c of state.catwise) {
+      const moving = movers.includes(c);
+      const [ra, dec] = moving ? propagate(c.ra, c.dec, c.pmra, c.pmdec, CATWISE_EPOCH, year) : [c.ra, c.dec];
+      const [x, y] = state.grid.wcs.worldToPix(ra, dec);
+      if (x < -2 || y < -2 || x > n + 1 || y > n + 1) continue;
+      (moving ? fast : slow).push({ x, y });
+    }
+    out.push({ type: 'circles', color: 'rgba(110,200,255,0.5)', width: 1, r: 1.2, points: slow });
+    out.push({ type: 'circles', color: '#ff7ad9', width: 2, r: 3, points: fast });
+  }
   if ($('ov-movers').checked) {
     const year = mjdToYear(s.mjd);
     for (const m of state.movers) {
@@ -409,6 +446,14 @@ function overlays(s) {
 }
 
 function captions(s) {
+  if (s.instrument) {
+    const iso = (m) => mjdToDate(m).toISOString().slice(0, 7);
+    return {
+      title: state.target?.name || '',
+      lines: [`${s.label} · ${iso(s.mjdRange[0])} → ${iso(s.mjdRange[1])}`, 'λ 4.6 µm (W2) · 15-year baseline'],
+      footer: 'NASA WISE (AllWISE Atlas) · IRSA · SkyShift',
+    };
+  }
   const d0 = mjdToDate(s.mjdRange ? s.mjdRange[0] : s.mjd);
   const d1 = s.mjdRange ? mjdToDate(s.mjdRange[1]) : null;
   const iso = (d) => d.toISOString().slice(0, 10);
@@ -436,6 +481,18 @@ function render() {
 }
 
 function updateMeta(s) {
+  if (s.instrument) {
+    const rows = [
+      ['Source', 'NASA WISE, AllWISE Atlas image (IRSA)'],
+      ['Band', 'W2, 4.6 µm'],
+      ['Dates', `${mjdToDate(s.mjdRange[0]).toISOString().slice(0, 10)} → ${mjdToDate(s.mjdRange[1]).toISOString().slice(0, 10)}`],
+      ['Pixel scale', '1.375″ (resampled to 6.15″)'],
+      ['Units', 'DN (own brightness scale)'],
+      ['Image', s.id],
+    ];
+    $('meta').tBodies[0].innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+    return;
+  }
   const dets = [...new Set(s.members.map((m) => m.detector))].sort().map((d) => `D${d}`).join(', ');
   const masked = s.members.reduce((a, m) => a + m.maskedFraction, 0) / s.members.length;
   const ids = s.members.slice(0, 4).map((m) => m.obsId || m.id).join('<br>') + (s.members.length > 4 ? `<br>… +${s.members.length - 4} more` : '');
@@ -492,12 +549,73 @@ async function loadGaia({ quiet = false } = {}) {
     state.gaiaKey = key;
     const fast = state.gaia.filter((g) => Math.hypot(g.pmra, g.pmdec) > 150).length;
     if (!quiet) setStatus(`Gaia DR3: ${state.gaia.length} stars (${fast} with proper motion > 150 mas/yr, yellow).`);
-    for (const m of state.movers) m.gaia = classifyWithGaia(m.ra, m.dec, m.t0, m);
+    for (const m of state.movers) m.gaia = classifyMover(m.ra, m.dec, m.t0, m);
     renderMovers();
+    if (state.catwise) updateWiseStatus(state.wiseProblems || []);
     render();
   } catch (e) {
     if (!quiet) setStatus(`Gaia overlay unavailable: ${e.message}`, true);
   }
+}
+
+// ---------- WISE comparison data ----------
+
+/** CatWISE sources with trustworthy motion (needs Gaia for the bright-star glare zones). */
+function catwiseMovers() {
+  const key = `${state.catwise?.length}|${state.gaia?.length}`;
+  if (state.catwiseMoversKey !== key) {
+    const bright = (state.gaia || []).filter((g) => g.gmag <= 11).map((g) => {
+      const [ra, dec] = propagate(g.ra, g.dec, g.pmra, g.pmdec, 2016.0, CATWISE_EPOCH);
+      return { ra, dec, g: g.gmag };
+    });
+    state.catwiseMoversList = state.catwise ? cleanCatwiseMovers(state.catwise, bright) : [];
+    state.catwiseMoversKey = key;
+  }
+  return state.catwiseMoversList;
+}
+
+function updateWiseStatus(problems = []) {
+  if (problems.length) {
+    $('wise-status').textContent = `WISE comparison partly unavailable (${problems.join('; ')}).`;
+    return;
+  }
+  const parts = [];
+  if (state.wiseFrame) parts.push('2010 WISE image added as the first frame');
+  if (state.catwise) parts.push(`${state.catwise.length} CatWISE2020 sources, ${catwiseMovers().length} with reliable motion (pink)`);
+  $('wise-status').textContent = parts.length ? `WISE: ${parts.join('; ')}.` : '';
+}
+
+async function loadWise() {
+  const g = state.grid;
+  if (!g) return;
+  const key = `${g.wcs.crval.join(',')}|${g.n}`;
+  if (state.wiseKey === key) return;
+  state.wiseKey = key;
+  state.wiseFrame = null;
+  state.catwise = null;
+  const sizeDeg = (g.n * g.scaleArcsec / 3600) * 1.45;
+  const image = allwiseCutout(g.wcs.crval[0], g.wcs.crval[1], sizeDeg).then((cut) => {
+    if (state.wiseKey !== key) return;
+    const data = reproject({ ...cut }, g);
+    const [lo, hi] = percentiles([data], [1, 99.7]);
+    state.wiseFrame = {
+      instrument: 'WISE', label: 'WISE 2010', mjd: cut.mjd, mjdRange: cut.mjdRange, data,
+      members: [], wlMin: 4.6, wlMax: 4.6, stats: { lo, hi }, id: cut.id,
+    };
+    rebuildSequence();
+  });
+  const catalogue = catwiseCone(g.wcs.crval[0], g.wcs.crval[1], (g.n * g.scaleArcsec * 0.75) / 3600).then((list) => {
+    if (state.wiseKey !== key) return;
+    state.catwise = list;
+    for (const m of state.movers) m.gaia = classifyMover(m.ra, m.dec, m.t0, m);
+    renderMovers();
+    render();
+  });
+  const [img, cat] = await Promise.allSettled([image, catalogue]);
+  const problems = [img.status === 'rejected' && `WISE image: ${img.reason.message}`, cat.status === 'rejected' && `CatWISE: ${cat.reason.message}`].filter(Boolean);
+  if (problems.length) console.warn(problems.join('; '));
+  state.wiseProblems = problems;
+  updateWiseStatus(problems);
 }
 
 // ---------- click-to-measure ----------
@@ -686,7 +804,8 @@ function wire() {
   $('next').addEventListener('click', () => { stop(); step(1); });
   $('scrub').addEventListener('input', () => { stop(); state.idx = Number($('scrub').value); render(); });
   $('fps').addEventListener('input', () => state.playing && play());
-  for (const id of ['stretch', 'cmap', 'diff', 'smooth', 'ov-track', 'ov-movers', 'show-masked']) $(id).addEventListener('change', render);
+  for (const id of ['stretch', 'cmap', 'diff', 'smooth', 'ov-track', 'ov-movers', 'show-masked', 'ov-catwise']) $(id).addEventListener('change', render);
+  $('wise-frame').addEventListener('change', () => { state.idx = 0; rebuildSequence(); });
   $('load-all').addEventListener('click', () => {
     if (!state.sample) return;
     $('max').value = String(state.sample.available);
