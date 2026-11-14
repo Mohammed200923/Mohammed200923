@@ -100,7 +100,8 @@ function field(ra, dec) {
     f.loadP = f.searchP.then((search) => loadField({ ra, dec, sizeArcmin: s.sizeArcmin, wmin: s.wmin, wmax: s.wmax, max: s.max, search, target: s.motion, onSpherex: spxDone }));
     f.loadP.then((full) => { f.full = full; spxDone(full); }, () => FIELDS.delete(key)); // a failure lets a later request retry
     // Tell the interface the WISE epochs are ready, so it can add them to a timeline it already shows.
-    f.loadP.then(() => window.dispatchEvent(new CustomEvent('skyshift:field-loaded', { detail: { ra, dec } }))).catch(() => {});
+    // SX.data caches details and comparisons as if they never change: drop the partial (SPHEREx-only) answers first.
+    f.loadP.then(() => { window.SX && window.SX.data && window.SX.data.clearCache && window.SX.data.clearCache(); window.dispatchEvent(new CustomEvent('skyshift:field-loaded', { detail: { ra, dec } })); }).catch(() => {});
     FIELDS.set(key, f);
   }
   return FIELDS.get(key);
