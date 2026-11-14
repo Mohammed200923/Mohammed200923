@@ -248,6 +248,31 @@ export function findMovers(visits, n, {
 }
 
 /**
+ * Light-weighted centre of the blob around (x, y): background (median of a 4–6 px annulus)
+ * subtracted, within 3 px. Unlike the brightest pixel, this finds the middle of a saturated
+ * star, which WISE/NEOWISE record as a ring with an empty core.
+ */
+export function blobCentre(data, n, x, y, r = 3) {
+  const bgVals = [];
+  for (let j = Math.floor(y - 6); j <= Math.ceil(y + 6); j++) {
+    for (let i = Math.floor(x - 6); i <= Math.ceil(x + 6); i++) {
+      const d = Math.hypot(i - x, j - y);
+      if (i >= 0 && j >= 0 && i < n && j < n && d >= 4 && d <= 6 && Number.isFinite(data[j * n + i])) bgVals.push(data[j * n + i]);
+    }
+  }
+  const bg = median(bgVals) || 0;
+  let sw = 0, sx = 0, sy = 0;
+  for (let j = Math.floor(y - r); j <= Math.ceil(y + r); j++) {
+    for (let i = Math.floor(x - r); i <= Math.ceil(x + r); i++) {
+      if (i < 0 || j < 0 || i >= n || j >= n || Math.hypot(i - x, j - y) > r) continue;
+      const w = data[j * n + i] - bg;
+      if (Number.isFinite(w) && w > 0) { sw += w; sx += w * i; sy += w * j; }
+    }
+  }
+  return sw > 0 ? [sx / sw, sy / sw] : [x, y];
+}
+
+/**
  * Use an image from another epoch (e.g. WISE 2010) to extend a mover's time baseline.
  * The image must be on the same grid. Its small alignment offset is measured from sources
  * shared with the anchor visit; the mover is then looked for near the position its motion
@@ -285,8 +310,29 @@ export function addEpoch(fit, image, n, year, anchorSources, {
     const d = Math.hypot(s.x - ox - px, s.y - oy - py);
     if (d < bd && !isStatic(s)) { bd = d; best = s; }
   }
+  if (!best) {
+    // A saturated star's core is a flat plateau with no single brightest pixel, so the peak
+    // finder misses it. Fall back to the light-weighted centre near the prediction, if there
+    // is clearly significant light there.
+    const finite = Array.from(image).filter(Number.isFinite);
+    const bg = median(finite), sigma = median(finite.map((v) => Math.abs(v - bg))) * 1.4826 || 1;
+    let [cx, cy] = blobCentre(image, n, px + ox, py + oy);
+    [cx, cy] = blobCentre(image, n, cx, cy);
+    let peak = -Infinity;
+    for (let j = Math.round(cy) - 1; j <= Math.round(cy) + 1; j++) {
+      for (let i = Math.round(cx) - 1; i <= Math.round(cx) + 1; i++) {
+        if (i >= 0 && j >= 0 && i < n && j < n && Number.isFinite(image[j * n + i])) peak = Math.max(peak, image[j * n + i]);
+      }
+    }
+    const snrHere = (peak - bg) / sigma;
+    const blob = { x: cx, y: cy, snr: snrHere };
+    if (snrHere >= snr && Math.hypot(cx - ox - px, cy - oy - py) < radius && !isStatic(blob)) best = blob;
+  }
   if (!best) return { rejected: `no non-static source within ${radius.toFixed(1)} px of the predicted position` };
-  const point = { t: dt, x: best.x - ox, y: best.y - oy, sig: Math.hypot(centroid / best.snr, floor), snr: best.snr };
+  // Iterate the light-weighted centre twice, so a ring-shaped saturated star recentres fully.
+  let [bx, by] = blobCentre(image, n, best.x, best.y);
+  [bx, by] = blobCentre(image, n, bx, by);
+  const point = { t: dt, x: bx - ox, y: by - oy, sig: Math.hypot(centroid / best.snr, floor), snr: best.snr };
   const { ts, xs, ys, sig } = fit.samples;
   const T = [...ts, point.t], S = [...sig, point.sig];
   const fx = fitLine(T, [...xs, point.x], S), fy = fitLine(T, [...ys, point.y], S);

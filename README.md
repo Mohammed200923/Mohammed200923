@@ -80,9 +80,11 @@ npm run test:live
 ## NASA and partner data
 
 - **NASA JPL Small-Body Identification API**: known asteroids and comets in the field at each exposure's time
-- **NASA WISE**: AllWISE Atlas images (IRSA SIA collection `wise_allwise`, W2) and the CatWISE2020 catalogue (IRSA TAP table `catwise_2020`)
+- **NASA WISE**: AllWISE Atlas images (IRSA SIA `wise_allwise`, W2, 2010), **NEOWISE** single exposures (IRSA SIA `neowiser`, W2, stacked per half-year visit 2014–2024) and the CatWISE2020 catalogue (IRSA TAP `catwise_2020`)
 - **NASA SPHEREx** Level-2 spectral images — NASA/IPAC Infrared Science Archive (IRSA): SIA v2 `https://irsa.ipac.caltech.edu/SIA` (wide survey `spherex_dr1`, `spherex_qr3` and **Deep Survey** `spherex_dr1_deep`, `spherex_qr3_deep`) and its cutout service; the **SPHEREx DR1 all-sky HiPS cube** in the sky panel
-- **ESA Gaia DR3** (`I/355/gaiadr3`) via CDS VizieR — proper-motion overlay
+- **ESA Gaia DR3** from **NASA MAST** (`Mast.Catalogs.GaiaDR3.Cone`, as linked by the challenge), with CDS VizieR mirrors as fallback
+- **Partner data: NEOSSat** (Canadian Space Agency) observations of each field, from the Canadian Astronomy Data Centre (CAOM2 TAP), with preview images
+- **SPHEREx EPSF** (point-spread functions): the server turns each detector's table into aperture corrections, so spectra account for light outside the aperture
 - **CDS Sesame / SIMBAD** — name resolution
 - **Aladin Lite v3** (CDS, Strasbourg) — sky context with 2MASS, AllWISE, DSS2 and Pan-STARRS HiPS
 

@@ -117,7 +117,7 @@
         <label class="check"><input type="checkbox" id="ov-gaia"> Gaia DR3 stars</label>
         <label class="check"><input type="checkbox" id="ov-movers" checked> Detected movers</label>
         <label class="check"><input type="checkbox" id="show-masked"> Show masked pixels</label>
-        <label class="check"><input type="checkbox" id="wise-frame" checked> WISE 2010 frame</label>
+        <label class="check"><input type="checkbox" id="wise-frame" checked> WISE frames (2010–2024)</label>
         <label class="check"><input type="checkbox" id="ov-catwise"> CatWISE2020 stars</label>
         <label class="check"><input type="checkbox" id="ov-bodies" checked> Known asteroids &amp; comets</label>
       </div>
@@ -125,7 +125,7 @@
       <details class="guide" id="guide">
         <summary>How to read this</summary>
         <div class="guide-body">
-          <p><strong>What you see.</strong> Each frame stacks all the SPHEREx images from one survey visit (about every six months; monthly near the ecliptic poles). The first frame, “WISE 2010”, is NASA's WISE telescope 15 years earlier. Press play: stars that stay put are distant; anything that slides is nearby, or in the Solar System.</p>
+          <p><strong>What you see.</strong> Each frame stacks all the SPHEREx images from one survey visit (about every six months; monthly near the ecliptic poles). The first frames are NASA's WISE telescope: AllWISE in 2010, then NEOWISE every six months from 2014 to 2024. Press play: stars that stay put are distant; anything that slides is nearby, or in the Solar System.</p>
           <ul class="legend">
             <li><span class="key" style="--c:#7ee0ff"></span><span><strong>Dashed line + crosshair:</strong> where the chosen object should be on each date, from its catalogued motion.</span></li>
             <li><span class="key" style="--c:#7fe0a0"></span><span><strong>Green arrow:</strong> a moving object SkyShift found by itself, already known to Gaia or WISE.</span></li>
@@ -135,7 +135,7 @@
           </ul>
           <p><strong>Difference view.</strong> Subtracts the average sky: still stars vanish, and a moving object becomes an orange spot (where it is now) next to a blue one (where it usually is).</p>
           <p><strong>Measure.</strong> Click any star, or a mover in the list, to see its spectrum across SPHEREx's 0.75–5 µm colours and how its brightness changes over time. Hollow points are saturated and not used.</p>
-          <p><strong>Data.</strong> NASA SPHEREx (IRSA), NASA WISE (AllWISE, CatWISE2020), NASA JPL (Small-Body Identification, Horizons), ESA Gaia DR3, all fetched live.</p>
+          <p><strong>Data.</strong> NASA SPHEREx (IRSA), NASA WISE (AllWISE, NEOWISE, CatWISE2020), NASA JPL (Small-Body Identification, Horizons), ESA Gaia DR3 (NASA MAST), and the Canadian Space Agency's NEOSSat (CADC), all fetched live.</p>
         </div>
       </details>
 
@@ -171,6 +171,9 @@
 
       <h3>Known asteroids &amp; comets</h3>
       <div id="bodies" class="bodies"><p class="muted small">Load a field to look them up (NASA JPL).</p></div>
+
+      <h3>Partner data: NEOSSat (CSA)</h3>
+      <div id="neossat" class="neossat"><p class="muted small">Load a field to look for NEOSSat observations.</p></div>
 
       <h3>Click a source</h3>
       <p class="muted small" id="pick-info">Click in the viewer to measure brightness across all frames.</p>

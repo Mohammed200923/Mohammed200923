@@ -31,7 +31,38 @@ The app now searches every field for moving objects without being told where to 
 - **WISE 0855 needs depth.** With 26 images it sits at S/N ≈ 5 and isn't found. With all available images it is found automatically, and flagged as having no Gaia DR3 match, which is what a genuinely new cold brown dwarf would look like. (A slow, unrelated Gaia star sits within 15″, so a mover is only matched to a Gaia star that also moves like it.)
 - **Measured speeds run 5–15% low.** The likely cause is that positions in mixed-wavelength stacks are slightly pulled toward neighbouring sources. Still inside ~1–1.5σ.
 
-## 15-year proper motions: SPHEREx + WISE 2010 (real data)
+## 16-year proper motions: SPHEREx + AllWISE 2010 + NEOWISE 2014–2024 (real data, 14 Nov)
+
+The movie opens with 22 WISE frames: AllWISE 2010, then NEOWISE W2 every six months from 2014 to 2024 (5 single exposures median-stacked per visit). Each mover is found in every WISE frame, AllWISE first so its long lever arm pins the motion down, and refitted over up to 16 years.
+
+| Target | SPHEREx alone | SPHEREx + WISE/NEOWISE | WISE epochs used | Published | Difference |
+|---|---|---|---|---|---|
+| Barnard's Star | 9.25 ± 0.87″/yr | **10.32 ± 0.10″/yr** (RA −0.86, Dec +10.29) | 18 of 22 | 10.39 (−0.80, +10.36), Gaia DR3 | **0.7%** |
+| Epsilon Indi B | 4.00 ± 0.62″/yr | **4.65 ± 0.09″/yr** (RA +3.91, Dec −2.52) | 22 of 22 | 4.68, Gaia DR3 | **0.6%** |
+| WISE 0855−0714 | 6.01 ± 1.65″/yr (below 4σ) | **8.39 ± 0.13″/yr** (RA −8.36, Dec +0.69) | 18 of 22 | 8.15 (−8.12, +0.68), Luhman & Esplin 2016 | 3% |
+
+**False alarms with the wider candidate net:** none. RW Aurigae and R Draconis (25 and 37 frames with WISE) still show no movers.
+
+Three problems found on the way and fixed:
+- **Saturated stars.** In WISE/NEOWISE, Barnard's Star saturates into a ring with a flat core. Peak finding missed it or landed on the ring's edge, so the app now uses the light-weighted centre.
+- **Error floor.** WISE positions got a 0.5 px error floor to allow for resampled pixels and saturation.
+- **Epoch order.** Adding the closest epoch first let one wrong match derail the fit. AllWISE goes first now.
+
+**WISE 0855 needs the WISE frames.** SPHEREx alone measures it at only 3.6σ, below the candidate threshold. With WISE frames loaded, ≥3σ tracks become candidates and are kept only if found in ≥2 WISE epochs and ≥5σ overall, and WISE 0855 is then confirmed in 18 epochs.
+
+## SPHEREx PSF (EPSF) aperture corrections
+
+From each detector's EPSF table (451 PSFs, 5× oversampled), the server computes the share of a star's light inside the 2-pixel photometry aperture; the app corrects each measurement at its exact wavelength. On Barnard's Star: 97.4% (D1, shortest λ) down to 95.7% (D4–D6), so spectra are corrected by 2.6–4.3%, more at long wavelengths.
+
+## Partner data: NEOSSat (Canadian Space Agency)
+
+For each field, CADC's archive is asked which NEOSSat observations cover it. Barnard's Star: **628 observations**, Nov 2018 – Dec 2019, shown with CADC preview images.
+
+## Gaia DR3 from NASA MAST
+
+Gaia DR3 now comes from NASA's MAST archive, the host the challenge links, in ~1–2 s; the server trims MAST's 153 columns (6.4 MB for Barnard's field) to the 6 used (237 KB). CDS VizieR mirrors remain the fallback.
+
+## 15-year proper motions: SPHEREx + WISE 2010 only (earlier, 14 Nov)
 
 Each confident mover is found again in the 2010 AllWISE image, at the position its SPHEREx motion predicts, and refitted. Static stars near the predicted spot are excluded, because they appear in the SPHEREx images too. The WISE point is accepted only if the motion stays a straight line.
 

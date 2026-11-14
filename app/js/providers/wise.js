@@ -1,9 +1,10 @@
 // NASA WISE data from IRSA, for comparison with SPHEREx:
 // - an AllWISE Atlas cutout in W2 (4.6 µm), taken in 2010: a ~15-year baseline image;
+// - NEOWISE single-exposure W2 frames, 2014–2024, stacked per half-year visit;
 // - CatWISE2020 sources, whose proper motions come from 10 years of WISE/NEOWISE data
 //   and include cold brown dwarfs that Gaia cannot see.
 
-import { fetchRemote, parseVoTable } from '../net.js';
+import { fetchRemote, parseVoTable, proxyEnabled, pool } from '../net.js';
 import { parseFits, maybeGunzip } from '../fits.js';
 import { Wcs } from '../wcs.js';
 
@@ -29,6 +30,45 @@ export async function allwiseCutout(ra, dec, sizeDeg) {
     data: hdu.data, width: hdu.width, height: hdu.height, wcs: new Wcs(hdu.header), header: hdu.header,
     mjd: (row.t_min + row.t_max) / 2, mjdRange: [row.t_min, row.t_max], id: row.obs_id || row.access_url,
   };
+}
+
+/**
+ * NEOWISE W2 frames covering (ra, dec): [{ url, mjd }]. The raw search answer is ~10 MB per
+ * position, so this needs the local server, which keeps only the W2 image rows (~50 KB).
+ */
+export async function neowiseFrames(ra, dec) {
+  if (!proxyEnabled()) throw new Error('NEOWISE frames need the SkyShift server');
+  const params = new URLSearchParams({
+    COLLECTION: 'neowiser', POS: `circle ${ra} ${dec} 0.002`, RESPONSEFORMAT: 'votable', MAXREC: '20000',
+  });
+  const r = await fetchRemote(`${IRSA}/SIA?${params}`, {}, 2, {
+    cols: 'access_url,t_min', where: 'energy_bandpassname:W2;dataproduct_subtype:science',
+  });
+  return ((await r.json()).data || []).map((row) => ({ url: row.access_url, mjd: Number(row.t_min) }))
+    .filter((f) => f.url && Number.isFinite(f.mjd)).sort((a, b) => a.mjd - b.mjd);
+}
+
+/** Group frames into the survey's half-year visits and keep a few, spread out, from each. */
+export function neowiseVisits(frames, perVisit = 5, gapDays = 30) {
+  const visits = [];
+  for (const f of frames) {
+    const v = visits[visits.length - 1];
+    if (v && f.mjd - v.frames[v.frames.length - 1].mjd <= gapDays) v.frames.push(f);
+    else visits.push({ frames: [f] });
+  }
+  return visits.map((v) => {
+    const n = v.frames.length, k = Math.min(perVisit, n);
+    const pick = [...new Set(Array.from({ length: k }, (_, i) => Math.round((i * (n - 1)) / Math.max(1, k - 1))))];
+    return { mjd: v.frames.reduce((s, f) => s + f.mjd, 0) / n, frames: pick.map((i) => v.frames[i]), available: n };
+  });
+}
+
+/** One NEOWISE cutout (gzip FITS, SIN-SIP WCS): { data, width, height, wcs }. */
+export async function neowiseCutout(url, ra, dec, sizeDeg) {
+  const r = await fetchRemote(`${url}?center=${ra.toFixed(6)},${dec.toFixed(6)}&size=${sizeDeg.toFixed(5)}`, {}, 3);
+  const hdu = parseFits(await maybeGunzip(await r.arrayBuffer())).find((h) => h.data);
+  if (!hdu) throw new Error('Empty NEOWISE cutout');
+  return { data: hdu.data, width: hdu.width, height: hdu.height, wcs: new Wcs(hdu.header) };
 }
 
 /**

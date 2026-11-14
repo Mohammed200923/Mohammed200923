@@ -2,7 +2,7 @@
 // then server-side cutouts of each Level-2 spectral image (multi-extension FITS).
 // Formats checked against IRSA's SPHEREx tutorial notebooks and live responses (Nov 2026).
 
-import { fetchRemote, parseVoTable } from '../net.js';
+import { fetchRemote, parseVoTable, proxyEnabled } from '../net.js';
 import { parseFits, spherexPlanes, hasPlanes } from '../fits.js';
 import { detectorFromWavelength } from '../spherex.js';
 
@@ -48,6 +48,7 @@ export const irsaProvider = {
   label: 'NASA SPHEREx (IRSA)',
   simulated: false,
   _waveTables: new Map(),
+  _psfTables: new Map(),
 
   async search({ ra, dec, collection }) {
     const params = new URLSearchParams();
@@ -89,6 +90,32 @@ export const irsaProvider = {
     }
     return this._waveTables.get(key);
   },
+};
+
+/**
+ * For one detector: the fraction of a star's light inside the app's 2-pixel aperture, by
+ * wavelength, from that detector's EPSF table. The server reads the ~4 MB table and returns
+ * only [wavelength, fraction] pairs. → (wavelength µm) => fraction, or null without the server.
+ */
+irsaProvider.psfTable = function psfTable(desc, { ra, dec }) {
+  if (!proxyEnabled()) return Promise.resolve(null);
+  const key = desc.detector;
+  if (!this._psfTables.has(key)) {
+    const p = fetchRemote(cutoutUrl(desc.url, ra, dec, 0.01), {}, 5, { fits: 'psf-ee' })
+      .then((r) => r.json())
+      .then(({ rows }) => {
+        if (!rows?.length) return null;
+        return (wl) => {
+          // Median over the PSFs measured within ±1% of this wavelength (nearest one if none).
+          const near = rows.filter(([cw]) => Math.abs(cw - wl) <= 0.01 * wl).map(([, f]) => f).sort((a, b) => a - b);
+          if (near.length) return near[near.length >> 1];
+          return rows.reduce((best, r) => (Math.abs(r[0] - wl) < Math.abs(best[0] - wl) ? r : best))[1];
+        };
+      });
+    p.catch(() => this._psfTables.delete(key));
+    this._psfTables.set(key, p);
+  }
+  return this._psfTables.get(key);
 };
 
 function toDescriptor(row) {

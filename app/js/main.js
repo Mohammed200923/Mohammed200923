@@ -9,8 +9,9 @@ import { gaiaCone, resolveName } from './catalogs.js';
 import { scatterPlot } from './charts.js';
 import { irsaProvider } from './providers/irsa.js';
 import { simulatedProvider } from './providers/simulated.js';
-import { allwiseCutout, catwiseCone, cleanCatwiseMovers, CATWISE_EPOCH } from './providers/wise.js';
+import { allwiseCutout, catwiseCone, cleanCatwiseMovers, CATWISE_EPOCH, neowiseFrames, neowiseVisits, neowiseCutout } from './providers/wise.js';
 import { smallBodies, bodyAt, horizonsPositions } from './providers/jpl.js';
+import { neossatObservations } from './providers/neossat.js';
 
 const PROVIDERS = { irsa: irsaProvider, sim: simulatedProvider };
 const $ = (id) => document.getElementById(id);
@@ -193,6 +194,10 @@ async function run() {
           frame.wlExact = true;
         }
       }
+      if (provider.psfTable) {
+        // Share of a star's light inside the 2-pixel aperture at this wavelength (SPHEREx EPSF).
+        frame.apertureFraction = await provider.psfTable(desc, { ra, dec }).catch(() => null);
+      }
       return frame;
     };
     const results = await pool(list, provider.concurrency || 6, loadOne, (done, total) => setProgress(done / total));
@@ -232,9 +237,9 @@ async function run() {
       (provider.simulated ? ' — SIMULATED data' : ''));
     // Gaia is needed to tell known movers from new ones, whether or not its overlay is shown.
     loadGaia({ quiet: !$('ov-gaia').checked });
-    if (!provider.simulated) { loadWise(); loadSmallBodies(); }
+    if (!provider.simulated) { loadWise(); loadSmallBodies(); loadNeossat(); }
     else {
-      state.wiseFrame = null; state.catwise = null; state.wiseKey = '';
+      state.wiseFrame = null; state.neowise = []; state.catwise = null; state.wiseKey = '';
       state.bodies = null; renderBodies('Known asteroids and comets are looked up for real NASA data only.');
       $('wise-status').textContent = 'The WISE comparison (2010 image, CatWISE2020) needs real NASA data.';
     }
@@ -270,7 +275,8 @@ function rebuildSequence() {
   const sphx = buildSequence(state.frames, { mode: $('mode').value, gapDays: Number($('gap').value) });
   // The 2010 WISE frame, when loaded, opens the movie; it has its own brightness scale and is
   // kept out of the SPHEREx statistics, difference reference and mover search.
-  state.seq = state.wiseFrame && $('wise-frame').checked ? [state.wiseFrame, ...sphx] : sphx;
+  const wiseFrames = [state.wiseFrame, ...(state.neowise || [])].filter(Boolean).sort((a, b) => a.mjd - b.mjd);
+  state.seq = $('wise-frame').checked ? [...wiseFrames, ...sphx] : sphx;
   const arrays = sphx.map((s) => s.data);
   const [lo, hi] = percentiles(arrays, [1, 99.7]);
   state.stats = { lo, hi };
@@ -299,20 +305,40 @@ function searchMovers() {
     renderMovers('Needs at least two survey visits.');
     return;
   }
-  const { movers, possible, anchorSources } = findMovers(visits, state.grid.n);
+  const haveWise = Boolean(state.wiseFrame || state.neowise?.length);
+  // With WISE frames to vet them, fainter tracks (≥3σ from SPHEREx alone) become candidates:
+  // one year of SPHEREx data puts a faint mover like WISE 0855 right at the 4σ edge.
+  const { movers, possible, anchorSources } = findMovers(visits, state.grid.n, haveWise ? { possibleSignificance: 3 } : {});
   const t = state.target;
   const tiers = [...movers.slice(0, 8).map((m) => [m, 'confident']), ...possible.slice(0, 5).map((m) => [m, 'possible'])];
-  // With the 2010 WISE image loaded, each mover's baseline is extended to ~15 years. A faint
-  // "possible" mover confirmed there is promoted; one with nothing at its predicted 2010
-  // position is hidden (and counted), since it is most likely a blend or noise.
+  // With WISE frames loaded (AllWISE 2010, NEOWISE 2014–2024), each mover is looked for in
+  // every one and its motion refitted over
+  // up to 16 years. A faint "possible" mover confirmed there is promoted; one found in none of
+  // them is hidden (and counted), since it is most likely a blend or noise.
   state.hiddenByWise = 0;
+  const spherexYear = visits.reduce((a, v) => a + mjdToYear(v.mjd), 0) / visits.length;
+  // AllWISE first: the deepest image and the longest lever arm pin the motion down, so every
+  // NEOWISE epoch after it is searched in a small, precise area (oldest first).
+  const epochs = [state.wiseFrame, ...[...(state.neowise || [])]
+    .sort((a, b) => Math.abs(mjdToYear(b.mjd) - spherexYear) - Math.abs(mjdToYear(a.mjd) - spherexYear))].filter(Boolean);
   const checked = tiers.map(([found, tier]) => {
-    if (!state.wiseFrame) return { m: found, tier, wise: null };
+    if (!epochs.length) return { m: found, tier, wise: null };
     const before = toProperMotion(found, state.grid.scaleArcsec);
-    const r = addEpoch(found, state.wiseFrame.data, state.grid.n, mjdToYear(state.wiseFrame.mjd), anchorSources);
-    if (r.fit) return { m: r.fit, tier: 'confident', wise: { confirmed: true, point: r.point, before } };
+    let fit = found, matched = 0, lastReason = '';
+    const years = [];
+    for (const e of epochs) {
+      // WISE positions carry ~0.5 px errors here: resampled 2.75″ pixels, and bright stars
+      // saturate into rings.
+      const r = addEpoch(fit, e.data, state.grid.n, mjdToYear(e.mjd), anchorSources, { floor: 0.5 });
+      if (r.fit) { fit = r.fit; matched++; years.push(mjdToYear(e.mjd)); } else lastReason = r.rejected;
+    }
+    // Confirmed: seen in at least two WISE epochs (one if only one exists) and significant overall.
+    const needed = Math.min(2, epochs.length);
+    if (matched >= needed && fit.significance >= 5) {
+      return { m: fit, tier: 'confident', wise: { confirmed: true, epochs: matched, of: epochs.length, first: Math.min(...years), before } };
+    }
     if (tier === 'possible') { state.hiddenByWise++; return null; }
-    return { m: found, tier, wise: { confirmed: false, reason: r.rejected, before } };
+    return { m: found, tier, wise: { confirmed: false, reason: lastReason, before } };
   }).filter(Boolean);
   state.movers = checked.map(({ m, tier, wise }, i) => {
     const pm = toProperMotion(m, state.grid.scaleArcsec);
@@ -382,13 +408,13 @@ function renderMovers(message) {
     const name = m.isTarget ? ` · ${state.target.name}` : '';
     const faint = m.tier === 'possible' ? ' <span class="badge unchecked">Faint: check by eye</span>' : '';
     const wiseBadge = m.wise?.confirmed
-      ? ` <span class="badge known" title="SPHEREx alone: ${m.wise.before.total.toFixed(2)} ± ${m.wise.before.err.toFixed(2)}″/yr">Seen in WISE 2010: 15-yr baseline</span>`
-      : m.wise ? ` <span class="badge unchecked" title="${m.wise.reason}">Not found in WISE 2010</span>` : '';
+      ? ` <span class="badge known" title="SPHEREx alone: ${m.wise.before.total.toFixed(2)} ± ${m.wise.before.err.toFixed(2)}″/yr">Seen in ${m.wise.epochs} of ${m.wise.of} WISE/NEOWISE epochs, since ${Math.floor(m.wise.first)}</span>`
+      : m.wise ? ` <span class="badge unchecked" title="${m.wise.reason}">Not found in WISE/NEOWISE</span>` : '';
     const pressed = state.pick?.mover === m ? 'true' : 'false';
     return `<button type="button" class="mover" data-n="${m.n}" aria-pressed="${pressed}">
       <span class="rate">${m.total.toFixed(m.wise?.confirmed ? 2 : 1)}″/yr</span>
       <span>#${m.n}${name} ${badge}${faint}${wiseBadge}</span>
-      <span class="where">${formatRa(m.ra)} ${formatDec(m.dec)} · toward ${pa.toFixed(0)}° · ±${m.err.toFixed(m.err < 0.1 ? 2 : 1)}″/yr · S/N ${m.snr.toFixed(0)} · ${m.visits} visits${m.wise?.confirmed ? ' + WISE 2010' : ''}</span>
+      <span class="where">${formatRa(m.ra)} ${formatDec(m.dec)} · toward ${pa.toFixed(0)}° · ±${m.err.toFixed(m.err < 0.1 ? 2 : 1)}″/yr · S/N ${m.snr.toFixed(0)} · ${m.visits} visits${m.wise?.confirmed ? ` + ${m.wise.epochs} WISE epochs` : ''}</span>
     </button>`;
   }).join('');
   box.querySelectorAll('.mover').forEach((b) => b.addEventListener('click', () => {
@@ -495,8 +521,9 @@ function captions(s) {
     const iso = (m) => mjdToDate(m).toISOString().slice(0, 7);
     return {
       title: state.target?.name || '',
-      lines: [`${s.label} · ${iso(s.mjdRange[0])} → ${iso(s.mjdRange[1])}`, 'λ 4.6 µm (W2) · 15-year baseline'],
-      footer: 'NASA WISE (AllWISE Atlas) · IRSA · SkyShift',
+      lines: [`${s.label} · ${iso(s.mjdRange[0])} → ${iso(s.mjdRange[1])}`,
+        s.instrument === 'NEOWISE' ? `λ 4.6 µm (W2) · ${s.stacked} exposures stacked` : 'λ 4.6 µm (W2) · 15-year baseline'],
+      footer: `NASA ${s.instrument === 'NEOWISE' ? 'NEOWISE' : 'WISE (AllWISE Atlas)'} · IRSA · SkyShift`,
     };
   }
   const d0 = mjdToDate(s.mjdRange ? s.mjdRange[0] : s.mjd);
@@ -528,10 +555,10 @@ function render() {
 function updateMeta(s) {
   if (s.instrument) {
     const rows = [
-      ['Source', 'NASA WISE, AllWISE Atlas image (IRSA)'],
+      ['Source', s.instrument === 'NEOWISE' ? 'NASA NEOWISE single exposures, median-stacked (IRSA)' : 'NASA WISE, AllWISE Atlas image (IRSA)'],
       ['Band', 'W2, 4.6 µm'],
       ['Dates', `${mjdToDate(s.mjdRange[0]).toISOString().slice(0, 10)} → ${mjdToDate(s.mjdRange[1]).toISOString().slice(0, 10)}`],
-      ['Pixel scale', '1.375″ (resampled to 6.15″)'],
+      ['Pixel scale', s.instrument === 'NEOWISE' ? '2.75″ (resampled to 6.15″)' : '1.375″ (resampled to 6.15″)'],
       ['Units', 'DN (own brightness scale)'],
       ['Image', s.id],
     ];
@@ -589,12 +616,12 @@ async function loadGaia({ quiet = false } = {}) {
   state.gaia = null;
   state.gaiaPending = true;
   try {
-    if (!quiet) setStatus('Loading Gaia DR3 stars from CDS VizieR…');
+    if (!quiet) setStatus('Loading Gaia DR3 stars (NASA MAST)…');
     const radius = (state.grid.n * state.grid.scaleArcsec) * 0.75;
     state.gaia = await gaiaCone(state.grid.wcs.crval[0], state.grid.wcs.crval[1], radius);
     state.gaiaKey = key;
     const fast = state.gaia.filter((g) => Math.hypot(g.pmra, g.pmdec) > 150).length;
-    if (!quiet) setStatus(`Gaia DR3: ${state.gaia.length} stars (${fast} with proper motion > 150 mas/yr, yellow).`);
+    if (!quiet) setStatus(`Gaia DR3 (${state.gaia.source}): ${state.gaia.length} stars (${fast} with proper motion > 150 mas/yr, yellow).`);
     for (const m of state.movers) m.gaia = classifyMover(m.ra, m.dec, m.t0, m);
     renderMovers();
     if (state.catwise) updateWiseStatus(state.wiseProblems || []);
@@ -630,8 +657,11 @@ function updateWiseStatus(problems = []) {
     return;
   }
   const parts = [];
-  if (state.wiseFrame) parts.push('2010 WISE image added as the first frame');
+  if (state.wiseFrame || state.neowise?.length) {
+    parts.push(`${(state.wiseFrame ? 1 : 0) + (state.neowise?.length || 0)} WISE frames (${state.wiseFrame ? 'AllWISE 2010' : ''}${state.wiseFrame && state.neowise?.length ? ' + ' : ''}${state.neowise?.length ? `NEOWISE ${mjdToDate(state.neowise[0].mjd).getUTCFullYear()}–${mjdToDate(state.neowise[state.neowise.length - 1].mjd).getUTCFullYear()}` : ''}) open the movie`);
+  }
   if (state.catwise) parts.push(`${state.catwise.length} CatWISE2020 sources, ${catwiseMovers().length} with reliable motion (pink)`);
+  if (state.neowisePending) parts.push('NEOWISE frames (2014–2024) still loading');
   $('wise-status').textContent = parts.length ? `WISE: ${parts.join('; ')}.` : '';
 }
 
@@ -642,6 +672,7 @@ async function loadWise() {
   if (state.wiseKey === key) return;
   state.wiseKey = key;
   state.wiseFrame = null;
+  state.neowise = [];
   state.catwise = null;
   const sizeDeg = (g.n * g.scaleArcsec / 3600) * 1.45;
   const image = allwiseCutout(g.wcs.crval[0], g.wcs.crval[1], sizeDeg).then((cut) => {
@@ -665,11 +696,75 @@ async function loadWise() {
     renderMovers();
     render();
   });
-  const [img, cat] = await Promise.allSettled([image, catalogue]);
-  const problems = [img.status === 'rejected' && `WISE image: ${img.reason.message}`, cat.status === 'rejected' && `CatWISE: ${cat.reason.message}`].filter(Boolean);
+  state.neowisePending = true;
+  const neo = loadNeowise(g, key, sizeDeg).finally(() => { if (state.wiseKey === key) state.neowisePending = false; });
+  const [img, cat, nw] = await Promise.allSettled([image, catalogue, neo]);
+  const problems = [img.status === 'rejected' && `WISE image: ${img.reason.message}`, cat.status === 'rejected' && `CatWISE: ${cat.reason.message}`,
+    nw.status === 'rejected' && `NEOWISE: ${nw.reason.message}`].filter(Boolean);
   if (problems.length) console.warn(problems.join('; '));
   state.wiseProblems = problems;
   updateWiseStatus(problems);
+}
+
+/**
+ * NEOWISE W2, 2014–2024: a few frames from each half-year visit, each background-subtracted,
+ * resampled to the grid and median-combined (which also removes cosmic-ray hits).
+ */
+async function loadNeowise(g, key, sizeDeg) {
+  const [ra, dec] = g.wcs.crval;
+  const visits = neowiseVisits(await neowiseFrames(ra, dec), 5);
+  const jobs = visits.flatMap((v, vi) => v.frames.map((f) => ({ f, vi })));
+  const done = await pool(jobs, 6, async ({ f }) => {
+    const cut = await neowiseCutout(f.url, ra, dec, sizeDeg);
+    const data = reproject({ ...cut }, g);
+    const [bg] = percentiles([data], [50]);
+    for (let i = 0; i < data.length; i++) data[i] -= bg;
+    return data;
+  });
+  if (state.wiseKey !== key) return;
+  if (visits.length && done.every((d) => !d || d.error)) {
+    throw new Error(`all ${done.length} NEOWISE cutouts failed (${done.find((d) => d?.error)?.error?.message || 'archive error'})`);
+  }
+  const frames = visits.map((v, vi) => {
+    const arrays = jobs.map((j, k) => (j.vi === vi && done[k] && !done[k].error ? done[k] : null)).filter(Boolean);
+    if (!arrays.length) return null;
+    const data = coadd(arrays, 'median');
+    const [lo, hi] = percentiles([data], [1, 99.7]);
+    const months = (m) => mjdToDate(m).toISOString().slice(0, 7);
+    return {
+      instrument: 'NEOWISE', label: `NEOWISE ${months(v.mjd)}`, mjd: v.mjd,
+      mjdRange: [v.frames[0].mjd, v.frames[v.frames.length - 1].mjd], data, members: [],
+      wlMin: 4.6, wlMax: 4.6, stats: { lo, hi }, stacked: arrays.length, available: v.available,
+      id: `${arrays.length} of ${v.available} NEOWISE W2 exposures`,
+    };
+  }).filter(Boolean);
+  state.neowise = frames;
+  rebuildSequence();
+}
+
+// ---------- partner data: NEOSSat (Canadian Space Agency, via CADC) ----------
+
+async function loadNeossat() {
+  const g = state.grid;
+  const key = `${g.wcs.crval.join(',')}|${g.n}`;
+  if (state.neossatKey === key) return;
+  state.neossatKey = key;
+  const box = $('neossat');
+  box.innerHTML = '<p class="muted small">Looking for NEOSSat observations of this spot (CADC)…</p>';
+  try {
+    const list = await neossatObservations(g.wcs.crval[0], g.wcs.crval[1], (g.n * g.scaleArcsec) / 3600 / 2);
+    if (state.neossatKey !== key) return;
+    if (!list.length) {
+      box.innerHTML = '<p class="muted small">NEOSSat has not observed this spot.</p>';
+      return;
+    }
+    const day = (m) => mjdToDate(m).toISOString().slice(0, 10);
+    const pick = [...new Set(Array.from({ length: Math.min(6, list.length) }, (_, i) => Math.round((i * (list.length - 1)) / Math.max(1, Math.min(6, list.length) - 1))))].map((i) => list[i]);
+    box.innerHTML = `<p class="muted small"><strong>${list.length}</strong> NEOSSat observation${list.length > 1 ? 's' : ''} of this spot, ${day(list[0].mjd)} → ${day(list[list.length - 1].mjd)}. NEOSSat is the Canadian Space Agency's satellite for tracking asteroids and comets; its optical images complement SPHEREx's infrared view.</p>
+      <div class="thumbs">${pick.map((o) => `<a href="${o.preview}" target="_blank" rel="noopener" title="NEOSSat ${o.id} · ${day(o.mjd)}"><img src="${o.thumb}" alt="NEOSSat image ${o.id}, ${day(o.mjd)}" loading="lazy"><span>${day(o.mjd)}</span></a>`).join('')}</div>`;
+  } catch (e) {
+    if (state.neossatKey === key) box.innerHTML = `<p class="muted small">NEOSSat archive unavailable (${e.message}).</p>`;
+  }
 }
 
 // ---------- known asteroids and comets (NASA JPL) ----------
@@ -815,9 +910,14 @@ function updateMeasurements() {
   state.seq.forEach((s, i) => s.members.forEach((m) => visitOf.set(m, i)));
   state.measurements = relativeBrightness(state.frames.map((f) => {
     const p = pickPosition(f.mjd);
-    const { flux, err } = measure(f.aligned, f.alignedVar, n, p.x, p.y, state.grid.scaleArcsec);
+    const raw = measure(f.aligned, f.alignedVar, n, p.x, p.y, state.grid.scaleArcsec);
+    const wl = f.lambdaAt ? f.lambdaAt(...state.grid.wcs.pixToWorld(p.x, p.y)) : f.wl;
+    // Correct for the light outside the aperture, which grows with wavelength (SPHEREx EPSF).
+    const frac = f.apertureFraction ? f.apertureFraction(wl) : null;
+    const k = frac > 0.3 ? 1 / frac : 1;
+    const flux = raw.flux * k, err = raw.err * k;
     return {
-      mjd: f.mjd, wl: f.lambdaAt ? f.lambdaAt(...state.grid.wcs.pixToWorld(p.x, p.y)) : f.wl,
+      mjd: f.mjd, wl, apertureFraction: frac,
       detector: f.detector, id: f.obsId || f.id,
       visit: visitOf.get(f) ?? 0, flux, err,
       saturated: apertureSaturated(f.alignedSat, n, p.x, p.y),

@@ -8,6 +8,14 @@ that anyone has loaded once comes back in seconds for the next visitor.
 /proxy?url=...&fits=planes  SPHEREx cutout trimmed to the planes the app uses (IMAGE, FLAGS,
                             VARIANCE, ZODI): ~120 KB instead of ~4 MB, read only that far.
 /proxy?url=...&fits=noepsf  Whole MEF minus the ~4 MB EPSF table (keeps WCS-WAVE).
+/proxy?url=...&fits=psf-ee  From the EPSF table (one SPHEREx point-spread function per detector
+                            region), each PSF's wavelength and the fraction of its light inside
+                            the app's 2-pixel aperture, as JSON {"rows": [[cwave_um, fraction]]}.
+/proxy?url=...&cols=a,b,c   MAST-style JSON ({fields, data}) cut down to those columns
+                            (MAST's Gaia DR3 cone returns all 153 columns: ~6 MB per field).
+                            For a VOTable answer, also &where=col:value;col:value keeps only
+                            matching rows, and the result is returned as that same JSON shape
+                            (an IRSA NEOWISE search is ~10 MB; the W2 image rows are ~50 KB).
 
     python3 server.py            # http://localhost:8000
     python3 server.py --port 9000
@@ -15,9 +23,13 @@ that anyone has loaded once comes back in seconds for the next visitor.
 import argparse
 import hashlib
 import http.server
+import json
+import math
+import struct
 import os
 import tempfile
 import threading
+import xml.etree.ElementTree as ET
 import time
 import urllib.error
 import urllib.parse
@@ -35,6 +47,9 @@ ALLOWED_HOSTS = {
     # NASA JPL small-body identification and Horizons (known asteroids and comets)
     "ssd-api.jpl.nasa.gov",
     "ssd.jpl.nasa.gov",
+    # NASA MAST (Gaia DR3, as linked by the challenge) and the Canadian Astronomy Data Centre
+    "mast.stsci.edu",
+    "ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca",
 }
 TIMEOUT = 180
 CACHE_DIR = os.environ.get("SKYSHIFT_CACHE", os.path.join(tempfile.gettempdir(), "skyshift-cache"))
@@ -48,7 +63,7 @@ _cache_lock = threading.Lock()
 
 def is_search(url):
     path = urllib.parse.urlparse(url).path
-    return path.endswith(("/SIA", "/TAP/sync", "/asu-tsv")) or "sesame" in path
+    return path.endswith(("/SIA", "/TAP/sync", "/asu-tsv", "/argus/sync")) or "sesame" in path
 
 
 # ---------- disk cache ----------
@@ -151,11 +166,85 @@ def trim_fits(resp, mode):
     return bytes(out)
 
 
+def psf_encircled(resp, radius_px=2.0):
+    """Read a SPHEREx MEF up to its EPSF table; for each PSF, the light fraction within radius."""
+    while True:
+        header = bytearray(read_exact(resp, BLOCK))
+        if not header:
+            raise ValueError("no EPSF table in this file")
+        while not _has_end(header):
+            nxt = read_exact(resp, BLOCK)
+            if not nxt:
+                raise ValueError("truncated FITS header")
+            header += nxt
+        cards = parse_header(bytes(header))
+        naxis = int(cards.get("NAXIS", 0))
+        count = 1 if naxis else 0
+        for k in range(1, naxis + 1):
+            count *= int(cards.get(f"NAXIS{k}", 0))
+        nbytes = abs(int(cards.get("BITPIX", 8))) // 8 * int(cards.get("GCOUNT", 1)) * (int(cards.get("PCOUNT", 0)) + count)
+        data = read_exact(resp, -(-nbytes // BLOCK) * BLOCK)
+        if cards.get("EXTNAME", "").upper() == "EPSF":
+            break
+    width, rows = int(cards["NAXIS1"]), int(cards["NAXIS2"])
+    over = int(cards.get("OVSMPX", 5))
+    # Column layout from the header: offsets of CWAVE and the EPSF image within a row.
+    sizes = {"J": 4, "E": 4, "D": 8, "I": 2, "K": 8, "B": 1}
+    offset, cols = 0, {}
+    for k in range(1, int(cards["TFIELDS"]) + 1):
+        form = cards[f"TFORM{k}"].strip()
+        rep_count = int(form[:-1] or 1)
+        cols[cards[f"TTYPE{k}"].strip().upper()] = (offset, form[-1], rep_count)
+        offset += rep_count * sizes[form[-1]]
+    cw_off, _, _ = cols["CWAVE"]
+    ps_off, ps_type, ps_n = cols["EPSF"]
+    side = int(round(math.sqrt(ps_n)))
+    c = (side - 1) / 2
+    inside = [j * side + i for j in range(side) for i in range(side) if math.hypot(i - c, j - c) <= radius_px * over]
+    fmt = ">" + str(ps_n) + ("d" if ps_type == "D" else "f")
+    out = []
+    for r in range(rows):
+        row = data[r * width:(r + 1) * width]
+        cwave = struct.unpack_from(">f", row, cw_off)[0]
+        psf = struct.unpack_from(fmt, row, ps_off)
+        total = sum(psf)
+        if total > 0:
+            out.append([round(cwave, 4), round(sum(psf[i] for i in inside) / total, 4)])
+    return json.dumps({"radius_px": radius_px, "rows": out}, separators=(",", ":")).encode()
+
+
 def _has_end(header):
     for i in range(0, len(header), 80):
         if header[i:i + 8] == b"END     ":
             return True
     return False
+
+
+def select_columns(body, cols):
+    """Reduce a MAST JSON answer ({fields: [...], data: [{...}]}) to the named columns."""
+    doc = json.loads(body)
+    keep = set(cols)
+    doc["fields"] = [f for f in doc.get("fields", []) if f.get("name") in keep]
+    doc["data"] = [{k: row.get(k) for k in cols} for row in doc.get("data", [])]
+    return json.dumps(doc, separators=(",", ":")).encode()
+
+
+def votable_to_json(body, cols, where=""):
+    """Rows of a TABLEDATA VOTable, filtered by where='col:value;...' and cut to cols."""
+    conditions = [c.split(":", 1) for c in where.split(";") if ":" in c]
+    root = ET.fromstring(body)
+    strip = lambda tag: tag.rsplit("}", 1)[-1]
+    fields, rows = [], []
+    for el in root.iter():
+        if strip(el.tag) == "FIELD":
+            fields.append(el.get("name"))
+        elif strip(el.tag) == "TR":
+            cells = [(td.text or "").strip() for td in el if strip(td.tag) == "TD"]
+            row = dict(zip(fields, cells))
+            if all(row.get(k) == v for k, v in conditions):
+                rows.append({k: row.get(k) for k in cols})
+    doc = {"fields": [{"name": c} for c in cols], "data": rows}
+    return json.dumps(doc, separators=(",", ":")).encode()
 
 
 # ---------- HTTP ----------
@@ -173,7 +262,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._send(200, b"ok", "text/plain; charset=utf-8")
         if parsed.path == "/proxy":
             q = urllib.parse.parse_qs(parsed.query)
-            return self._proxy(q.get("url", [""])[0], q.get("fits", [""])[0])
+            return self._proxy(q.get("url", [""])[0], q.get("fits", [""])[0], q.get("cols", [""])[0], q.get("where", [""])[0])
         return super().do_GET()
 
     def _send(self, status, body, ctype, cached=None):
@@ -185,18 +274,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _proxy(self, target, fits_mode):
+    def _proxy(self, target, fits_mode, cols="", where=""):
         url = urllib.parse.urlparse(target)
         if url.scheme != "https" or url.hostname not in ALLOWED_HOSTS:
             return self._send(403, b"host not allowed", "text/plain")
-        if fits_mode not in ("", "planes", "noepsf"):
+        if fits_mode not in ("", "planes", "noepsf", "psf-ee"):
             return self._send(400, b"unknown fits mode", "text/plain")
-        key = f"{fits_mode}|{target}"
+        key = f"{fits_mode}|{cols}|{where}|{target}"
         try:
             hit = cache_get(key, target)
             if hit:
                 return self._send(200, hit[0], hit[1], cached=True)
             body, ctype = self._fetch(target, fits_mode)
+            if cols and (body.lstrip().startswith(b"<") or "xml" in ctype):
+                body, ctype = votable_to_json(body, cols.split(","), where), "application/json"
+            elif cols:
+                body = select_columns(body, cols.split(","))
             cache_put(key, body, ctype)
             self._send(200, body, ctype, cached=False)
         except urllib.error.HTTPError as e:
@@ -217,6 +310,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             try:
                 with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
                     ctype = resp.headers.get("Content-Type", "application/octet-stream")
+                    if fits_mode == "psf-ee":
+                        return psf_encircled(resp), "application/json"
                     body = trim_fits(resp, fits_mode) if fits_mode else resp.read()
                     return body, ctype
             except urllib.error.HTTPError as e:

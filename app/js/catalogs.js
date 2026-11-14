@@ -1,7 +1,7 @@
-// Reference catalogues from CDS: Gaia DR3 (VizieR) for proper-motion overlays,
-// and Sesame for resolving object names.
+// Reference catalogues: Gaia DR3 for proper-motion overlays (from NASA's MAST archive, as the
+// challenge links it, with CDS VizieR mirrors as the fallback), and CDS Sesame for names.
 
-import { fetchRemote } from './net.js';
+import { fetchRemote, proxyEnabled } from './net.js';
 
 // CDS's main VizieR server has outages; the official mirrors serve the same catalogues.
 const VIZIER_MIRRORS = ['vizier.cds.unistra.fr', 'vizier.idia.ac.za', 'vizier.cfa.harvard.edu'];
@@ -20,8 +20,43 @@ async function fromMirrors(urls) {
   throw lastError;
 }
 
+const GAIA_COLUMNS = ['source_id', 'ra', 'dec', 'pmra', 'pmdec', 'phot_g_mean_mag'];
+
+/** Gaia DR3 cone from NASA MAST. Needs the local server: MAST sends no CORS headers, and the
+ * server also trims MAST's 153 columns (~6 MB per field) down to the six used here. */
+async function gaiaFromMast(ra, dec, radiusArcsec, maxRows) {
+  const request = JSON.stringify({
+    service: 'Mast.Catalogs.GaiaDR3.Cone',
+    params: { ra, dec, radius: radiusArcsec / 3600 },
+    format: 'json', pagesize: maxRows, page: 1,
+  });
+  const r = await fetchRemote(`https://mast.stsci.edu/api/v0/invoke?request=${encodeURIComponent(request)}`,
+    {}, 2, { cols: GAIA_COLUMNS.join(',') });
+  const doc = await r.json();
+  if (doc.status && doc.status !== 'COMPLETE') throw new Error(`MAST: ${doc.msg || doc.status}`);
+  return (doc.data || []).map((row) => ({
+    id: String(row.source_id), ra: row.ra, dec: row.dec,
+    pmra: row.pmra ?? 0, pmdec: row.pmdec ?? 0, gmag: row.phot_g_mean_mag,
+  })).filter((s) => Number.isFinite(s.ra) && Number.isFinite(s.dec));
+}
+
 /** Gaia DR3 sources in a cone. Positions are at epoch 2016.0; pm in mas/yr. */
-export async function gaiaCone(ra, dec, radiusArcsec, maxRows = 3000) {
+export async function gaiaCone(ra, dec, radiusArcsec, maxRows = 20000) {
+  if (proxyEnabled()) {
+    try {
+      const list = await gaiaFromMast(ra, dec, radiusArcsec, maxRows);
+      list.source = 'NASA MAST';
+      return list;
+    } catch (e) {
+      console.warn('MAST Gaia query failed, using CDS VizieR', e);
+    }
+  }
+  const list = await gaiaFromVizier(ra, dec, radiusArcsec, maxRows);
+  list.source = 'CDS VizieR';
+  return list;
+}
+
+async function gaiaFromVizier(ra, dec, radiusArcsec, maxRows) {
   const params = new URLSearchParams({
     '-source': 'I/355/gaiadr3',
     '-c': `${ra.toFixed(6)} ${dec >= 0 ? '+' : ''}${dec.toFixed(6)}`,
