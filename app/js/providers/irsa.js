@@ -66,7 +66,8 @@ export const irsaProvider = {
   },
 
   async fetchCutout(desc, { ra, dec, sizeDeg }) {
-    const r = await fetchRemote(cutoutUrl(desc.url, ra, dec, sizeDeg), {}, 5);
+    // Through the proxy, the server trims the cutout to the planes we use and caches it.
+    const r = await fetchRemote(cutoutUrl(desc.url, ra, dec, sizeDeg), {}, 5, { fits: 'planes' });
     return readPlanes(r);
   },
 
@@ -79,7 +80,7 @@ export const irsaProvider = {
   waveTable(desc, { ra, dec }) {
     const key = desc.detector;
     if (!this._waveTables.has(key)) {
-      const p = fetchRemote(cutoutUrl(desc.url, ra, dec, 0.01), {}, 5)
+      const p = fetchRemote(cutoutUrl(desc.url, ra, dec, 0.01), {}, 5, { fits: 'noepsf' })
         .then((r) => r.arrayBuffer())
         .then((b) => spherexPlanes(parseFits(b)).waveTable);
       // Forget failures so the next exposure from this detector tries again.

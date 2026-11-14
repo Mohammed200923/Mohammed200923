@@ -19,8 +19,13 @@ export function proxyEnabled() {
 
 const RETRY_STATUS = new Set([429, 502, 503, 504]);
 
-export async function fetchRemote(url, opts = {}, retries = 3) {
-  const target = useProxy ? `proxy?url=${encodeURIComponent(url)}` : url;
+/**
+ * Fetch from a remote archive, through the local server's proxy when there is one.
+ * proxyParams go to the proxy only (e.g. { fits: 'planes' } to have it trim and cache FITS).
+ */
+export async function fetchRemote(url, opts = {}, retries = 3, proxyParams = null) {
+  const extra = proxyParams ? `&${new URLSearchParams(proxyParams)}` : '';
+  const target = useProxy ? `proxy?url=${encodeURIComponent(url)}${extra}` : url;
   for (let attempt = 0; ; attempt++) {
     let r;
     try {

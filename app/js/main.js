@@ -50,8 +50,13 @@ function buildControls() {
     b.dataset.key = t.key;
     b.setAttribute('aria-pressed', 'false');
     b.addEventListener('click', () => {
+      // Each chip sets the view that works best for that object.
       $('target').value = t.name;
       $('size').value = t.sizeArcmin;
+      $('wmin').value = t.wmin ?? 0.75;
+      $('wmax').value = t.wmax ?? 5;
+      $('max').value = t.max ?? 36;
+      document.querySelectorAll('#detectors input').forEach((i) => (i.checked = true));
       updateSizeLabel();
       run();
     });
@@ -213,6 +218,10 @@ async function run() {
     state.pick = null;
     state.measurements = [];
     state.movers = [];
+    // A new field's movers wait for its own catalogues (the look-ups start just below).
+    const fieldKey = `${state.grid.wcs.crval.join(',')}|${state.grid.n}`;
+    state.gaiaPending = state.gaiaKey !== fieldKey;
+    state.catwisePending = !provider.simulated && state.wiseKey !== fieldKey;
     rebuildSequence();
     updateSampleNote();
     $('empty').hidden = true;
@@ -341,11 +350,13 @@ function matchCatalogue(list, epoch, ra, dec, year, pm) {
 
 /** Known to Gaia DR3, known to CatWISE2020 (WISE/NEOWISE, sees cold brown dwarfs), or neither. */
 function classifyMover(ra, dec, year, pm) {
-  if (!state.gaia && !state.catwise) return { kind: 'unchecked' };
   const g = state.gaia && matchCatalogue(state.gaia, 2016.0, ra, dec, year, pm);
   if (g) return { kind: 'known', id: g.id, gmag: g.gmag, gaiaTotal: Math.hypot(g.pmra, g.pmdec) / 1000 };
   const c = state.catwise && matchCatalogue(state.catwise, CATWISE_EPOCH, ra, dec, year, pm);
   if (c) return { kind: 'catwise', id: c.id, w2: c.w2, total: Math.hypot(c.pmra, c.pmdec) / 1000 };
+  // Don't call anything "new" while a catalogue is still on its way.
+  if (state.gaiaPending || state.catwisePending) return { kind: 'checking' };
+  if (!state.gaia && !state.catwise) return { kind: 'unchecked' };
   const checked = [state.gaia && 'Gaia DR3', state.catwise && 'CatWISE2020'].filter(Boolean);
   return { kind: 'new', checked };
 }
@@ -365,7 +376,8 @@ function renderMovers(message) {
       known: `<span class="badge known">Gaia DR3 ${m.gaia.gaiaTotal?.toFixed(2)}″/yr</span>`,
       catwise: `<span class="badge known" title="${m.gaia.id}">CatWISE2020 ${m.gaia.total?.toFixed(2)}″/yr</span>`,
       new: `<span class="badge new">No match in ${m.gaia.checked?.join(' or ')}</span>`,
-      unchecked: `<span class="badge unchecked">Gaia not checked</span>`,
+      checking: `<span class="badge unchecked">Checking Gaia &amp; WISE…</span>`,
+      unchecked: `<span class="badge unchecked">Catalogues unavailable</span>`,
     }[m.gaia.kind];
     const name = m.isTarget ? ` · ${state.target.name}` : '';
     const faint = m.tier === 'possible' ? ' <span class="badge unchecked">Faint: check by eye</span>' : '';
@@ -575,6 +587,7 @@ async function loadGaia({ quiet = false } = {}) {
   const key = `${state.grid.wcs.crval.join(',')}|${state.grid.n}`;
   if (state.gaiaKey === key && state.gaia) { render(); return; }
   state.gaia = null;
+  state.gaiaPending = true;
   try {
     if (!quiet) setStatus('Loading Gaia DR3 stars from CDS VizieR…');
     const radius = (state.grid.n * state.grid.scaleArcsec) * 0.75;
@@ -588,6 +601,10 @@ async function loadGaia({ quiet = false } = {}) {
     render();
   } catch (e) {
     if (!quiet) setStatus(`Gaia overlay unavailable: ${e.message}`, true);
+  } finally {
+    state.gaiaPending = false;
+    for (const m of state.movers) m.gaia = classifyMover(m.ra, m.dec, m.t0, m);
+    renderMovers();
   }
 }
 
@@ -637,9 +654,13 @@ async function loadWise() {
     };
     rebuildSequence();
   });
+  state.catwisePending = true;
   const catalogue = catwiseCone(g.wcs.crval[0], g.wcs.crval[1], (g.n * g.scaleArcsec * 0.75) / 3600).then((list) => {
     if (state.wiseKey !== key) return;
     state.catwise = list;
+  }).finally(() => {
+    if (state.wiseKey !== key) return;
+    state.catwisePending = false;
     for (const m of state.movers) m.gaia = classifyMover(m.ra, m.dec, m.t0, m);
     renderMovers();
     render();
@@ -975,7 +996,13 @@ function wire() {
 async function main() {
   buildControls();
   wire();
-  const hasQuery = readUrl();
+  let hasQuery = readUrl();
+  if (!hasQuery) {
+    // Open on a real result rather than an empty page: Barnard's Star, the fastest star in the sky.
+    $('target').value = "Barnard's Star";
+    $('max').value = '36';
+    hasQuery = true;
+  }
   const proxy = await detectProxy();
   setStatus(proxy ? 'Connected via local archive proxy.' : 'Ready. Direct archive access (run server.py if requests are blocked).');
   scatterPlot($('spectrum'), []);

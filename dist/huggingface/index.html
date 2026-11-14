@@ -123,6 +123,14 @@ body.embed .panel { border: 0; border-radius: 0; }
 .bodies { display: grid; gap: 4px; font-size: 12px; }
 .bodies .body { padding: 4px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 
+.guide { max-width: 680px; margin: 12px auto 0; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; background: var(--panel-2); }
+.guide summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.guide-body { font-size: 13px; line-height: 1.5; }
+.guide-body p { margin: 8px 0; max-width: 70ch; }
+.legend { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
+.legend li { display: flex; gap: 8px; align-items: baseline; }
+.legend .key { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--c); display: inline-block; transform: translateY(2px); }
+
   .topbar, .foot { padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
   .layout { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .preview-banner { margin: 14px max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); padding: 10px 14px; border: 1px solid var(--accent); border-radius: var(--radius); background: var(--panel); font-size: 13px; line-height: 1.5; }
@@ -179,7 +187,7 @@ body.embed .panel { border: 0; border-radius: 0; }
           <label>Data source
             <select id="source">
               <option value="irsa">NASA SPHEREx (IRSA)</option>
-              <option value="sim">Simulated demo</option>
+              <option value="sim" hidden>Simulated (offline tests)</option>
             </select>
           </label>
         </div>
@@ -207,7 +215,7 @@ body.embed .panel { border: 0; border-radius: 0; }
                 <option value="exposure">Every exposure</option>
               </select>
             </label>
-            <label>Max cutouts <input type="number" id="max" min="4" max="400" step="1" value="120"></label>
+            <label>Max cutouts <input type="number" id="max" min="4" max="3000" step="1" value="60"></label>
           </div>
           <label class="check"><input type="checkbox" id="zodi" checked> Subtract zodiacal light model</label>
           <label class="check"><input type="checkbox" id="mask" checked> Mask flagged pixels</label>
@@ -230,8 +238,8 @@ body.embed .panel { border: 0; border-radius: 0; }
       <div class="stage">
         <canvas id="view" width="640" height="640" aria-label="SPHEREx time-lapse frame"></canvas>
         <div class="empty" id="empty">
-          <h2>Pick a patch of sky</h2>
-          <p>Enter coordinates or try a challenge target. SkyShift fetches every SPHEREx image of that spot, aligns them, and plays them as a short movie so anything that moves or changes brightness jumps out.</p>
+          <h2>Loading real NASA SPHEREx images…</h2>
+          <p>SkyShift fetches every SPHEREx image of this spot from NASA's archive, lines them up, and plays them as a short movie, so anything that moves or changes brightness jumps out. A field takes up to a minute the first time; fields other people have opened come back in seconds.</p>
         </div>
       </div>
 
@@ -264,6 +272,23 @@ body.embed .panel { border: 0; border-radius: 0; }
         <label class="check"><input type="checkbox" id="ov-catwise"> CatWISE2020 stars</label>
         <label class="check"><input type="checkbox" id="ov-bodies" checked> Known asteroids &amp; comets</label>
       </div>
+
+      <details class="guide" id="guide">
+        <summary>How to read this</summary>
+        <div class="guide-body">
+          <p><strong>What you see.</strong> Each frame stacks all the SPHEREx images from one survey visit (about every six months; monthly near the ecliptic poles). The first frame, “WISE 2010”, is NASA's WISE telescope 15 years earlier. Press play: stars that stay put are distant; anything that slides is nearby, or in the Solar System.</p>
+          <ul class="legend">
+            <li><span class="key" style="--c:#7ee0ff"></span><span><strong>Dashed line + crosshair:</strong> where the chosen object should be on each date, from its catalogued motion.</span></li>
+            <li><span class="key" style="--c:#7fe0a0"></span><span><strong>Green arrow:</strong> a moving object SkyShift found by itself, already known to Gaia or WISE.</span></li>
+            <li><span class="key" style="--c:#ffb347"></span><span><strong>Orange arrow:</strong> a moving object found by SkyShift with <em>no</em> catalogue match: a candidate worth a closer look.</span></li>
+            <li><span class="key" style="--c:#b8ff5c"></span><span><strong>Lime circle:</strong> a known asteroid or comet in that exposure (NASA JPL).</span></li>
+            <li><span class="key" style="--c:#ffe066"></span><span class="key" style="--c:#ff7ad9"></span><span><strong>Yellow / pink circles:</strong> fast-moving stars in the Gaia DR3 / CatWISE2020 catalogues (turn on below the image).</span></li>
+          </ul>
+          <p><strong>Difference view.</strong> Subtracts the average sky: still stars vanish, and a moving object becomes an orange spot (where it is now) next to a blue one (where it usually is).</p>
+          <p><strong>Measure.</strong> Click any star, or a mover in the list, to see its spectrum across SPHEREx's 0.75–5 µm colours and how its brightness changes over time. Hollow points are saturated and not used.</p>
+          <p><strong>Data.</strong> NASA SPHEREx (IRSA), NASA WISE (AllWISE, CatWISE2020), NASA JPL (Small-Body Identification, Horizons), ESA Gaia DR3, all fetched live.</p>
+        </div>
+      </details>
 
       <div class="export">
         <button id="export-video">Download video</button>
@@ -330,7 +355,9 @@ var TARGETS = [
     epoch: 2e3,
     pmra: -801.55,
     pmdec: 10362.39,
-    sizeArcmin: 6
+    sizeArcmin: 6,
+    wmin: 0.75,
+    wmax: 5
   },
   {
     key: "epsindib",
@@ -341,7 +368,9 @@ var TARGETS = [
     epoch: 2e3,
     pmra: 3982,
     pmdec: -2466,
-    sizeArcmin: 6
+    sizeArcmin: 6,
+    wmin: 0.75,
+    wmax: 5
   },
   {
     key: "wise0855",
@@ -352,7 +381,11 @@ var TARGETS = [
     epoch: 2010.5,
     pmra: -8123,
     pmdec: 680,
-    sizeArcmin: 8
+    sizeArcmin: 8,
+    wmin: 3.8,
+    wmax: 5,
+    max: 200
+    // cold: only bright at 4–5 µm; faint, so use all images
   },
   {
     key: "rwaur",
@@ -363,7 +396,9 @@ var TARGETS = [
     epoch: 2e3,
     pmra: 3,
     pmdec: -25,
-    sizeArcmin: 6
+    sizeArcmin: 6,
+    wmin: 0.75,
+    wmax: 5
   },
   {
     key: "rdra",
@@ -374,7 +409,9 @@ var TARGETS = [
     epoch: 2e3,
     pmra: -6,
     pmdec: 31,
-    sizeArcmin: 6
+    sizeArcmin: 6,
+    wmin: 0.75,
+    wmax: 5
   }
 ];
 
@@ -598,8 +635,8 @@ async function detectProxy() {
   return useProxy;
 }
 var RETRY_STATUS = /* @__PURE__ */ new Set([429, 502, 503, 504]);
-async function fetchRemote(url, opts = {}, retries = 3) {
-  let target = useProxy ? `proxy?url=${encodeURIComponent(url)}` : url;
+async function fetchRemote(url, opts = {}, retries = 3, proxyParams = null) {
+  let extra = proxyParams ? `&${new URLSearchParams(proxyParams)}` : "", target = useProxy ? `proxy?url=${encodeURIComponent(url)}${extra}` : url;
   for (let attempt = 0; ; attempt++) {
     let r;
     try {
@@ -1444,7 +1481,7 @@ var irsaProvider = {
     return rows.filter((row) => row.access_url && (!row.dataproduct_type || row.dataproduct_type === "image")).map((row) => toDescriptor(row)).filter((d) => !seen.has(d.id) && seen.add(d.id)).sort((a, b) => a.mjd - b.mjd);
   },
   async fetchCutout(desc, { ra, dec, sizeDeg }) {
-    let r = await fetchRemote(cutoutUrl(desc.url, ra, dec, sizeDeg), {}, 5);
+    let r = await fetchRemote(cutoutUrl(desc.url, ra, dec, sizeDeg), {}, 5, { fits: "planes" });
     return readPlanes(r);
   },
   concurrency: 4,
@@ -1456,7 +1493,7 @@ var irsaProvider = {
   waveTable(desc, { ra, dec }) {
     let key = desc.detector;
     if (!this._waveTables.has(key)) {
-      let p = fetchRemote(cutoutUrl(desc.url, ra, dec, 0.01), {}, 5).then((r) => r.arrayBuffer()).then((b) => spherexPlanes(parseFits(b)).waveTable);
+      let p = fetchRemote(cutoutUrl(desc.url, ra, dec, 0.01), {}, 5, { fits: "noepsf" }).then((r) => r.arrayBuffer()).then((b) => spherexPlanes(parseFits(b)).waveTable);
       p.catch(() => this._waveTables.delete(key)), this._waveTables.set(key, p);
     }
     return this._waveTables.get(key);
@@ -1789,7 +1826,7 @@ function buildControls() {
   for (let t of TARGETS) {
     let b = document.createElement("button");
     b.type = "button", b.textContent = t.name, b.title = t.kind, b.dataset.key = t.key, b.setAttribute("aria-pressed", "false"), b.addEventListener("click", () => {
-      $("target").value = t.name, $("size").value = t.sizeArcmin, updateSizeLabel(), run();
+      $("target").value = t.name, $("size").value = t.sizeArcmin, $("wmin").value = t.wmin ?? 0.75, $("wmax").value = t.wmax ?? 5, $("max").value = t.max ?? 36, document.querySelectorAll("#detectors input").forEach((i) => i.checked = !0), updateSizeLabel(), run();
     }), chips.appendChild(b);
   }
   let dets = $("detectors");
@@ -1889,7 +1926,9 @@ async function run() {
     let frames = results.filter((r) => r && !r.error && (!r.wlExact || r.wl >= wmin && r.wl <= wmax)), failed = results.filter((r) => !r || r.error).length, outside = results.length - frames.length - failed;
     if (!frames.length)
       throw results.find((r) => r?.error)?.error || new Error("No exposure has this spot inside the chosen wavelength range. Widen the range.");
-    state.frames = frames, state.pick = null, state.measurements = [], state.movers = [], rebuildSequence(), updateSampleNote(), $("empty").hidden = !0;
+    state.frames = frames, state.pick = null, state.measurements = [], state.movers = [];
+    let fieldKey = `${state.grid.wcs.crval.join(",")}|${state.grid.n}`;
+    state.gaiaPending = state.gaiaKey !== fieldKey, state.catwisePending = !provider.simulated && state.wiseKey !== fieldKey, rebuildSequence(), updateSampleNote(), $("empty").hidden = !0;
     try {
       history.replaceState(null, "", shareUrl());
     } catch {
@@ -1970,11 +2009,10 @@ function matchCatalogue(list, epoch, ra, dec, year, pm) {
   return best && bestDiff <= tolerance ? best : null;
 }
 function classifyMover(ra, dec, year, pm) {
-  if (!state.gaia && !state.catwise) return { kind: "unchecked" };
   let g = state.gaia && matchCatalogue(state.gaia, 2016, ra, dec, year, pm);
   if (g) return { kind: "known", id: g.id, gmag: g.gmag, gaiaTotal: Math.hypot(g.pmra, g.pmdec) / 1e3 };
   let c = state.catwise && matchCatalogue(state.catwise, CATWISE_EPOCH, ra, dec, year, pm);
-  return c ? { kind: "catwise", id: c.id, w2: c.w2, total: Math.hypot(c.pmra, c.pmdec) / 1e3 } : { kind: "new", checked: [state.gaia && "Gaia DR3", state.catwise && "CatWISE2020"].filter(Boolean) };
+  return c ? { kind: "catwise", id: c.id, w2: c.w2, total: Math.hypot(c.pmra, c.pmdec) / 1e3 } : state.gaiaPending || state.catwisePending ? { kind: "checking" } : !state.gaia && !state.catwise ? { kind: "unchecked" } : { kind: "new", checked: [state.gaia && "Gaia DR3", state.catwise && "CatWISE2020"].filter(Boolean) };
 }
 function renderMovers(message) {
   let box = $("movers");
@@ -1989,7 +2027,8 @@ function renderMovers(message) {
       known: `<span class="badge known">Gaia DR3 ${m.gaia.gaiaTotal?.toFixed(2)}\u2033/yr</span>`,
       catwise: `<span class="badge known" title="${m.gaia.id}">CatWISE2020 ${m.gaia.total?.toFixed(2)}\u2033/yr</span>`,
       new: `<span class="badge new">No match in ${m.gaia.checked?.join(" or ")}</span>`,
-      unchecked: '<span class="badge unchecked">Gaia not checked</span>'
+      checking: '<span class="badge unchecked">Checking Gaia &amp; WISE\u2026</span>',
+      unchecked: '<span class="badge unchecked">Catalogues unavailable</span>'
     }[m.gaia.kind], name = m.isTarget ? ` \xB7 ${state.target.name}` : "", faint = m.tier === "possible" ? ' <span class="badge unchecked">Faint: check by eye</span>' : "", wiseBadge = m.wise?.confirmed ? ` <span class="badge known" title="SPHEREx alone: ${m.wise.before.total.toFixed(2)} \xB1 ${m.wise.before.err.toFixed(2)}\u2033/yr">Seen in WISE 2010: 15-yr baseline</span>` : m.wise ? ` <span class="badge unchecked" title="${m.wise.reason}">Not found in WISE 2010</span>` : "", pressed = state.pick?.mover === m ? "true" : "false";
     return `<button type="button" class="mover" data-n="${m.n}" aria-pressed="${pressed}">
       <span class="rate">${m.total.toFixed(m.wise?.confirmed ? 2 : 1)}\u2033/yr</span>
@@ -2141,7 +2180,7 @@ async function loadGaia({ quiet = !1 } = {}) {
     render();
     return;
   }
-  state.gaia = null;
+  state.gaia = null, state.gaiaPending = !0;
   try {
     quiet || setStatus("Loading Gaia DR3 stars from CDS VizieR\u2026");
     let radius = state.grid.n * state.grid.scaleArcsec * 0.75;
@@ -2152,6 +2191,10 @@ async function loadGaia({ quiet = !1 } = {}) {
     renderMovers(), state.catwise && updateWiseStatus(state.wiseProblems || []), render();
   } catch (e) {
     quiet || setStatus(`Gaia overlay unavailable: ${e.message}`, !0);
+  } finally {
+    state.gaiaPending = !1;
+    for (let m of state.movers) m.gaia = classifyMover(m.ra, m.dec, m.t0, m);
+    renderMovers();
   }
 }
 function catwiseMovers() {
@@ -2194,9 +2237,13 @@ async function loadWise() {
       stats: { lo, hi },
       id: cut.id
     }, rebuildSequence();
-  }), catalogue = catwiseCone(g.wcs.crval[0], g.wcs.crval[1], g.n * g.scaleArcsec * 0.75 / 3600).then((list) => {
+  });
+  state.catwisePending = !0;
+  let catalogue = catwiseCone(g.wcs.crval[0], g.wcs.crval[1], g.n * g.scaleArcsec * 0.75 / 3600).then((list) => {
+    state.wiseKey === key && (state.catwise = list);
+  }).finally(() => {
     if (state.wiseKey === key) {
-      state.catwise = list;
+      state.catwisePending = !1;
       for (let m of state.movers) m.gaia = classifyMover(m.ra, m.dec, m.t0, m);
       renderMovers(), render();
     }
@@ -2461,7 +2508,9 @@ function wire() {
 }
 async function main() {
   buildControls(), wire();
-  let hasQuery = readUrl(), proxy = await detectProxy();
+  let hasQuery = readUrl();
+  hasQuery || ($("target").value = "Barnard's Star", $("max").value = "36", hasQuery = !0);
+  let proxy = await detectProxy();
   setStatus(proxy ? "Connected via local archive proxy." : "Ready. Direct archive access (run server.py if requests are blocked)."), scatterPlot($("spectrum"), []), scatterPlot($("lightcurve"), []), initAladin(), hasQuery && run();
 }
 main();

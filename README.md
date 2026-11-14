@@ -51,7 +51,9 @@ Everything runs in the browser with plain ES modules: no build step and no frame
 python3 server.py
 ```
 
-Then open <http://localhost:8000>. **Use the server for real SPHEREx data:** IRSA sends no CORS headers, so a browser can't call it directly from a static page. The proxy is what makes live data work.
+Then open <http://localhost:8000>. It opens straight onto Barnard's Star.
+
+**The server caches what it fetches.** SPHEREx cutouts are trimmed on the server to the four planes the app uses (~120 KB instead of ~4 MB) and kept on disk (`SKYSHIFT_CACHE`, default 2 GB cap; archive searches refresh after 6 h). The first visitor to a field waits ~1 minute; the next one gets it in seconds. To warm a fresh deployment, load the challenge targets once: `BASE_URL=https://<your-site> node tests/live.mjs "Barnard's Star" "Epsilon Indi B" "WISE 0855−0714" "RW Aurigae" "R Draconis"`. **Use the server for real SPHEREx data:** IRSA sends no CORS headers, so a browser can't call it directly from a static page. The proxy is what makes live data work.
 
 **Public hosting:** the repo has a `Dockerfile`; see [docs/DEPLOY.md](docs/DEPLOY.md) for Google Cloud Run or Azure (both are free Space Apps offers).
 

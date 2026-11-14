@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
-"""SkyShift local server.
+"""SkyShift server.
 
-Serves the static app from ./app and exposes an allow-listed pass-through proxy
-at /proxy?url=... so the browser can reach archives that do not send CORS headers.
+Serves the app from ./app and an allow-listed proxy at /proxy?url=... so the browser can
+reach archives that don't send CORS headers. Proxied answers are cached on disk, so a field
+that anyone has loaded once comes back in seconds for the next visitor.
+
+/proxy?url=...&fits=planes  SPHEREx cutout trimmed to the planes the app uses (IMAGE, FLAGS,
+                            VARIANCE, ZODI): ~120 KB instead of ~4 MB, read only that far.
+/proxy?url=...&fits=noepsf  Whole MEF minus the ~4 MB EPSF table (keeps WCS-WAVE).
 
     python3 server.py            # http://localhost:8000
     python3 server.py --port 9000
 """
 import argparse
+import hashlib
 import http.server
 import os
-import shutil
+import tempfile
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -24,66 +32,209 @@ ALLOWED_HOSTS = {
     # VizieR / Sesame mirrors (CDS redirects Sesame to these during outages)
     "vizier.idia.ac.za",
     "vizier.cfa.harvard.edu",
-    # NASA JPL small-body identification (known asteroids and comets in a field)
+    # NASA JPL small-body identification and Horizons (known asteroids and comets)
     "ssd-api.jpl.nasa.gov",
     "ssd.jpl.nasa.gov",
 }
 TIMEOUT = 180
+CACHE_DIR = os.environ.get("SKYSHIFT_CACHE", os.path.join(tempfile.gettempdir(), "skyshift-cache"))
+CACHE_MAX_BYTES = int(os.environ.get("SKYSHIFT_CACHE_MB", "2000")) * 1024 * 1024
+# Archive searches can gain new rows as SPHEREx data arrives (weekly); everything else
+# (image cutouts, time-specific ephemerides, catalogues) doesn't change.
+SEARCH_TTL = 6 * 3600
+BLOCK = 2880
+_cache_lock = threading.Lock()
 
+
+def is_search(url):
+    path = urllib.parse.urlparse(url).path
+    return path.endswith(("/SIA", "/TAP/sync", "/asu-tsv")) or "sesame" in path
+
+
+# ---------- disk cache ----------
+
+def cache_path(key):
+    return os.path.join(CACHE_DIR, hashlib.sha256(key.encode()).hexdigest())
+
+
+def cache_get(key, url):
+    path = cache_path(key)
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        return None
+    if is_search(url) and time.time() - st.st_mtime > SEARCH_TTL:
+        return None
+    with open(path + ".type") as f:
+        ctype = f.read().strip()
+    with open(path, "rb") as f:
+        return f.read(), ctype
+
+
+def cache_put(key, body, ctype):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    path = cache_path(key)
+    tmp = f"{path}.{threading.get_ident()}.tmp"
+    with open(tmp, "wb") as f:
+        f.write(body)
+    with open(path + ".type", "w") as f:
+        f.write(ctype)
+    os.replace(tmp, path)
+    with _cache_lock:
+        files = [os.path.join(CACHE_DIR, n) for n in os.listdir(CACHE_DIR) if not n.endswith((".type", ".tmp"))]
+        sizes = {p: os.path.getsize(p) for p in files}
+        total = sum(sizes.values())
+        for p in sorted(files, key=os.path.getmtime):  # evict oldest first
+            if total <= CACHE_MAX_BYTES:
+                break
+            total -= sizes[p]
+            for q in (p, p + ".type"):
+                try:
+                    os.remove(q)
+                except FileNotFoundError:
+                    pass
+
+
+# ---------- FITS trimming ----------
+
+def read_exact(resp, n):
+    out = bytearray()
+    while len(out) < n:
+        chunk = resp.read(n - len(out))
+        if not chunk:
+            break
+        out += chunk
+    return bytes(out)
+
+
+def parse_header(header):
+    cards = {}
+    for i in range(0, len(header), 80):
+        card = header[i:i + 80].decode("ascii", "replace")
+        key = card[:8].strip()
+        if key == "END":
+            break
+        if card[8:10] == "= ":
+            value = card[10:].split("/")[0].strip().strip("'").strip()
+            cards[key] = value
+    return cards
+
+
+def trim_fits(resp, mode):
+    """Copy a MEF HDU by HDU: drop EPSF; in 'planes' mode stop once IMAGE..ZODI are in."""
+    first = read_exact(resp, BLOCK)
+    if first[:2] == b"\x1f\x8b" or not first.startswith(b"SIMPLE"):
+        return first + resp.read()  # not a plain FITS file: pass through untouched
+    out, seen, block = bytearray(), set(), first
+    while block:
+        header = bytearray(block)
+        while not _has_end(header):
+            nxt = read_exact(resp, BLOCK)
+            if not nxt:
+                return bytes(out)
+            header += nxt
+        cards = parse_header(bytes(header))
+        naxis = int(cards.get("NAXIS", 0))
+        count = 1 if naxis else 0
+        for k in range(1, naxis + 1):
+            count *= int(cards.get(f"NAXIS{k}", 0))
+        nbytes = abs(int(cards.get("BITPIX", 8))) // 8 * int(cards.get("GCOUNT", 1)) * (int(cards.get("PCOUNT", 0)) + count)
+        padded = -(-nbytes // BLOCK) * BLOCK
+        name = cards.get("EXTNAME", "PRIMARY" if not out else "").upper()
+        data = read_exact(resp, padded)
+        if name != "EPSF":
+            out += header + data
+        seen.add(name)
+        if mode == "planes" and {"IMAGE", "FLAGS", "VARIANCE", "ZODI"} <= seen:
+            break
+        block = read_exact(resp, BLOCK)
+    return bytes(out)
+
+
+def _has_end(header):
+    for i in range(0, len(header), 80):
+        if header[i:i + 8] == b"END     ":
+            return True
+    return False
+
+
+# ---------- HTTP ----------
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=ROOT, **kwargs)
 
+    def log_message(self, fmt, *args):
+        pass  # keep hosted logs readable
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/proxy/health":
-            return self._send_text(200, "ok")
+            return self._send(200, b"ok", "text/plain; charset=utf-8")
         if parsed.path == "/proxy":
-            return self._proxy(urllib.parse.parse_qs(parsed.query).get("url", [""])[0])
+            q = urllib.parse.parse_qs(parsed.query)
+            return self._proxy(q.get("url", [""])[0], q.get("fits", [""])[0])
         return super().do_GET()
 
-    def _send_text(self, status, text):
-        body = text.encode()
+    def _send(self, status, body, ctype, cached=None):
         self.send_response(status)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        if cached is not None:
+            self.send_header("X-SkyShift-Cache", "hit" if cached else "miss")
         self.end_headers()
         self.wfile.write(body)
 
-    def _proxy(self, target):
+    def _proxy(self, target, fits_mode):
         url = urllib.parse.urlparse(target)
         if url.scheme != "https" or url.hostname not in ALLOWED_HOSTS:
-            return self._send_text(403, "host not allowed")
-        req = urllib.request.Request(target, headers={"User-Agent": "SkyShift/1.0 (NASA Space Apps)"})
+            return self._send(403, b"host not allowed", "text/plain")
+        if fits_mode not in ("", "planes", "noepsf"):
+            return self._send(400, b"unknown fits mode", "text/plain")
+        key = f"{fits_mode}|{target}"
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-                self.send_response(resp.status)
-                self.send_header("Content-Type", resp.headers.get("Content-Type", "application/octet-stream"))
-                length = resp.headers.get("Content-Length")
-                if length:
-                    self.send_header("Content-Length", length)
-                self.send_header("Cache-Control", "public, max-age=3600")
-                self.end_headers()
-                shutil.copyfileobj(resp, self.wfile)
+            hit = cache_get(key, target)
+            if hit:
+                return self._send(200, hit[0], hit[1], cached=True)
+            body, ctype = self._fetch(target, fits_mode)
+            cache_put(key, body, ctype)
+            self._send(200, body, ctype, cached=False)
         except urllib.error.HTTPError as e:
-            self._send_text(e.code, f"upstream error: {e.reason}")
+            self._send(e.code, f"upstream error: {e.reason}".encode(), "text/plain")
         except (urllib.error.URLError, TimeoutError) as e:
-            self._send_text(502, f"upstream unreachable: {e}")
+            self._send(502, f"upstream unreachable: {e}".encode(), "text/plain")
         except (BrokenPipeError, ConnectionResetError):
-            pass  # the browser stops reading once it has the image planes it needs
+            pass  # the browser went away
         except Exception as e:  # e.g. a malformed URL: answer instead of dropping the connection
-            self._send_text(400, f"bad proxy request: {e}")
+            try:
+                self._send(400, f"bad proxy request: {e}".encode(), "text/plain")
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+    def _fetch(self, target, fits_mode):
+        req = urllib.request.Request(target, headers={"User-Agent": "SkyShift/1.0 (NASA Space Apps)"})
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                    ctype = resp.headers.get("Content-Type", "application/octet-stream")
+                    body = trim_fits(resp, fits_mode) if fits_mode else resp.read()
+                    return body, ctype
+            except urllib.error.HTTPError as e:
+                # Busy archive (IRSA answers 503 under load): back off and retry.
+                if e.code in (429, 502, 503, 504) and attempt < 3:
+                    time.sleep(1.5 * 2 ** attempt)
+                    continue
+                raise
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    # Cloud hosts (Cloud Run, Azure Container Apps, ...) pass the port in $PORT.
+    # Cloud hosts (Cloud Run, Azure Container Apps, Hugging Face, ...) pass the port in $PORT.
     ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
     ap.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"))
     args = ap.parse_args()
     server = http.server.ThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"SkyShift running at http://{args.host}:{args.port}/")
+    print(f"SkyShift running at http://{args.host}:{args.port}/ (cache: {CACHE_DIR})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

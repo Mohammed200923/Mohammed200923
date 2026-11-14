@@ -114,3 +114,11 @@ body.embed .panel { border: 0; border-radius: 0; }
 .badge.unchecked { background: var(--panel-2); color: var(--muted); }
 .bodies { display: grid; gap: 4px; font-size: 12px; }
 .bodies .body { padding: 4px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+
+.guide { max-width: 680px; margin: 12px auto 0; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; background: var(--panel-2); }
+.guide summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.guide-body { font-size: 13px; line-height: 1.5; }
+.guide-body p { margin: 8px 0; max-width: 70ch; }
+.legend { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
+.legend li { display: flex; gap: 8px; align-items: baseline; }
+.legend .key { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--c); display: inline-block; transform: translateY(2px); }

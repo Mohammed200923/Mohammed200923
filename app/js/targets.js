@@ -5,22 +5,22 @@
 export const TARGETS = [
   {
     key: 'barnard', name: "Barnard's Star", kind: 'Fastest-moving star in the sky (10.4″/yr)',
-    ra: 269.452082, dec: 4.693365, epoch: 2000.0, pmra: -801.55, pmdec: 10362.39, sizeArcmin: 6,
+    ra: 269.452082, dec: 4.693365, epoch: 2000.0, pmra: -801.55, pmdec: 10362.39, sizeArcmin: 6, wmin: 0.75, wmax: 5,
   },
   {
     key: 'epsindib', name: 'Epsilon Indi B', kind: 'Pair of brown dwarfs orbiting a star',
-    ra: 331.043833, dec: -56.782694, epoch: 2000.0, pmra: 3982, pmdec: -2466, sizeArcmin: 6,
+    ra: 331.043833, dec: -56.782694, epoch: 2000.0, pmra: 3982, pmdec: -2466, sizeArcmin: 6, wmin: 0.75, wmax: 5,
   },
   {
     key: 'wise0855', name: 'WISE 0855−0714', kind: 'Coldest known brown dwarf, 8″/yr',
-    ra: 133.795129, dec: -7.245147, epoch: 2010.5, pmra: -8123, pmdec: 680, sizeArcmin: 8,
+    ra: 133.795129, dec: -7.245147, epoch: 2010.5, pmra: -8123, pmdec: 680, sizeArcmin: 8, wmin: 3.8, wmax: 5, max: 200, // cold: only bright at 4–5 µm; faint, so use all images
   },
   {
     key: 'rwaur', name: 'RW Aurigae', kind: 'Variable young star',
-    ra: 76.956408, dec: 30.401408, epoch: 2000.0, pmra: 3, pmdec: -25, sizeArcmin: 6,
+    ra: 76.956408, dec: 30.401408, epoch: 2000.0, pmra: 3, pmdec: -25, sizeArcmin: 6, wmin: 0.75, wmax: 5,
   },
   {
     key: 'rdra', name: 'R Draconis', kind: 'Mira variable star',
-    ra: 248.167417, dec: 66.755, epoch: 2000.0, pmra: -6, pmdec: 31, sizeArcmin: 6,
+    ra: 248.167417, dec: 66.755, epoch: 2000.0, pmra: -6, pmdec: 31, sizeArcmin: 6, wmin: 0.75, wmax: 5,
   },
 ];

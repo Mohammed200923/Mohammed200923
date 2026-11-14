@@ -59,7 +59,7 @@ def main():
     build_huggingface(app_html)
     html = app_html
     html = html.replace('<input id="target" name="target"', '<input id="target" name="target" value="Barnard\'s Star"')
-    old = '<option value="irsa">NASA SPHEREx (IRSA)</option>\n              <option value="sim">Simulated demo</option>'
+    old = '<option value="irsa">NASA SPHEREx (IRSA)</option>\n              <option value="sim" hidden>Simulated (offline tests)</option>'
     assert old in html
     html = html.replace(old, '<option value="sim" selected>Simulated demo</option>\n'
                              '              <option value="irsa">NASA SPHEREx (IRSA, needs internet)</option>')

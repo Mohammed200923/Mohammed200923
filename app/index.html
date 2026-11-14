@@ -36,7 +36,7 @@
           <label>Data source
             <select id="source">
               <option value="irsa">NASA SPHEREx (IRSA)</option>
-              <option value="sim">Simulated demo</option>
+              <option value="sim" hidden>Simulated (offline tests)</option>
             </select>
           </label>
         </div>
@@ -64,7 +64,7 @@
                 <option value="exposure">Every exposure</option>
               </select>
             </label>
-            <label>Max cutouts <input type="number" id="max" min="4" max="400" step="1" value="120"></label>
+            <label>Max cutouts <input type="number" id="max" min="4" max="3000" step="1" value="60"></label>
           </div>
           <label class="check"><input type="checkbox" id="zodi" checked> Subtract zodiacal light model</label>
           <label class="check"><input type="checkbox" id="mask" checked> Mask flagged pixels</label>
@@ -87,8 +87,8 @@
       <div class="stage">
         <canvas id="view" width="640" height="640" aria-label="SPHEREx time-lapse frame"></canvas>
         <div class="empty" id="empty">
-          <h2>Pick a patch of sky</h2>
-          <p>Enter coordinates or try a challenge target. SkyShift fetches every SPHEREx image of that spot, aligns them, and plays them as a short movie so anything that moves or changes brightness jumps out.</p>
+          <h2>Loading real NASA SPHEREx images…</h2>
+          <p>SkyShift fetches every SPHEREx image of this spot from NASA's archive, lines them up, and plays them as a short movie, so anything that moves or changes brightness jumps out. A field takes up to a minute the first time; fields other people have opened come back in seconds.</p>
         </div>
       </div>
 
@@ -121,6 +121,23 @@
         <label class="check"><input type="checkbox" id="ov-catwise"> CatWISE2020 stars</label>
         <label class="check"><input type="checkbox" id="ov-bodies" checked> Known asteroids &amp; comets</label>
       </div>
+
+      <details class="guide" id="guide">
+        <summary>How to read this</summary>
+        <div class="guide-body">
+          <p><strong>What you see.</strong> Each frame stacks all the SPHEREx images from one survey visit (about every six months; monthly near the ecliptic poles). The first frame, “WISE 2010”, is NASA's WISE telescope 15 years earlier. Press play: stars that stay put are distant; anything that slides is nearby, or in the Solar System.</p>
+          <ul class="legend">
+            <li><span class="key" style="--c:#7ee0ff"></span><span><strong>Dashed line + crosshair:</strong> where the chosen object should be on each date, from its catalogued motion.</span></li>
+            <li><span class="key" style="--c:#7fe0a0"></span><span><strong>Green arrow:</strong> a moving object SkyShift found by itself, already known to Gaia or WISE.</span></li>
+            <li><span class="key" style="--c:#ffb347"></span><span><strong>Orange arrow:</strong> a moving object found by SkyShift with <em>no</em> catalogue match: a candidate worth a closer look.</span></li>
+            <li><span class="key" style="--c:#b8ff5c"></span><span><strong>Lime circle:</strong> a known asteroid or comet in that exposure (NASA JPL).</span></li>
+            <li><span class="key" style="--c:#ffe066"></span><span class="key" style="--c:#ff7ad9"></span><span><strong>Yellow / pink circles:</strong> fast-moving stars in the Gaia DR3 / CatWISE2020 catalogues (turn on below the image).</span></li>
+          </ul>
+          <p><strong>Difference view.</strong> Subtracts the average sky: still stars vanish, and a moving object becomes an orange spot (where it is now) next to a blue one (where it usually is).</p>
+          <p><strong>Measure.</strong> Click any star, or a mover in the list, to see its spectrum across SPHEREx's 0.75–5 µm colours and how its brightness changes over time. Hollow points are saturated and not used.</p>
+          <p><strong>Data.</strong> NASA SPHEREx (IRSA), NASA WISE (AllWISE, CatWISE2020), NASA JPL (Small-Body Identification, Horizons), ESA Gaia DR3, all fetched live.</p>
+        </div>
+      </details>
 
       <div class="export">
         <button id="export-video">Download video</button>
