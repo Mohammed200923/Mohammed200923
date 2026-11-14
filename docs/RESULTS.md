@@ -31,6 +31,43 @@ The app now searches every field for moving objects without being told where to 
 - **WISE 0855 needs depth.** With 26 images it sits at S/N ≈ 5 and isn't found. With all available images it is found automatically, and flagged as having no Gaia DR3 match, which is what a genuinely new cold brown dwarf would look like. (A slow, unrelated Gaia star sits within 15″, so a mover is only matched to a Gaia star that also moves like it.)
 - **Measured speeds run 5–15% low.** The likely cause is that positions in mixed-wavelength stacks are slightly pulled toward neighbouring sources. Still inside ~1–1.5σ.
 
+## 15-year proper motions: SPHEREx + WISE 2010 (real data)
+
+Each confident mover is found again in the 2010 AllWISE image, at the position its SPHEREx motion predicts, and refitted. Static stars near the predicted spot are excluded, because they appear in the SPHEREx images too. The WISE point is accepted only if the motion stays a straight line.
+
+| Target | SPHEREx alone | SPHEREx + WISE 2010 | Catalogue |
+|---|---|---|---|
+| Barnard's Star | 9.25 ± 0.87″/yr | **9.97 ± 0.10″/yr** | 10.39 (Gaia DR3) |
+| Epsilon Indi B | 4.00 ± 0.62″/yr | **4.66 ± 0.10″/yr** (RA +3.94, Dec −2.49) | 4.68 (Gaia DR3) |
+| WISE 0855−0714 | 8.35 ± 1.56″/yr | **8.23 ± 0.11″/yr** (RA −8.20, Dec +0.77) | 8.15 (−8.12, +0.68; Luhman & Esplin 2016) |
+
+Uncertainties shrink about 9×. Epsilon Indi B and WISE 0855 agree with the catalogues to 1–2%. Barnard's Star is 4% low, likely because it is heavily saturated in WISE W2, which biases its measured centre.
+
+In the Epsilon Indi B field, two faint "possible" candidates had nothing at their predicted 2010 position and are hidden. The app says so in the movers panel.
+
+## Deep Survey (real data)
+
+Near the ecliptic poles, SPHEREx observes almost continuously. R Draconis has **2,494 images** (540 wide + 1,954 deep) covering every month from April 2025 to September 2026, now shown as ~15 monthly frames (visits are capped at 30 days).
+
+- **Mover search:** on 15 visits, a bright star's optical ghost lined up in 4 visits and passed as a "mover" (50″/yr). Movers must now be seen in at least half of the visits; possibles in at least a third. After that, all seven saved test fields are clean.
+- **Light curve:** the monthly R Draconis curve is still noisy (0.5–1.6 month to month, often from only 2–8 exposures), with no clean pulsation cycle. It is **not reliable yet**; the earlier three-visit numbers below should be read with the same caution. R Draconis is *not* flagged as saturated.
+
+## Saturation
+
+SPHEREx's own OVERFLOW/NONLINEAR flags are now carried to each measurement. Saturated measurements are drawn hollow, left out of brightness over time, and announced. RW Aurigae: 15 of 36 measurements saturated. Barnard's Star, R Draconis, WISE 0855: none.
+
+## Known asteroids and comets (NASA JPL)
+
+Two NASA JPL services work together:
+1. **Small-Body Identification** lists candidate asteroids and comets (V ≤ 20) near the field, once per observing day. It takes ~20 s per request whatever the box size; its fast mode can be off by a few arcminutes.
+2. **Horizons** then gives each candidate's exact position at every exposure time, in well under a second per object.
+
+On an ecliptic test field (RA 150°, Dec +12°, 10′, 36 sampled exposures), **4 known asteroids** fell inside the sampled exposures (V 18.5–19.4), circled at their Horizons positions. They take ~2 minutes after the images load. Asteroids at V 18–19 are at or below a single SPHEREx exposure's depth, so the circles mark where they are; they aren't always visible. A brighter one, 3674 Erbisbuhl (V 15.8), crossed the field in exposures that weren't in the 36-image sample: "Use all images" includes them.
+
+The precise mode alone (per exposure) found 7 objects but took ~10 minutes, too slow for a live demo.
+
+![Known asteroids panel](img/live/known-asteroids.png)
+
 ## WISE comparison (real data)
 
 The 2010 AllWISE W2 (4.6 µm) image opens each movie, and CatWISE2020 sources are overlaid. Detected movers are checked against Gaia DR3 first, then CatWISE2020.
@@ -54,7 +91,7 @@ Each exposure is divided by the source's own brightness at the same wavelength i
 |---|---|---|
 | Barnard's Star (steady) | 1.04 → 0.89 → 0.98 | Steady to about ±10%: this is the method's current noise level |
 | RW Aurigae (young, irregular variable) | 0.88 → 1.09 → 1.00 | ~20% change: a modest detection |
-| R Draconis (Mira variable) | **0.73 → 1.74 → 1.16** | A factor of 2.4: clear variability |
+| R Draconis (Mira variable) | 0.73 → 1.74 → 1.16 | Looks variable, but the monthly Deep Survey curve is noisy (see above): treat as unconfirmed |
 
 Before this correction, raw fluxes mixed wavelengths between visits and could mislead. For example, R Draconis seemed to drop from 20,900 to 13,400 mJy partly because the later visit sampled different wavelengths.
 

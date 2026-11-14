@@ -70,7 +70,7 @@
           <label class="check"><input type="checkbox" id="mask" checked> Mask flagged pixels</label>
           <details>
             <summary>Advanced</summary>
-            <label>IRSA collections <input id="collection" value="spherex_dr1,spherex_qr3"></label>
+            <label>IRSA collections <input id="collection" value="spherex_dr1,spherex_qr3,spherex_dr1_deep,spherex_qr3_deep"></label>
             <label>Visit gap (days) <input type="number" id="gap" min="1" max="90" value="20"></label>
           </details>
         </fieldset>
@@ -119,6 +119,7 @@
         <label class="check"><input type="checkbox" id="show-masked"> Show masked pixels</label>
         <label class="check"><input type="checkbox" id="wise-frame" checked> WISE 2010 frame</label>
         <label class="check"><input type="checkbox" id="ov-catwise"> CatWISE2020 stars</label>
+        <label class="check"><input type="checkbox" id="ov-bodies" checked> Known asteroids &amp; comets</label>
       </div>
 
       <div class="export">
@@ -135,6 +136,7 @@
       <div class="aladin-wrap">
         <div id="aladin"></div>
         <select id="hips" aria-label="Background survey">
+          <option value="https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube" selected>SPHEREx DR1 all-sky</option>
           <option value="P/2MASS/color">2MASS colour</option>
           <option value="P/allWISE/color">AllWISE colour</option>
           <option value="P/DSS2/color">DSS2 optical</option>
@@ -149,6 +151,9 @@
 
       <h3>Moving objects</h3>
       <div id="movers" class="movers" aria-live="polite"><p class="muted small">Load a field to search it automatically.</p></div>
+
+      <h3>Known asteroids &amp; comets</h3>
+      <div id="bodies" class="bodies"><p class="muted small">Load a field to look them up (NASA JPL).</p></div>
 
       <h3>Click a source</h3>
       <p class="muted small" id="pick-info">Click in the viewer to measure brightness across all frames.</p>

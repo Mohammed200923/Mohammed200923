@@ -24,6 +24,9 @@ ALLOWED_HOSTS = {
     # VizieR / Sesame mirrors (CDS redirects Sesame to these during outages)
     "vizier.idia.ac.za",
     "vizier.cfa.harvard.edu",
+    # NASA JPL small-body identification (known asteroids and comets in a field)
+    "ssd-api.jpl.nasa.gov",
+    "ssd.jpl.nasa.gov",
 }
 TIMEOUT = 180
 

@@ -18,6 +18,17 @@ export async function decodeCutout(buffer, desc, { subtractZodi = true, maskFlag
     for (let i = 0; i < data.length; i++) data[i] -= zodi.data[i];
   }
   const mask = flags ? badPixelMask(flags.header) : 0;
+  // Saturated or non-linear pixels stay in the image (bright stars would vanish otherwise) but
+  // are tracked, so measurements that use them can be marked unreliable.
+  let saturated = null;
+  if (flags && flags.data.length === data.length) {
+    const bits = flagBits(flags.header);
+    const satMask = ['OVERFLOW', 'NONLINEAR'].reduce((m, k) => (bits[k] !== undefined ? m | (1 << bits[k]) : m), 0) >>> 0;
+    if (satMask) {
+      saturated = new Float32Array(data.length);
+      for (let i = 0; i < data.length; i++) if ((flags.data[i] >>> 0) & satMask) saturated[i] = 1;
+    }
+  }
   if (maskFlags && flags && flags.data.length === data.length) {
     for (let i = 0; i < data.length; i++) {
       if ((flags.data[i] >>> 0) & mask) {
@@ -29,7 +40,7 @@ export async function decodeCutout(buffer, desc, { subtractZodi = true, maskFlag
   }
   return {
     ...desc,
-    width: image.width, height: image.height, data, variance, wcs,
+    width: image.width, height: image.height, data, variance, saturated, wcs,
     header, flagNames: flags ? Object.keys(flagBits(flags.header)) : [],
     maskedFraction: masked / data.length,
     zodiSubtracted: Boolean(subtractZodi && zodi),
@@ -62,13 +73,17 @@ export function reproject(frame, grid, data = frame.data) {
   return out;
 }
 
-/** Group frames into survey visits: consecutive frames closer than gapDays share a visit. */
-export function groupVisits(frames, gapDays) {
+/**
+ * Group frames into survey visits: consecutive frames closer than gapDays share a visit, and a
+ * visit is cut after maxSpanDays. The cap matters for Deep Survey fields, which are observed
+ * almost continuously and would otherwise collapse into a few months-long "visits".
+ */
+export function groupVisits(frames, gapDays, maxSpanDays = 30) {
   const sorted = [...frames].sort((a, b) => a.mjd - b.mjd);
   const groups = [];
   for (const f of sorted) {
     const g = groups[groups.length - 1];
-    if (g && f.mjd - g.frames[g.frames.length - 1].mjd <= gapDays) g.frames.push(f);
+    if (g && f.mjd - g.frames[g.frames.length - 1].mjd <= gapDays && f.mjd - g.frames[0].mjd <= maxSpanDays) g.frames.push(f);
     else groups.push({ frames: [f] });
   }
   return groups;
@@ -134,14 +149,14 @@ export function weightedCoadd(frames) {
  * Build the frames shown in the player.
  * mode 'visit' → one coadd per survey visit; 'exposure' → every exposure.
  */
-export function buildSequence(aligned, { mode, gapDays }) {
+export function buildSequence(aligned, { mode, gapDays, maxSpanDays = 30 }) {
   if (mode === 'exposure') {
     return aligned.map((f) => ({
       label: f.obsId || f.id, mjd: f.mjd, data: f.aligned, variance: f.alignedVar || null, members: [f],
       wlMin: f.wl, wlMax: f.wl,
     }));
   }
-  return groupVisits(aligned, gapDays).map((g, i) => {
+  return groupVisits(aligned, gapDays, maxSpanDays).map((g, i) => {
     const mjds = g.frames.map((f) => f.mjd);
     const wls = g.frames.map((f) => f.wl);
     const { data, variance } = weightedCoadd(g.frames);
@@ -174,6 +189,18 @@ export function percentiles(arrays, ps) {
  */
 export function aperturePhotometry(data, n, cx, cy, scaleArcsec, r = 2, rin = 4, rout = 7) {
   return measure(data, null, n, cx, cy, scaleArcsec, r, rin, rout).flux;
+}
+
+/** True if any pixel inside the aperture is saturated (sat: resampled 0–1 flag plane). */
+export function apertureSaturated(sat, n, cx, cy, r = 2) {
+  if (!sat) return false;
+  for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) {
+    for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+      if (x < 0 || y < 0 || x >= n || y >= n || Math.hypot(x - cx, y - cy) > r) continue;
+      if (sat[y * n + x] > 0.25) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -215,9 +242,11 @@ export function measure(data, variance, n, cx, cy, scaleArcsec, r = 2, rin = 4, 
  * points: [{ wl, flux, err, visit }] → the same points with { rel, relErr }.
  */
 export function relativeBrightness(points) {
+  const usable = points.filter((q) => !q.saturated);
   return points.map((p) => {
+    if (p.saturated) return { ...p, rel: NaN, relErr: NaN };
     for (const frac of [0.08, 0.2, 0.4]) {
-      const ref = median(points
+      const ref = median(usable
         .filter((q) => q.visit !== p.visit && Math.abs(Math.log(q.wl / p.wl)) <= frac)
         .map((q) => q.flux));
       if (Number.isFinite(ref) && ref > 0) {

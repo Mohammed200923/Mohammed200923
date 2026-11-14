@@ -120,6 +120,8 @@ body.embed .panel { border: 0; border-radius: 0; }
 .badge.known { background: #16351f; color: #7fe0a0; }
 .badge.new { background: #3a2a10; color: #ffcf7a; }
 .badge.unchecked { background: var(--panel-2); color: var(--muted); }
+.bodies { display: grid; gap: 4px; font-size: 12px; }
+.bodies .body { padding: 4px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 
   .topbar, .foot { padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
   .layout { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -219,7 +221,7 @@ body.embed .panel { border: 0; border-radius: 0; }
           <label class="check"><input type="checkbox" id="mask" checked> Mask flagged pixels</label>
           <details>
             <summary>Advanced</summary>
-            <label>IRSA collections <input id="collection" value="spherex_dr1,spherex_qr3"></label>
+            <label>IRSA collections <input id="collection" value="spherex_dr1,spherex_qr3,spherex_dr1_deep,spherex_qr3_deep"></label>
             <label>Visit gap (days) <input type="number" id="gap" min="1" max="90" value="20"></label>
           </details>
         </fieldset>
@@ -268,6 +270,7 @@ body.embed .panel { border: 0; border-radius: 0; }
         <label class="check"><input type="checkbox" id="show-masked"> Show masked pixels</label>
         <label class="check"><input type="checkbox" id="wise-frame" checked> WISE 2010 frame</label>
         <label class="check"><input type="checkbox" id="ov-catwise"> CatWISE2020 stars</label>
+        <label class="check"><input type="checkbox" id="ov-bodies" checked> Known asteroids &amp; comets</label>
       </div>
 
       <div class="export">
@@ -284,6 +287,7 @@ body.embed .panel { border: 0; border-radius: 0; }
       <div class="aladin-wrap">
         <div id="aladin"></div>
         <select id="hips" aria-label="Background survey">
+          <option value="https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube" selected>SPHEREx DR1 all-sky</option>
           <option value="P/2MASS/color">2MASS colour</option>
           <option value="P/allWISE/color">AllWISE colour</option>
           <option value="P/DSS2/color">DSS2 optical</option>
@@ -298,6 +302,9 @@ body.embed .panel { border: 0; border-radius: 0; }
 
       <h3>Moving objects</h3>
       <div id="movers" class="movers" aria-live="polite"><p class="muted small">Load a field to search it automatically.</p></div>
+
+      <h3>Known asteroids &amp; comets</h3>
+      <div id="bodies" class="bodies"><p class="muted small">Load a field to look them up (NASA JPL).</p></div>
 
       <h3>Click a source</h3>
       <p class="muted small" id="pick-info">Click in the viewer to measure brightness across all frames.</p>
@@ -921,7 +928,14 @@ async function decodeCutout(buffer, desc, { subtractZodi = !0, maskFlags = !0 } 
   let hdus = parseFits(await maybeGunzip(buffer)), { image, flags, zodi, variance: varHdu, primary } = spherexPlanes(hdus), header = { ...primary.header, ...image.header }, wcs = new Wcs(header), data = new Float32Array(image.data), variance = varHdu && varHdu.data.length === data.length ? new Float32Array(varHdu.data) : null, masked = 0;
   if (subtractZodi && zodi && zodi.data.length === data.length)
     for (let i = 0; i < data.length; i++) data[i] -= zodi.data[i];
-  let mask = flags ? badPixelMask(flags.header) : 0;
+  let mask = flags ? badPixelMask(flags.header) : 0, saturated = null;
+  if (flags && flags.data.length === data.length) {
+    let bits = flagBits(flags.header), satMask = ["OVERFLOW", "NONLINEAR"].reduce((m, k) => bits[k] !== void 0 ? m | 1 << bits[k] : m, 0) >>> 0;
+    if (satMask) {
+      saturated = new Float32Array(data.length);
+      for (let i = 0; i < data.length; i++) flags.data[i] >>> 0 & satMask && (saturated[i] = 1);
+    }
+  }
   if (maskFlags && flags && flags.data.length === data.length)
     for (let i = 0; i < data.length; i++)
       flags.data[i] >>> 0 & mask && (data[i] = NaN, variance && (variance[i] = NaN), masked++);
@@ -931,6 +945,7 @@ async function decodeCutout(buffer, desc, { subtractZodi = !0, maskFlags = !0 } 
     height: image.height,
     data,
     variance,
+    saturated,
     wcs,
     header,
     flagNames: flags ? Object.keys(flagBits(flags.header)) : [],
@@ -953,11 +968,11 @@ function reproject(frame, grid, data = frame.data) {
     }
   return out;
 }
-function groupVisits(frames, gapDays) {
+function groupVisits(frames, gapDays, maxSpanDays = 30) {
   let sorted = [...frames].sort((a, b) => a.mjd - b.mjd), groups = [];
   for (let f of sorted) {
     let g = groups[groups.length - 1];
-    g && f.mjd - g.frames[g.frames.length - 1].mjd <= gapDays ? g.frames.push(f) : groups.push({ frames: [f] });
+    g && f.mjd - g.frames[g.frames.length - 1].mjd <= gapDays && f.mjd - g.frames[0].mjd <= maxSpanDays ? g.frames.push(f) : groups.push({ frames: [f] });
   }
   return groups;
 }
@@ -1004,7 +1019,7 @@ function weightedCoadd(frames) {
   }
   return { data, variance };
 }
-function buildSequence(aligned, { mode, gapDays }) {
+function buildSequence(aligned, { mode, gapDays, maxSpanDays = 30 }) {
   return mode === "exposure" ? aligned.map((f) => ({
     label: f.obsId || f.id,
     mjd: f.mjd,
@@ -1013,7 +1028,7 @@ function buildSequence(aligned, { mode, gapDays }) {
     members: [f],
     wlMin: f.wl,
     wlMax: f.wl
-  })) : groupVisits(aligned, gapDays).map((g, i) => {
+  })) : groupVisits(aligned, gapDays, maxSpanDays).map((g, i) => {
     let mjds = g.frames.map((f) => f.mjd), wls = g.frames.map((f) => f.wl), { data, variance } = weightedCoadd(g.frames);
     return {
       label: `Visit ${i + 1}`,
@@ -1035,6 +1050,14 @@ function percentiles(arrays, ps) {
   }
   return vals.length ? (vals.sort((x, y) => x - y), ps.map((p) => vals[Math.min(vals.length - 1, Math.max(0, Math.round(p / 100 * (vals.length - 1))))])) : ps.map(() => 0);
 }
+function apertureSaturated(sat, n, cx, cy, r = 2) {
+  if (!sat) return !1;
+  for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++)
+    for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++)
+      if (!(x < 0 || y < 0 || x >= n || y >= n || Math.hypot(x - cx, y - cy) > r) && sat[y * n + x] > 0.25)
+        return !0;
+  return !1;
+}
 function measure(data, variance, n, cx, cy, scaleArcsec, r = 2, rin = 4, rout = 7) {
   let bg = [], sum = 0, npix = 0, varSum = 0, varOk = !!variance;
   for (let y = Math.floor(cy - rout); y <= Math.ceil(cy + rout); y++)
@@ -1055,9 +1078,11 @@ function measure(data, variance, n, cx, cy, scaleArcsec, r = 2, rin = 4, rout = 
   return { flux: (sum - sky * npix) * toMJy, err };
 }
 function relativeBrightness(points) {
+  let usable = points.filter((q) => !q.saturated);
   return points.map((p) => {
+    if (p.saturated) return { ...p, rel: NaN, relErr: NaN };
     for (let frac of [0.08, 0.2, 0.4]) {
-      let ref = median(points.filter((q) => q.visit !== p.visit && Math.abs(Math.log(q.wl / p.wl)) <= frac).map((q) => q.flux));
+      let ref = median(usable.filter((q) => q.visit !== p.visit && Math.abs(Math.log(q.wl / p.wl)) <= frac).map((q) => q.flux));
       if (Number.isFinite(ref) && ref > 0)
         return { ...p, rel: p.flux / ref, relErr: Number.isFinite(p.err) ? p.err / ref : NaN, refWindow: frac };
     }
@@ -1235,11 +1260,60 @@ function findMovers(visits, n, {
       significance: vel / (velErr || 1 / 0),
       chi2r: Math.max(fx.chi2r, fy.chi2r),
       visits: t.points.length,
-      snr: median2(t.points.map((p) => p.snr))
+      snr: median2(t.points.map((p) => p.snr)),
+      samples: { ts, xs, ys, sig }
+      // aligned positions, kept so other epochs can be added
     };
   }
-  let minVisits = Math.min(4, usable.length), moving = tracks.filter((t) => t.fit && t.fit.shift >= minShift && t.fit.chi2r <= maxChi2r).map((t) => t.fit), movers = moving.filter((m) => m.significance >= minSignificance && m.snr >= confidentSnr && m.visits >= minVisits).sort((a, b) => b.significance - a.significance), possible = moving.filter((m) => !movers.includes(m) && m.significance >= possibleSignificance).sort((a, b) => b.significance - a.significance);
-  return { movers, possible, tracks, offsets, anchor, detections };
+  let minVisits = Math.max(Math.min(4, usable.length), Math.ceil(usable.length / 2)), moving = tracks.filter((t) => t.fit && t.fit.shift >= minShift && t.fit.chi2r <= maxChi2r).map((t) => t.fit), movers = moving.filter((m) => m.significance >= minSignificance && m.snr >= confidentSnr && m.visits >= minVisits).sort((a, b) => b.significance - a.significance), possibleVisits = Math.max(Math.min(3, usable.length), Math.ceil(usable.length / 3)), possible = moving.filter((m) => !movers.includes(m) && m.significance >= possibleSignificance && m.visits >= possibleVisits).sort((a, b) => b.significance - a.significance);
+  return { movers, possible, tracks, offsets, anchor, detections, anchorSources: strong[anchor] };
+}
+function addEpoch(fit, image, n, year, anchorSources, {
+  snr = 5,
+  floor = 0.25,
+  centroid = 1.5,
+  maxChi2r = 5,
+  maxRadius = 8
+} = {}) {
+  let sources = findSources(image, null, n, { snr }), dx = [], dy = [];
+  for (let a of anchorSources) {
+    let best2 = null, bd2 = 2;
+    for (let s of sources) {
+      let d = Math.hypot(s.x - a.x, s.y - a.y);
+      d < bd2 && (bd2 = d, best2 = s);
+    }
+    best2 && (dx.push(best2.x - a.x), dy.push(best2.y - a.y));
+  }
+  if (dx.length < 3) return { rejected: "too few shared stars to align the image" };
+  let ox = median2(dx), oy = median2(dy), dt = year - fit.t0, px = fit.x0 + fit.vx * dt, py = fit.y0 + fit.vy * dt, radius = Math.min(maxRadius, Math.max(2, 3 * fit.velErr * Math.abs(dt))), [ax, ay] = [fit.x0, fit.y0], isStatic = (s) => anchorSources.some((a) => Math.hypot(a.x - (s.x - ox), a.y - (s.y - oy)) < 1.5 && Math.hypot(a.x - ax, a.y - ay) > 2), best = null, bd = radius;
+  for (let s of sources) {
+    let d = Math.hypot(s.x - ox - px, s.y - oy - py);
+    d < bd && !isStatic(s) && (bd = d, best = s);
+  }
+  if (!best) return { rejected: `no non-static source within ${radius.toFixed(1)} px of the predicted position` };
+  let point = { t: dt, x: best.x - ox, y: best.y - oy, sig: Math.hypot(centroid / best.snr, floor), snr: best.snr }, { ts, xs, ys, sig } = fit.samples, T = [...ts, point.t], S = [...sig, point.sig], fx = fitLine(T, [...xs, point.x], S), fy = fitLine(T, [...ys, point.y], S);
+  if (!fx || !fy) return { rejected: "fit failed" };
+  let chi2r = Math.max(fx.chi2r, fy.chi2r);
+  if (chi2r > maxChi2r) return { rejected: `position disagrees with the motion (\u03C7\xB2\u1D63 ${chi2r.toFixed(1)})` };
+  let vel = Math.hypot(fx.b, fy.b), velErr = Math.hypot(fx.b * fx.bErr, fy.b * fy.bErr) / (vel || 1), span = Math.max(...T) - Math.min(...T);
+  return {
+    point: { ...point, year, offset: [ox, oy], radius },
+    fit: {
+      ...fit,
+      x0: fx.a,
+      y0: fy.a,
+      vx: fx.b,
+      vy: fy.b,
+      vel,
+      velErr,
+      span,
+      shift: vel * span,
+      significance: vel / (velErr || 1 / 0),
+      chi2r,
+      epochs: T.length,
+      samples: { ts: T, xs: [...xs, point.x], ys: [...ys, point.y], sig: S }
+    }
+  };
 }
 function moverAt(m, year) {
   return { x: m.x0 + m.vx * (year - m.t0), y: m.y0 + m.vy * (year - m.t0) };
@@ -1421,7 +1495,7 @@ function scatterPlot(canvas2, points, { xLabel, yLabel, xFormat = (v) => v.toFix
   ctx2.fillStyle = ink, ctx2.textAlign = "center", ctx2.fillText(xLabel || "", (m.l + W - m.r) / 2, H - 4), ctx2.save(), ctx2.translate(11, (m.t + H - m.b) / 2), ctx2.rotate(-Math.PI / 2), ctx2.fillText(yLabel || "", 0, 0), ctx2.restore(), Number.isFinite(reference) && (ctx2.strokeStyle = muted, ctx2.setLineDash([4, 4]), ctx2.beginPath(), ctx2.moveTo(m.l, sy(reference)), ctx2.lineTo(W - m.r, sy(reference)), ctx2.stroke(), ctx2.setLineDash([]));
   for (let p of pts) {
     let hl = highlight && highlight(p), r = p.size || (hl ? 4.5 : 3);
-    Number.isFinite(p.err) && p.err > 0 && (ctx2.strokeStyle = p.color || ink, ctx2.lineWidth = 1, ctx2.beginPath(), ctx2.moveTo(sx(p.x), sy(p.y - p.err)), ctx2.lineTo(sx(p.x), sy(p.y + p.err)), ctx2.stroke()), ctx2.fillStyle = p.color || ink, ctx2.beginPath(), ctx2.arc(sx(p.x), sy(p.y), r, 0, 2 * Math.PI), ctx2.fill(), (hl || p.ring) && (ctx2.strokeStyle = ink, ctx2.lineWidth = 1.5, ctx2.stroke());
+    Number.isFinite(p.err) && p.err > 0 && (ctx2.strokeStyle = p.color || ink, ctx2.lineWidth = 1, ctx2.beginPath(), ctx2.moveTo(sx(p.x), sy(p.y - p.err)), ctx2.lineTo(sx(p.x), sy(p.y + p.err)), ctx2.stroke()), ctx2.fillStyle = p.color || ink, ctx2.beginPath(), ctx2.arc(sx(p.x), sy(p.y), r, 0, 2 * Math.PI), p.hollow ? (ctx2.strokeStyle = p.color || ink, ctx2.lineWidth = 1.5, ctx2.stroke()) : ctx2.fill(), (hl || p.ring) && (ctx2.strokeStyle = ink, ctx2.lineWidth = 1.5, ctx2.stroke());
   }
 }
 function extent(a) {
@@ -1442,7 +1516,7 @@ function fmt(v) {
 }
 
 // app/js/providers/irsa.js
-var SIA = "https://irsa.ipac.caltech.edu/SIA", DEFAULT_COLLECTIONS = "spherex_dr1,spherex_qr3", NEEDED = ["IMAGE", "FLAGS", "ZODI"];
+var SIA = "https://irsa.ipac.caltech.edu/SIA", DEFAULT_COLLECTIONS = "spherex_dr1,spherex_qr3,spherex_dr1_deep,spherex_qr3_deep", NEEDED = ["IMAGE", "FLAGS", "ZODI"];
 function cutoutUrl(url, ra, dec, sizeDeg) {
   let sep = url.includes("?") ? "&" : "?";
   return `${url}${sep}center=${ra.toFixed(6)},${dec.toFixed(6)}d&size=${sizeDeg.toFixed(5)}`;
@@ -1470,9 +1544,9 @@ var irsaProvider = {
   async search({ ra, dec, collection }) {
     let params = new URLSearchParams();
     for (let c of (collection || DEFAULT_COLLECTIONS).split(/[\s,]+/).filter(Boolean)) params.append("COLLECTION", c);
-    params.set("POS", `circle ${ra} ${dec} 0.002`), params.set("RESPONSEFORMAT", "votable"), params.set("MAXREC", "5000");
-    let r = await fetchRemote(`${SIA}?${params}`);
-    return parseVoTable(await r.text()).filter((row) => row.access_url && (!row.dataproduct_type || row.dataproduct_type === "image")).map((row) => toDescriptor(row)).sort((a, b) => a.mjd - b.mjd);
+    params.set("POS", `circle ${ra} ${dec} 0.002`), params.set("RESPONSEFORMAT", "votable"), params.set("MAXREC", "20000");
+    let r = await fetchRemote(`${SIA}?${params}`), rows = parseVoTable(await r.text()), seen = /* @__PURE__ */ new Set();
+    return rows.filter((row) => row.access_url && (!row.dataproduct_type || row.dataproduct_type === "image")).map((row) => toDescriptor(row)).filter((d) => !seen.has(d.id) && seen.add(d.id)).sort((a, b) => a.mjd - b.mjd);
   },
   async fetchCutout(desc, { ra, dec, sizeDeg }) {
     let r = await fetchRemote(cutoutUrl(desc.url, ra, dec, sizeDeg), {}, 5);
@@ -1701,6 +1775,86 @@ function parseCsv(text) {
   });
 }
 
+// app/js/providers/jpl.js
+var API = "https://ssd-api.jpl.nasa.gov/sb_ident.api", HORIZONS = "https://ssd.jpl.nasa.gov/api/horizons.api";
+function sexagesimal(value, hours) {
+  let sign = value < 0 ? "-" : "", v = Math.abs(hours ? value / 15 : value), a = Math.floor(v);
+  v = (v - a) * 60;
+  let b = Math.floor(v), c = (v - b) * 60, pad = (n, w = 2) => String(n).padStart(w, "0");
+  return `${sign}${pad(a)}-${pad(b)}-${c.toFixed(2).padStart(5, "0")}`;
+}
+function parseRa(s) {
+  let [h, m, sec] = s.split(":").map(Number);
+  return 15 * (h + m / 60 + sec / 3600);
+}
+function parseDec(s) {
+  let m = s.match(/([+-]?)(\d+)\s+(\d+)'([\d.]+)/);
+  if (!m) return NaN;
+  let v = Number(m[2]) + Number(m[3]) / 60 + Number(m[4]) / 3600;
+  return m[1] === "-" ? -v : v;
+}
+function horizonsCommand(name) {
+  let n = name.trim(), comet = n.match(/^((?:\d+[PD])|(?:[PCDX]\/\d{4} [A-Z]+\d*))/);
+  if (comet) return `DES=${comet[1]};CAP;`;
+  let numbered = n.match(/^(\d+)\b/);
+  if (numbered) return `${numbered[1]};`;
+  let provisional = n.match(/^\(?(\d{4} [A-Z]{2}\d*)\)?/);
+  return provisional ? `DES=${provisional[1]};` : null;
+}
+async function horizonsPositions(name, mjds) {
+  let command = horizonsCommand(name);
+  if (!command) throw new Error(`Can't form a Horizons query for ${name}`);
+  let out = [];
+  for (let i = 0; i < mjds.length; i += 60) {
+    let chunk = mjds.slice(i, i + 60), params = new URLSearchParams({
+      format: "json",
+      COMMAND: `'${command}'`,
+      EPHEM_TYPE: "OBSERVER",
+      CENTER: "'500@399'",
+      TLIST_TYPE: "MJD",
+      TLIST: chunk.map((m) => `'${m.toFixed(6)}'`).join(","),
+      QUANTITIES: "'1,9'",
+      ANG_FORMAT: "DEG",
+      CSV_FORMAT: "YES",
+      OBJ_DATA: "NO"
+    }), result = (await (await fetchRemote(`${HORIZONS}?${params}`, {}, 2)).json()).result || "", s = result.indexOf("$$SOE"), e = result.indexOf("$$EOE");
+    if (s < 0 || e < 0) throw new Error(`Horizons had no ephemeris for ${name}`);
+    result.slice(s + 5, e).trim().split(`
+`).forEach((line, k) => {
+      let c = line.split(",").map((x) => x.trim());
+      out.push({ mjd: chunk[k], ra: Number(c[3]), dec: Number(c[4]), v: Number(c[5]) });
+    });
+  }
+  return out;
+}
+function bodyAt(b, mjd) {
+  let dtHours = (mjd - b.mjd) * 24, dec = b.dec + b.decRate * dtHours / 3600, ra = b.ra + b.raRate * dtHours / 3600 / Math.cos(b.dec * Math.PI / 180);
+  return { ...b, ra: (ra % 360 + 360) % 360, dec, mjd };
+}
+async function smallBodies(ra, dec, hwDeg, mjd, vmagLimit = 20, { precise = !1, maxError = 120 } = {}) {
+  let t = mjdToDate(mjd).toISOString().slice(0, 19).replace("T", "_"), params = new URLSearchParams({
+    "mpc-code": "500",
+    "obs-time": t,
+    "fov-ra-center": sexagesimal(ra, !0),
+    "fov-dec-center": sexagesimal(dec, !1),
+    "fov-ra-hwidth": hwDeg.toFixed(4),
+    "fov-dec-hwidth": hwDeg.toFixed(4),
+    "vmag-lim": String(vmagLimit),
+    ...precise ? { "two-pass": "true", "suppress-first-pass": "true" } : {}
+  }), d = await (await fetchRemote(`${API}?${params}`, {}, 2)).json(), fields = (precise ? d.fields_second : d.fields_first) || [], rows = (precise ? d.data_second_pass : d.data_first_pass) || [], col = (name) => fields.findIndex((f) => f.startsWith(name)), [iName, iRa, iDec, iV, iRaRate, iDecRate] = ["Object name", "Astrometric RA", "Astrometric Dec", "Visual magnitude", "RA rate", "Dec rate"].map(col), iDist = [col("Dist. from center RA"), col("Dist. from center Dec")], iErr = col("Est. error RA"), box = hwDeg * 3600 * 1.05;
+  return rows.filter((row) => iDist.every((i) => i < 0 || Math.abs(Number(row[i])) <= box) && (iErr < 0 || Number(row[iErr]) <= maxError)).map((row) => ({
+    name: row[iName].trim(),
+    ra: parseRa(row[iRa]),
+    dec: parseDec(row[iDec]),
+    v: Number(row[iV]),
+    raRate: Number(row[iRaRate]),
+    decRate: Number(row[iDecRate]),
+    mjd,
+    posErr: iErr >= 0 ? Number(row[iErr]) : 0,
+    comet: /^\d*[PCDX]\//.test(row[iName].trim())
+  })).filter((b) => Number.isFinite(b.ra) && Number.isFinite(b.dec));
+}
+
 // app/js/main.js
 var PROVIDERS = { irsa: irsaProvider, sim: simulatedProvider }, $ = (id) => document.getElementById(id), canvas = $("view"), ctx = canvas.getContext("2d"), state = {
   target: null,
@@ -1819,7 +1973,7 @@ async function run() {
       let key = `${provider.id}|${desc.id}|${ra.toFixed(5)}|${dec.toFixed(5)}|${sizeDeg.toFixed(4)}`, buf = state.cache.get(key);
       buf || (buf = await provider.fetchCutout(desc, { ra, dec, sizeDeg }), state.cache.set(key, buf));
       let frame = await decodeCutout(buf, desc, opts);
-      if (frame.aligned = reproject(frame, state.grid), frame.alignedVar = frame.variance ? reproject(frame, state.grid, frame.variance) : null, provider.waveTable) {
+      if (frame.aligned = reproject(frame, state.grid), frame.alignedVar = frame.variance ? reproject(frame, state.grid, frame.variance) : null, frame.alignedSat = frame.saturated ? reproject(frame, state.grid, frame.saturated) : null, provider.waveTable) {
         let table = await provider.waveTable(desc, { ra, dec }).catch(() => null);
         table && (frame.lambdaAt = (r, d) => {
           let [px, py] = frame.wcs.worldToPix(r, d);
@@ -1845,7 +1999,7 @@ async function run() {
       history.replaceState(null, "", shareUrl());
     } catch {
     }
-    setStatus(`${state.target.name}: ${frames.length} exposures \u2192 ${state.seq.length} frames` + (failed ? ` (${failed} cutouts failed: ${firstError?.message || "unknown error"})` : "") + (outside ? ` (${outside} outside the wavelength range at this position)` : "") + (provider.simulated ? " \u2014 SIMULATED data" : "")), loadGaia({ quiet: !$("ov-gaia").checked }), provider.simulated ? (state.wiseFrame = null, state.catwise = null, state.wiseKey = "", $("wise-status").textContent = "The WISE comparison (2010 image, CatWISE2020) needs real NASA data.") : loadWise(), play();
+    setStatus(`${state.target.name}: ${frames.length} exposures \u2192 ${state.seq.length} frames` + (failed ? ` (${failed} cutouts failed: ${firstError?.message || "unknown error"})` : "") + (outside ? ` (${outside} outside the wavelength range at this position)` : "") + (provider.simulated ? " \u2014 SIMULATED data" : "")), loadGaia({ quiet: !$("ov-gaia").checked }), provider.simulated ? (state.wiseFrame = null, state.catwise = null, state.wiseKey = "", state.bodies = null, renderBodies("Known asteroids and comets are looked up for real NASA data only."), $("wise-status").textContent = "The WISE comparison (2010 image, CatWISE2020) needs real NASA data.") : (loadWise(), loadSmallBodies()), play();
   } catch (e) {
     console.error(e), setStatus(e.message || String(e), !0);
   } finally {
@@ -1882,8 +2036,14 @@ function searchMovers() {
     state.movers = [], renderMovers("Needs at least two survey visits.");
     return;
   }
-  let { movers, possible } = findMovers(visits, state.grid.n), t = state.target, tiers = [...movers.slice(0, 8).map((m) => [m, "confident"]), ...possible.slice(0, 5).map((m) => [m, "possible"])];
-  state.movers = tiers.map(([m, tier], i) => {
+  let { movers, possible, anchorSources } = findMovers(visits, state.grid.n), t = state.target, tiers = [...movers.slice(0, 8).map((m) => [m, "confident"]), ...possible.slice(0, 5).map((m) => [m, "possible"])];
+  state.hiddenByWise = 0;
+  let checked = tiers.map(([found, tier]) => {
+    if (!state.wiseFrame) return { m: found, tier, wise: null };
+    let before = toProperMotion(found, state.grid.scaleArcsec), r = addEpoch(found, state.wiseFrame.data, state.grid.n, mjdToYear(state.wiseFrame.mjd), anchorSources);
+    return r.fit ? { m: r.fit, tier: "confident", wise: { confirmed: !0, point: r.point, before } } : tier === "possible" ? (state.hiddenByWise++, null) : { m: found, tier, wise: { confirmed: !1, reason: r.rejected, before } };
+  }).filter(Boolean);
+  state.movers = checked.map(({ m, tier, wise }, i) => {
     let pm = toProperMotion(m, state.grid.scaleArcsec), [ra, dec] = state.grid.wcs.pixToWorld(m.x0, m.y0), years = visits.map((v) => mjdToYear(v.mjd)), isTarget = !1;
     if (t && (t.pmra || t.pmdec)) {
       let tp = targetPosition((m.t0 - 2e3) * 365.25 + 51544.5);
@@ -1897,6 +2057,7 @@ function searchMovers() {
       n: i + 1,
       isTarget,
       tier,
+      wise,
       first: Math.min(...years),
       last: Math.max(...years),
       gaia: classifyMover(ra, dec, m.t0, pm)
@@ -1923,20 +2084,22 @@ function classifyMover(ra, dec, year, pm) {
 function renderMovers(message) {
   let box = $("movers");
   if (message || !state.movers.length) {
-    box.innerHTML = `<p class="muted small">${message || "No moving objects found. The search covers sources above S/N 6 that shift by at least 0.8 px (5\u2033) across the visits. Faint movers may need more images."}</p>`;
+    let hidden = state.hiddenByWise ? ` ${state.hiddenByWise} faint candidate${state.hiddenByWise > 1 ? "s were" : " was"} hidden: nothing at the predicted position in the 2010 WISE image.` : "";
+    box.innerHTML = `<p class="muted small">${message || `No moving objects found. The search covers sources above S/N 6 that shift by at least 0.8 px (5\u2033) across the visits. Faint movers may need more images.${hidden}`}</p>`;
     return;
   }
-  box.innerHTML = state.movers.map((m) => {
+  let hiddenNote = state.hiddenByWise ? `<p class="muted small">${state.hiddenByWise} faint candidate${state.hiddenByWise > 1 ? "s" : ""} hidden: nothing at the predicted position in the 2010 WISE image.</p>` : "";
+  box.innerHTML = hiddenNote + state.movers.map((m) => {
     let pa = (Math.atan2(m.pmra, m.pmdec) * 180 / Math.PI + 360) % 360, badge = {
       known: `<span class="badge known">Gaia DR3 ${m.gaia.gaiaTotal?.toFixed(2)}\u2033/yr</span>`,
       catwise: `<span class="badge known" title="${m.gaia.id}">CatWISE2020 ${m.gaia.total?.toFixed(2)}\u2033/yr</span>`,
       new: `<span class="badge new">No match in ${m.gaia.checked?.join(" or ")}</span>`,
       unchecked: '<span class="badge unchecked">Gaia not checked</span>'
-    }[m.gaia.kind], name = m.isTarget ? ` \xB7 ${state.target.name}` : "", faint = m.tier === "possible" ? ' <span class="badge unchecked">Faint: check by eye</span>' : "", pressed = state.pick?.mover === m ? "true" : "false";
+    }[m.gaia.kind], name = m.isTarget ? ` \xB7 ${state.target.name}` : "", faint = m.tier === "possible" ? ' <span class="badge unchecked">Faint: check by eye</span>' : "", wiseBadge = m.wise?.confirmed ? ` <span class="badge known" title="SPHEREx alone: ${m.wise.before.total.toFixed(2)} \xB1 ${m.wise.before.err.toFixed(2)}\u2033/yr">Seen in WISE 2010: 15-yr baseline</span>` : m.wise ? ` <span class="badge unchecked" title="${m.wise.reason}">Not found in WISE 2010</span>` : "", pressed = state.pick?.mover === m ? "true" : "false";
     return `<button type="button" class="mover" data-n="${m.n}" aria-pressed="${pressed}">
-      <span class="rate">${m.total.toFixed(1)}\u2033/yr</span>
-      <span>#${m.n}${name} ${badge}${faint}</span>
-      <span class="where">${formatRa(m.ra)} ${formatDec(m.dec)} \xB7 toward ${pa.toFixed(0)}\xB0 \xB7 \xB1${m.err.toFixed(1)}\u2033/yr \xB7 S/N ${m.snr.toFixed(0)} \xB7 ${m.visits} visits</span>
+      <span class="rate">${m.total.toFixed(m.wise?.confirmed ? 2 : 1)}\u2033/yr</span>
+      <span>#${m.n}${name} ${badge}${faint}${wiseBadge}</span>
+      <span class="where">${formatRa(m.ra)} ${formatDec(m.dec)} \xB7 toward ${pa.toFixed(0)}\xB0 \xB7 \xB1${m.err.toFixed(m.err < 0.1 ? 2 : 1)}\u2033/yr \xB7 S/N ${m.snr.toFixed(0)} \xB7 ${m.visits} visits${m.wise?.confirmed ? " + WISE 2010" : ""}</span>
     </button>`;
   }).join(""), box.querySelectorAll(".mover").forEach((b) => b.addEventListener("click", () => {
     let m = state.movers.find((x) => x.n === Number(b.dataset.n));
@@ -1985,6 +2148,15 @@ function overlays(s) {
       x < -2 || y < -2 || x > n + 1 || y > n + 1 || (moving ? fast : slow).push({ x, y });
     }
     out.push({ type: "circles", color: "rgba(110,200,255,0.5)", width: 1, r: 1.2, points: slow }), out.push({ type: "circles", color: "#ff7ad9", width: 2, r: 3, points: fast });
+  }
+  if ($("ov-bodies").checked && state.bodies) {
+    let pts = [];
+    for (let f of s.members)
+      for (let b of f.smallBodies || []) {
+        let [x, y] = state.grid.wcs.worldToPix(b.ra, b.dec);
+        x >= -1 && y >= -1 && x <= n && y <= n && pts.push({ x, y, r: 2 });
+      }
+    out.push({ type: "circles", color: "#b8ff5c", width: 2, r: 2, points: pts });
   }
   if ($("ov-movers").checked) {
     let year = mjdToYear(s.mjd);
@@ -2136,6 +2308,71 @@ async function loadWise() {
   }), [img, cat] = await Promise.allSettled([image, catalogue]), problems = [img.status === "rejected" && `WISE image: ${img.reason.message}`, cat.status === "rejected" && `CatWISE: ${cat.reason.message}`].filter(Boolean);
   problems.length && console.warn(problems.join("; ")), state.wiseProblems = problems, updateWiseStatus(problems);
 }
+async function loadSmallBodies() {
+  let g = state.grid, frames = state.frames, key = `${g.wcs.crval.join(",")}|${frames.length}|${frames[0]?.id}`;
+  if (state.bodiesKey === key) return;
+  state.bodiesKey = key, state.bodies = null;
+  let hw = g.n * g.scaleArcsec / 3600 / 2 * 1.05 + 0.18 + 0.06, days = [];
+  for (let f of [...frames].sort((a, b) => a.mjd - b.mjd)) {
+    let d = days[days.length - 1];
+    d && f.mjd - d.members[0].mjd <= 1 ? d.members.push(f) : days.push({ members: [f] });
+  }
+  for (let d of days) d.mjd = (d.members[0].mjd + d.members[d.members.length - 1].mjd) / 2;
+  renderBodies(`Asking NASA JPL which known asteroids and comets were in this field (${days.length} observing days, ~20 s each, 6 at a time)\u2026`);
+  let failures = 0, lastError = null;
+  await pool(days, 6, async (v) => {
+    try {
+      v.candidates = await smallBodies(g.wcs.crval[0], g.wcs.crval[1], hw, v.mjd, 20, { maxError: 600 });
+    } catch (e) {
+      failures++, lastError = e, v.candidates = [];
+    }
+  });
+  let inField = (b) => {
+    let [x, y] = g.wcs.worldToPix(b.ra, b.dec);
+    return x >= -1 && y >= -1 && x <= g.n && y <= g.n;
+  };
+  for (let f of frames) f.smallBodies = [];
+  let wanted = /* @__PURE__ */ new Map();
+  for (let d of days)
+    for (let c of d.candidates) {
+      let w = wanted.get(c.name) || { c, frames: [] };
+      w.frames.push(...d.members), wanted.set(c.name, w);
+    }
+  if (renderBodies(`Getting exact positions from JPL Horizons for ${wanted.size} candidate object${wanted.size === 1 ? "" : "s"}\u2026`), await pool([...wanted.values()], 4, async ({ c, frames: fs }) => {
+    let positions = null;
+    try {
+      positions = await horizonsPositions(c.name, fs.map((f) => f.mjd));
+    } catch (e) {
+      lastError = e;
+    }
+    fs.forEach((f, k) => {
+      let p = positions?.[k], b = p && Number.isFinite(p.ra) ? { ...c, ra: p.ra, dec: p.dec, v: Number.isFinite(p.v) ? p.v : c.v, mjd: f.mjd, exact: !0 } : bodyAt(c, f.mjd);
+      inField(b) && (b.exact || (c.posErr ?? 0) <= 120) && f.smallBodies.push(b);
+    });
+  }), state.bodiesKey !== key) return;
+  let byName = /* @__PURE__ */ new Map();
+  frames.forEach((f) => (f.smallBodies || []).forEach((b) => {
+    let e = byName.get(b.name) || { ...b, exposures: 0, first: b.mjd, last: b.mjd };
+    e.exposures++, e.first = Math.min(e.first, b.mjd), e.last = Math.max(e.last, b.mjd), e.v = Math.min(e.v, b.v), byName.set(b.name, e);
+  })), state.bodies = [...byName.values()].sort((a, b) => a.v - b.v);
+  let note = failures ? ` (${failures} of ${days.length} look-ups failed: ${lastError?.message})` : "";
+  renderBodies(null, note), render();
+}
+function renderBodies(message, note = "") {
+  let box = $("bodies");
+  if (message) {
+    box.innerHTML = `<p class="muted small">${message}</p>`;
+    return;
+  }
+  let list = state.bodies || [];
+  if (!list.length) {
+    box.innerHTML = `<p class="muted small">No known asteroids or comets brighter than V = 20 crossed this field during these exposures (NASA JPL).${note}</p>`;
+    return;
+  }
+  let day = (m) => mjdToDate(m).toISOString().slice(0, 10);
+  box.innerHTML = `<p class="muted small">${list.length} known object${list.length > 1 ? "s" : ""} crossed the field (green circles at their exact JPL Horizons positions; switch to "Every exposure" to follow them). Objects fainter than about V 18 are at or below what a single SPHEREx exposure can see.${note}</p>` + list.slice(0, 12).map((b) => `<div class="body"><b>${b.name}</b> ${b.comet ? '<span class="badge new">comet</span>' : ""}
+      <span class="muted">V ${b.v.toFixed(1)} \xB7 ${Math.hypot(b.raRate, b.decRate).toFixed(0)}\u2033/h \xB7 ${b.exposures} exposure${b.exposures > 1 ? "s" : ""} \xB7 ${day(b.first)}${b.last - b.first > 0.5 ? ` \u2192 ${day(b.last)}` : ""}</span></div>`).join("") + (list.length > 12 ? `<p class="muted small">\u2026 and ${list.length - 12} more.</p>` : "");
+}
 function pickPosition(mjd) {
   let p = state.pick;
   return p.mover ? moverAt(p.mover, mjdToYear(mjd)) : p.follow ? targetPosition(mjd) : { x: p.x, y: p.y };
@@ -2177,17 +2414,19 @@ function updateMeasurements() {
       id: f.obsId || f.id,
       visit: visitOf.get(f) ?? 0,
       flux,
-      err
+      err,
+      saturated: apertureSaturated(f.alignedSat, n, p.x, p.y)
     };
   }).filter((m) => Number.isFinite(m.flux)));
-  let p0 = pickPosition(state.seq[state.idx].mjd), [ra, dec] = state.grid.wcs.pixToWorld(p0.x, p0.y), following = state.pick.mover ? ` \xB7 following mover #${state.pick.mover.n}'s measured motion` : state.pick.follow ? ` \xB7 following ${state.target.name}'s predicted motion` : "";
-  $("pick-info").innerHTML = `${formatRa(ra)} ${formatDec(dec)}${following} \xB7 ${state.measurements.length} measurements`;
+  let p0 = pickPosition(state.seq[state.idx].mjd), [ra, dec] = state.grid.wcs.pixToWorld(p0.x, p0.y), following = state.pick.mover ? ` \xB7 following mover #${state.pick.mover.n}'s measured motion` : state.pick.follow ? ` \xB7 following ${state.target.name}'s predicted motion` : "", nSat = state.measurements.filter((m) => m.saturated).length, satNote = nSat ? `<br><strong>\u26A0 ${nSat} of ${state.measurements.length} measurements are saturated</strong> (SPHEREx OVERFLOW/NONLINEAR flags): drawn hollow and left out of the brightness-over-time chart. This source is too bright for reliable SPHEREx photometry${nSat === state.measurements.length ? "" : " in those exposures"}.` : "";
+  $("pick-info").innerHTML = `${formatRa(ra)} ${formatDec(dec)}${following} \xB7 ${state.measurements.length} measurements${satNote}`;
   let visits = state.seq.length, current = state.seq[state.idx];
   scatterPlot(spec, state.measurements.map((m) => ({
     x: m.wl,
     y: m.flux,
     err: m.err,
     color: `hsl(${m.visit * 360 / Math.max(visits, 1) + 30}, 75%, 60%)`,
+    hollow: m.saturated,
     m
   })), {
     xLabel: "wavelength (\xB5m) \u2014 colour = visit",
@@ -2232,7 +2471,7 @@ async function exportVideo() {
   download(new Blob(chunks, { type }), `${fileStem()}.${type.includes("mp4") ? "mp4" : "webm"}`), setStatus("Video saved.");
 }
 function exportCsv() {
-  let head = "obs_id,mjd,year,wavelength_um,detector,visit,flux_mJy,flux_err_mJy,relative_brightness,relative_err", num = (v, d) => Number.isFinite(v) ? v.toPrecision(d) : "", lines = state.measurements.map((m) => [
+  let head = "obs_id,mjd,year,wavelength_um,detector,visit,flux_mJy,flux_err_mJy,relative_brightness,relative_err,saturated", num = (v, d) => Number.isFinite(v) ? v.toPrecision(d) : "", lines = state.measurements.map((m) => [
     m.id,
     m.mjd.toFixed(5),
     mjdToYear(m.mjd).toFixed(4),
@@ -2242,7 +2481,8 @@ function exportCsv() {
     num(m.flux, 5),
     num(m.err, 3),
     num(m.rel, 4),
-    num(m.relErr, 3)
+    num(m.relErr, 3),
+    m.saturated ? 1 : 0
   ].join(","));
   download(new Blob([[head, ...lines].join(`
 `)], { type: "text/csv" }), `${fileStem()}-photometry.csv`);
@@ -2254,6 +2494,9 @@ async function copy(text, what) {
     prompt(`Copy the ${what.toLowerCase()}:`, text);
   }
 }
+function hipsLayer(value) {
+  return !value.startsWith("http") || !window.A?.imageHiPS ? value : window.A.imageHiPS(value, { name: "SPHEREx DR1 all-sky" });
+}
 function initAladin() {
   let unavailable = (why) => {
     $("aladin").innerHTML = `<p class="muted small" style="padding:12px">Sky context viewer unavailable${why ? `: ${why}` : ""}.</p>`;
@@ -2264,7 +2507,7 @@ function initAladin() {
   }
   window.A.init.then(() => {
     state.aladin = window.A.aladin("#aladin", {
-      survey: $("hips").value,
+      survey: hipsLayer($("hips").value),
       fov: 0.3,
       target: "269.452 4.693",
       showReticle: !0,
@@ -2303,7 +2546,7 @@ function wire() {
   }), $("scrub").addEventListener("input", () => {
     stop(), state.idx = Number($("scrub").value), render();
   }), $("fps").addEventListener("input", () => state.playing && play());
-  for (let id of ["stretch", "cmap", "diff", "smooth", "ov-track", "ov-movers", "show-masked", "ov-catwise"]) $(id).addEventListener("change", render);
+  for (let id of ["stretch", "cmap", "diff", "smooth", "ov-track", "ov-movers", "show-masked", "ov-catwise", "ov-bodies"]) $(id).addEventListener("change", render);
   $("wise-frame").addEventListener("change", () => {
     state.idx = 0, rebuildSequence();
   }), $("load-all").addEventListener("click", () => {
@@ -2314,7 +2557,7 @@ function wire() {
     let al = state.aladin;
     if (al)
       try {
-        al.setBaseImageLayer ? al.setBaseImageLayer($("hips").value) : al.setImageSurvey($("hips").value);
+        al.setBaseImageLayer ? al.setBaseImageLayer(hipsLayer($("hips").value)) : al.setImageSurvey(hipsLayer($("hips").value));
       } catch {
       }
   }), document.addEventListener("keydown", (e) => {

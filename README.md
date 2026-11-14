@@ -17,9 +17,10 @@ SkyShift is a public web tool. You type an object name or sky coordinates (RA/De
 | Challenge objective / consideration | SkyShift feature |
 |---|---|
 | Enter RA/Dec → series of images as a little video | Name/coordinate box (decimal or sexagesimal, CDS Sesame name resolver) → aligned time-lapse with play/scrub, plus **WebM/MP4 video download** |
-| Make it easy to spot moving objects | **Automatic mover search**: every field is searched on load. Sources are detected in each survey visit, linked across visits, corrected for alignment, and fitted with straight-line motion. Each mover is listed with its speed (″/yr), direction and uncertainty, and checked against Gaia DR3 ("known" vs "not in Gaia DR3"). **Difference vs. median sky** mode turns movers into blue/orange pairs. **Predicted-track overlay** propagates the target's proper motion to each frame's date. **Gaia DR3 overlay** propagates every catalogued star and highlights fast movers. |
+| Find comets and asteroids | **Known asteroids & comets** (NASA JPL): for every exposure, every catalogued small body in the field at that moment is listed and circled, so a stacked visit shows its path. |
+| Make it easy to spot moving objects | **Automatic mover search**: every field is searched on load. Sources are detected in each survey visit, linked across visits, corrected for alignment, and fitted with straight-line motion. Each mover is listed with its speed (″/yr), direction and uncertainty, and checked against Gaia DR3 and CatWISE2020. When the 2010 WISE image is loaded, each mover is **found again 15 years earlier** and its motion refitted: the uncertainty drops about 9× (e.g. WISE 0855: 8.23 ± 0.11″/yr, literature 8.15). **Difference vs. median sky** mode turns movers into blue/orange pairs. **Predicted-track overlay** propagates the target's proper motion to each frame's date. **Gaia DR3 overlay** propagates every catalogued star and highlights fast movers. |
 | Test on Barnard's Star, Epsilon Indi B, WISE 0855, RW Aur, R Dra | One-click chips for all five, with positions and proper motions built in |
-| Use the 102 bands / add detector arrays to boost S/N | Wavelength range and detector (D1–D6) filters. **One stacked frame per survey visit** coadds every exposure in that visit, weighted by each exposure's noise (from the VARIANCE plane). **Use all images** loads every matching exposure instead of an evenly spread sample; **Every exposure** mode shows fast intra-visit motion such as asteroids. |
+| Use the 102 bands / add detector arrays to boost S/N | Wide **and Deep Survey** images: near the ecliptic poles SPHEREx looks almost continuously (R Draconis: 2,494 images, monthly frames). Wavelength range and detector (D1–D6) filters. **One stacked frame per survey visit** coadds every exposure in that visit, weighted by each exposure's noise (from the VARIANCE plane). **Use all images** loads every matching exposure instead of an evenly spread sample; **Every exposure** mode shows fast intra-visit motion such as asteroids. |
 | Generate spectra on the fly | Click a source, or a detected mover, to run aperture photometry across every exposure, with **error bars** from the VARIANCE plane. You get a **spectrum** (flux at each exposure's exact wavelength) and a **brightness-over-time** chart, both exportable as CSV. Each exposure is divided by the source's own brightness at that wavelength in other visits, so wavelength differences between visits don't masquerade as variability. The aperture follows the object's measured or predicted motion. |
 | Add/subtract images | Visit coadds (add) and difference imaging (subtract) |
 | Larger field of view | 2′–20′ field slider |
@@ -76,8 +77,9 @@ npm run test:live
 
 ## NASA and partner data
 
+- **NASA JPL Small-Body Identification API**: known asteroids and comets in the field at each exposure's time
 - **NASA WISE**: AllWISE Atlas images (IRSA SIA collection `wise_allwise`, W2) and the CatWISE2020 catalogue (IRSA TAP table `catwise_2020`)
-- **NASA SPHEREx** Level-2 spectral images — NASA/IPAC Infrared Science Archive (IRSA): SIA v2 `https://irsa.ipac.caltech.edu/SIA` (collections `spherex_dr1` and `spherex_qr3`) and its cutout service
+- **NASA SPHEREx** Level-2 spectral images — NASA/IPAC Infrared Science Archive (IRSA): SIA v2 `https://irsa.ipac.caltech.edu/SIA` (wide survey `spherex_dr1`, `spherex_qr3` and **Deep Survey** `spherex_dr1_deep`, `spherex_qr3_deep`) and its cutout service; the **SPHEREx DR1 all-sky HiPS cube** in the sky panel
 - **ESA Gaia DR3** (`I/355/gaiadr3`) via CDS VizieR — proper-motion overlay
 - **CDS Sesame / SIMBAD** — name resolution
 - **Aladin Lite v3** (CDS, Strasbourg) — sky context with 2MASS, AllWISE, DSS2 and Pan-STARRS HiPS
@@ -88,7 +90,7 @@ npm run test:live
 - **All five challenge targets checked on real data (14 Nov).** The movers sit on their predicted tracks to within 0.6 px. See [docs/RESULTS.md](docs/RESULTS.md).
 - **IRSA throttles bursts** (HTTP 503). The app retries with back-off, keeps 4 downloads in flight, and gives refused cutouts a second, one-at-a-time pass.
 - **The mover search is tuned on five fields.** It found the three known fast movers with no false alarms (see [docs/RESULTS.md](docs/RESULTS.md)). Crowded fields and fainter movers need more testing, and measured speeds run 5–15% low.
-- **Brightness over time is good to about ±10%** for a steady star. Smaller variations aren't reliable yet. Single-exposure visits are much noisier than stacked ones.
+- **Brightness over time is good to about ±10%** for a steady star; smaller variations aren't reliable yet. The monthly Deep Survey curve of R Draconis is still noisy. Saturated measurements (SPHEREx flags) are marked and excluded.
 - **Error bars** come from the archive's VARIANCE plane after resampling. They ignore the correlated noise resampling introduces, so treat them as slightly optimistic.
 - **Gaia overlay works**, falling back to VizieR mirrors (South Africa, Harvard) when the main CDS server is down. **The Aladin sky map** loads, but its image tiles were blocked in the test sandbox; check it on a normal connection.
 - Tile-compressed FITS isn't supported (it isn't expected for IRSA cutouts).

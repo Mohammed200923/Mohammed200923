@@ -227,20 +227,83 @@ export function findMovers(visits, n, {
       shift: vel * span, significance: vel / (velErr || Infinity),
       chi2r: Math.max(fx.chi2r, fy.chi2r), visits: t.points.length,
       snr: median(t.points.map((p) => p.snr)),
+      samples: { ts, xs, ys, sig }, // aligned positions, kept so other epochs can be added
     };
   }
   // Confident: bright enough for good positions and seen in most visits. Tested on the five
   // challenge fields, this keeps Barnard's Star and Epsilon Indi B and nothing else; fainter
   // tracks that pass the motion tests are returned separately as "possible".
-  const minVisits = Math.min(4, usable.length);
+  // Seen in at least 4 visits (or all, if fewer) AND in at least half of them: Deep Survey
+  // fields have ~15 monthly visits, where a bright star's ghost can line up in 4.
+  const minVisits = Math.max(Math.min(4, usable.length), Math.ceil(usable.length / 2));
   const moving = tracks.filter((t) => t.fit && t.fit.shift >= minShift && t.fit.chi2r <= maxChi2r).map((t) => t.fit);
   const movers = moving
     .filter((m) => m.significance >= minSignificance && m.snr >= confidentSnr && m.visits >= minVisits)
     .sort((a, b) => b.significance - a.significance);
+  const possibleVisits = Math.max(Math.min(3, usable.length), Math.ceil(usable.length / 3));
   const possible = moving
-    .filter((m) => !movers.includes(m) && m.significance >= possibleSignificance)
+    .filter((m) => !movers.includes(m) && m.significance >= possibleSignificance && m.visits >= possibleVisits)
     .sort((a, b) => b.significance - a.significance);
-  return { movers, possible, tracks, offsets, anchor, detections };
+  return { movers, possible, tracks, offsets, anchor, detections, anchorSources: strong[anchor] };
+}
+
+/**
+ * Use an image from another epoch (e.g. WISE 2010) to extend a mover's time baseline.
+ * The image must be on the same grid. Its small alignment offset is measured from sources
+ * shared with the anchor visit; the mover is then looked for near the position its motion
+ * predicts, and the straight-line fit is redone with that point. The new point is accepted
+ * only if the fit stays straight (χ²ᵣ ≤ maxChi2r), so a nearby unrelated star is rejected.
+ * Returns { fit, point } or { rejected: reason }.
+ */
+export function addEpoch(fit, image, n, year, anchorSources, {
+  snr = 5, floor = 0.25, centroid = 1.5, maxChi2r = 5, maxRadius = 8,
+} = {}) {
+  const sources = findSources(image, null, n, { snr });
+  // Alignment offset from static sources (typical stars move < 0.3 px in 15 years).
+  const dx = [], dy = [];
+  for (const a of anchorSources) {
+    let best = null, bd = 2;
+    for (const s of sources) {
+      const d = Math.hypot(s.x - a.x, s.y - a.y);
+      if (d < bd) { bd = d; best = s; }
+    }
+    if (best) { dx.push(best.x - a.x); dy.push(best.y - a.y); }
+  }
+  if (dx.length < 3) return { rejected: 'too few shared stars to align the image' };
+  const ox = median(dx), oy = median(dy);
+  const dt = year - fit.t0;
+  const px = fit.x0 + fit.vx * dt, py = fit.y0 + fit.vy * dt;
+  // How far off the prediction can be: the motion's uncertainty times the time gap.
+  const radius = Math.min(maxRadius, Math.max(2, 3 * fit.velErr * Math.abs(dt)));
+  // Static stars are in the SPHEREx images too, at the same place: they can't be the mover's
+  // old position. (The SPHEREx-only motion is too uncertain to rule them out by distance alone.)
+  const [ax, ay] = [fit.x0, fit.y0];
+  const isStatic = (s) => anchorSources.some((a) =>
+    Math.hypot(a.x - (s.x - ox), a.y - (s.y - oy)) < 1.5 && Math.hypot(a.x - ax, a.y - ay) > 2);
+  let best = null, bd = radius;
+  for (const s of sources) {
+    const d = Math.hypot(s.x - ox - px, s.y - oy - py);
+    if (d < bd && !isStatic(s)) { bd = d; best = s; }
+  }
+  if (!best) return { rejected: `no non-static source within ${radius.toFixed(1)} px of the predicted position` };
+  const point = { t: dt, x: best.x - ox, y: best.y - oy, sig: Math.hypot(centroid / best.snr, floor), snr: best.snr };
+  const { ts, xs, ys, sig } = fit.samples;
+  const T = [...ts, point.t], S = [...sig, point.sig];
+  const fx = fitLine(T, [...xs, point.x], S), fy = fitLine(T, [...ys, point.y], S);
+  if (!fx || !fy) return { rejected: 'fit failed' };
+  const chi2r = Math.max(fx.chi2r, fy.chi2r);
+  if (chi2r > maxChi2r) return { rejected: `position disagrees with the motion (χ²ᵣ ${chi2r.toFixed(1)})` };
+  const vel = Math.hypot(fx.b, fy.b);
+  const velErr = Math.hypot(fx.b * fx.bErr, fy.b * fy.bErr) / (vel || 1);
+  const span = Math.max(...T) - Math.min(...T);
+  return {
+    point: { ...point, year, offset: [ox, oy], radius },
+    fit: {
+      ...fit, x0: fx.a, y0: fy.a, vx: fx.b, vy: fy.b, vel, velErr, span, shift: vel * span,
+      significance: vel / (velErr || Infinity), chi2r, epochs: T.length,
+      samples: { ts: T, xs: [...xs, point.x], ys: [...ys, point.y], sig: S },
+    },
+  };
 }
 
 /** Position of a fitted mover at a given decimal year. */

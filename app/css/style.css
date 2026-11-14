@@ -112,3 +112,5 @@ body.embed .panel { border: 0; border-radius: 0; }
 .badge.known { background: #16351f; color: #7fe0a0; }
 .badge.new { background: #3a2a10; color: #ffcf7a; }
 .badge.unchecked { background: var(--panel-2); color: var(--muted); }
+.bodies { display: grid; gap: 4px; font-size: 12px; }
+.bodies .body { padding: 4px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }

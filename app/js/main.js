@@ -2,14 +2,15 @@ import { TARGETS } from './targets.js';
 import { DETECTORS, PIXEL_SCALE_ARCSEC, wavelengthColor, wavelengthAt } from './spherex.js';
 import { parseCoordinates, makeGrid, propagate, mjdToYear, mjdToDate, formatRa, formatDec, separationArcsec } from './wcs.js';
 import { detectProxy, pool } from './net.js';
-import { decodeCutout, reproject, buildSequence, percentiles, coadd, measure, relativeBrightness, visitBrightness } from './stack.js';
-import { findMovers, moverAt, toProperMotion } from './movers.js';
+import { decodeCutout, reproject, buildSequence, percentiles, coadd, measure, relativeBrightness, visitBrightness, apertureSaturated } from './stack.js';
+import { findMovers, moverAt, toProperMotion, addEpoch } from './movers.js';
 import { toImageData, drawFrame, canvasToGrid } from './render.js';
 import { gaiaCone, resolveName } from './catalogs.js';
 import { scatterPlot } from './charts.js';
 import { irsaProvider } from './providers/irsa.js';
 import { simulatedProvider } from './providers/simulated.js';
 import { allwiseCutout, catwiseCone, cleanCatwiseMovers, CATWISE_EPOCH } from './providers/wise.js';
+import { smallBodies, bodyAt, horizonsPositions } from './providers/jpl.js';
 
 const PROVIDERS = { irsa: irsaProvider, sim: simulatedProvider };
 const $ = (id) => document.getElementById(id);
@@ -174,6 +175,7 @@ async function run() {
       const frame = await decodeCutout(buf, desc, opts);
       frame.aligned = reproject(frame, state.grid);
       frame.alignedVar = frame.variance ? reproject(frame, state.grid, frame.variance) : null;
+      frame.alignedSat = frame.saturated ? reproject(frame, state.grid, frame.saturated) : null;
       if (provider.waveTable) {
         // Exact wavelength at the target for this exposure (linear variable filter).
         const table = await provider.waveTable(desc, { ra, dec }).catch(() => null);
@@ -221,9 +223,10 @@ async function run() {
       (provider.simulated ? ' — SIMULATED data' : ''));
     // Gaia is needed to tell known movers from new ones, whether or not its overlay is shown.
     loadGaia({ quiet: !$('ov-gaia').checked });
-    if (!provider.simulated) loadWise();
+    if (!provider.simulated) { loadWise(); loadSmallBodies(); }
     else {
       state.wiseFrame = null; state.catwise = null; state.wiseKey = '';
+      state.bodies = null; renderBodies('Known asteroids and comets are looked up for real NASA data only.');
       $('wise-status').textContent = 'The WISE comparison (2010 image, CatWISE2020) needs real NASA data.';
     }
     play();
@@ -287,10 +290,22 @@ function searchMovers() {
     renderMovers('Needs at least two survey visits.');
     return;
   }
-  const { movers, possible } = findMovers(visits, state.grid.n);
+  const { movers, possible, anchorSources } = findMovers(visits, state.grid.n);
   const t = state.target;
   const tiers = [...movers.slice(0, 8).map((m) => [m, 'confident']), ...possible.slice(0, 5).map((m) => [m, 'possible'])];
-  state.movers = tiers.map(([m, tier], i) => {
+  // With the 2010 WISE image loaded, each mover's baseline is extended to ~15 years. A faint
+  // "possible" mover confirmed there is promoted; one with nothing at its predicted 2010
+  // position is hidden (and counted), since it is most likely a blend or noise.
+  state.hiddenByWise = 0;
+  const checked = tiers.map(([found, tier]) => {
+    if (!state.wiseFrame) return { m: found, tier, wise: null };
+    const before = toProperMotion(found, state.grid.scaleArcsec);
+    const r = addEpoch(found, state.wiseFrame.data, state.grid.n, mjdToYear(state.wiseFrame.mjd), anchorSources);
+    if (r.fit) return { m: r.fit, tier: 'confident', wise: { confirmed: true, point: r.point, before } };
+    if (tier === 'possible') { state.hiddenByWise++; return null; }
+    return { m: found, tier, wise: { confirmed: false, reason: r.rejected, before } };
+  }).filter(Boolean);
+  state.movers = checked.map(({ m, tier, wise }, i) => {
     const pm = toProperMotion(m, state.grid.scaleArcsec);
     const [ra, dec] = state.grid.wcs.pixToWorld(m.x0, m.y0);
     const years = visits.map((v) => mjdToYear(v.mjd));
@@ -300,7 +315,7 @@ function searchMovers() {
       isTarget = Math.hypot(tp.x - m.x0, tp.y - m.y0) < 2.5;
     }
     return {
-      ...m, ...pm, ra, dec, n: i + 1, isTarget, tier,
+      ...m, ...pm, ra, dec, n: i + 1, isTarget, tier, wise,
       first: Math.min(...years), last: Math.max(...years), gaia: classifyMover(ra, dec, m.t0, pm),
     };
   });
@@ -338,10 +353,13 @@ function classifyMover(ra, dec, year, pm) {
 function renderMovers(message) {
   const box = $('movers');
   if (message || !state.movers.length) {
-    box.innerHTML = `<p class="muted small">${message || 'No moving objects found. The search covers sources above S/N 6 that shift by at least 0.8 px (5″) across the visits. Faint movers may need more images.'}</p>`;
+    const hidden = state.hiddenByWise ? ` ${state.hiddenByWise} faint candidate${state.hiddenByWise > 1 ? 's were' : ' was'} hidden: nothing at the predicted position in the 2010 WISE image.` : '';
+    box.innerHTML = `<p class="muted small">${message || `No moving objects found. The search covers sources above S/N 6 that shift by at least 0.8 px (5″) across the visits. Faint movers may need more images.${hidden}`}</p>`;
     return;
   }
-  box.innerHTML = state.movers.map((m) => {
+  const hiddenNote = state.hiddenByWise
+    ? `<p class="muted small">${state.hiddenByWise} faint candidate${state.hiddenByWise > 1 ? 's' : ''} hidden: nothing at the predicted position in the 2010 WISE image.</p>` : '';
+  box.innerHTML = hiddenNote + state.movers.map((m) => {
     const pa = ((Math.atan2(m.pmra, m.pmdec) * 180) / Math.PI + 360) % 360;
     const badge = {
       known: `<span class="badge known">Gaia DR3 ${m.gaia.gaiaTotal?.toFixed(2)}″/yr</span>`,
@@ -351,11 +369,14 @@ function renderMovers(message) {
     }[m.gaia.kind];
     const name = m.isTarget ? ` · ${state.target.name}` : '';
     const faint = m.tier === 'possible' ? ' <span class="badge unchecked">Faint: check by eye</span>' : '';
+    const wiseBadge = m.wise?.confirmed
+      ? ` <span class="badge known" title="SPHEREx alone: ${m.wise.before.total.toFixed(2)} ± ${m.wise.before.err.toFixed(2)}″/yr">Seen in WISE 2010: 15-yr baseline</span>`
+      : m.wise ? ` <span class="badge unchecked" title="${m.wise.reason}">Not found in WISE 2010</span>` : '';
     const pressed = state.pick?.mover === m ? 'true' : 'false';
     return `<button type="button" class="mover" data-n="${m.n}" aria-pressed="${pressed}">
-      <span class="rate">${m.total.toFixed(1)}″/yr</span>
-      <span>#${m.n}${name} ${badge}${faint}</span>
-      <span class="where">${formatRa(m.ra)} ${formatDec(m.dec)} · toward ${pa.toFixed(0)}° · ±${m.err.toFixed(1)}″/yr · S/N ${m.snr.toFixed(0)} · ${m.visits} visits</span>
+      <span class="rate">${m.total.toFixed(m.wise?.confirmed ? 2 : 1)}″/yr</span>
+      <span>#${m.n}${name} ${badge}${faint}${wiseBadge}</span>
+      <span class="where">${formatRa(m.ra)} ${formatDec(m.dec)} · toward ${pa.toFixed(0)}° · ±${m.err.toFixed(m.err < 0.1 ? 2 : 1)}″/yr · S/N ${m.snr.toFixed(0)} · ${m.visits} visits${m.wise?.confirmed ? ' + WISE 2010' : ''}</span>
     </button>`;
   }).join('');
   box.querySelectorAll('.mover').forEach((b) => b.addEventListener('click', () => {
@@ -428,6 +449,18 @@ function overlays(s) {
     }
     out.push({ type: 'circles', color: 'rgba(110,200,255,0.5)', width: 1, r: 1.2, points: slow });
     out.push({ type: 'circles', color: '#ff7ad9', width: 2, r: 3, points: fast });
+  }
+  if ($('ov-bodies').checked && state.bodies) {
+    // Each exposure in this frame contributes its own position, so a stacked visit shows the
+    // asteroid's path through the visit.
+    const pts = [];
+    for (const f of s.members) {
+      for (const b of f.smallBodies || []) {
+        const [x, y] = state.grid.wcs.worldToPix(b.ra, b.dec);
+        if (x >= -1 && y >= -1 && x <= n && y <= n) pts.push({ x, y, r: 2 });
+      }
+    }
+    out.push({ type: 'circles', color: '#b8ff5c', width: 2, r: 2, points: pts });
   }
   if ($('ov-movers').checked) {
     const year = mjdToYear(s.mjd);
@@ -618,6 +651,95 @@ async function loadWise() {
   updateWiseStatus(problems);
 }
 
+// ---------- known asteroids and comets (NASA JPL) ----------
+
+async function loadSmallBodies() {
+  const g = state.grid, frames = state.frames;
+  const key = `${g.wcs.crval.join(',')}|${frames.length}|${frames[0]?.id}`;
+  if (state.bodiesKey === key) return;
+  state.bodiesKey = key;
+  state.bodies = null;
+  // Two steps. (1) JPL's field search, once per day of observations (~20 s each whatever the
+  // box size; box widened by half a day of main-belt motion, ~0.3°/day), lists candidates. Its
+  // fast mode can be off by a few arcminutes, so (2) JPL Horizons then gives each candidate's
+  // exact position at every exposure time (well under a second per object).
+  const hw = ((g.n * g.scaleArcsec) / 3600 / 2) * 1.05 + 0.18 + 0.06;
+  const days = [];
+  for (const f of [...frames].sort((a, b) => a.mjd - b.mjd)) {
+    const d = days[days.length - 1];
+    if (d && f.mjd - d.members[0].mjd <= 1) d.members.push(f);
+    else days.push({ members: [f] });
+  }
+  for (const d of days) d.mjd = (d.members[0].mjd + d.members[d.members.length - 1].mjd) / 2;
+  renderBodies(`Asking NASA JPL which known asteroids and comets were in this field (${days.length} observing days, ~20 s each, 6 at a time)…`);
+  let failures = 0, lastError = null;
+  await pool(days, 6, async (v) => {
+    try {
+      v.candidates = await smallBodies(g.wcs.crval[0], g.wcs.crval[1], hw, v.mjd, 20, { maxError: 600 });
+    } catch (e) {
+      failures++; lastError = e; v.candidates = [];
+    }
+  });
+  const inField = (b) => {
+    const [x, y] = g.wcs.worldToPix(b.ra, b.dec);
+    return x >= -1 && y >= -1 && x <= g.n && y <= g.n;
+  };
+  for (const f of frames) f.smallBodies = [];
+  // Every exposure time on the days each candidate was near the field.
+  const wanted = new Map();
+  for (const d of days) {
+    for (const c of d.candidates) {
+      const w = wanted.get(c.name) || { c, frames: [] };
+      w.frames.push(...d.members);
+      wanted.set(c.name, w);
+    }
+  }
+  renderBodies(`Getting exact positions from JPL Horizons for ${wanted.size} candidate object${wanted.size === 1 ? '' : 's'}…`);
+  await pool([...wanted.values()], 4, async ({ c, frames: fs }) => {
+    let positions = null;
+    try {
+      positions = await horizonsPositions(c.name, fs.map((f) => f.mjd));
+    } catch (e) {
+      lastError = e;
+    }
+    fs.forEach((f, k) => {
+      // Fall back to the field search's own estimate when Horizons can't be reached.
+      const p = positions?.[k];
+      const b = p && Number.isFinite(p.ra) ? { ...c, ra: p.ra, dec: p.dec, v: Number.isFinite(p.v) ? p.v : c.v, mjd: f.mjd, exact: true }
+        : bodyAt(c, f.mjd);
+      if (inField(b) && (b.exact || (c.posErr ?? 0) <= 120)) f.smallBodies.push(b);
+    });
+  });
+  if (state.bodiesKey !== key) return;
+  // One entry per object: when and how often SPHEREx had it in the field.
+  const byName = new Map();
+  frames.forEach((f) => (f.smallBodies || []).forEach((b) => {
+    const e = byName.get(b.name) || { ...b, exposures: 0, first: b.mjd, last: b.mjd };
+    e.exposures++; e.first = Math.min(e.first, b.mjd); e.last = Math.max(e.last, b.mjd);
+    e.v = Math.min(e.v, b.v);
+    byName.set(b.name, e);
+  }));
+  state.bodies = [...byName.values()].sort((a, b) => a.v - b.v);
+  const note = failures ? ` (${failures} of ${days.length} look-ups failed: ${lastError?.message})` : '';
+  renderBodies(null, note);
+  render();
+}
+
+function renderBodies(message, note = '') {
+  const box = $('bodies');
+  if (message) { box.innerHTML = `<p class="muted small">${message}</p>`; return; }
+  const list = state.bodies || [];
+  if (!list.length) {
+    box.innerHTML = `<p class="muted small">No known asteroids or comets brighter than V = 20 crossed this field during these exposures (NASA JPL).${note}</p>`;
+    return;
+  }
+  const day = (m) => mjdToDate(m).toISOString().slice(0, 10);
+  box.innerHTML = `<p class="muted small">${list.length} known object${list.length > 1 ? 's' : ''} crossed the field (green circles at their exact JPL Horizons positions; switch to "Every exposure" to follow them). Objects fainter than about V 18 are at or below what a single SPHEREx exposure can see.${note}</p>` +
+    list.slice(0, 12).map((b) => `<div class="body"><b>${b.name}</b> ${b.comet ? '<span class="badge new">comet</span>' : ''}
+      <span class="muted">V ${b.v.toFixed(1)} · ${Math.hypot(b.raRate, b.decRate).toFixed(0)}″/h · ${b.exposures} exposure${b.exposures > 1 ? 's' : ''} · ${day(b.first)}${b.last - b.first > 0.5 ? ` → ${day(b.last)}` : ''}</span></div>`).join('') +
+    (list.length > 12 ? `<p class="muted small">… and ${list.length - 12} more.</p>` : '');
+}
+
 // ---------- click-to-measure ----------
 
 function pickPosition(mjd) {
@@ -677,6 +799,7 @@ function updateMeasurements() {
       mjd: f.mjd, wl: f.lambdaAt ? f.lambdaAt(...state.grid.wcs.pixToWorld(p.x, p.y)) : f.wl,
       detector: f.detector, id: f.obsId || f.id,
       visit: visitOf.get(f) ?? 0, flux, err,
+      saturated: apertureSaturated(f.alignedSat, n, p.x, p.y),
     };
   }).filter((m) => Number.isFinite(m.flux)));
 
@@ -684,12 +807,16 @@ function updateMeasurements() {
   const [ra, dec] = state.grid.wcs.pixToWorld(p0.x, p0.y);
   const following = state.pick.mover ? ` · following mover #${state.pick.mover.n}'s measured motion`
     : state.pick.follow ? ` · following ${state.target.name}'s predicted motion` : '';
-  $('pick-info').innerHTML = `${formatRa(ra)} ${formatDec(dec)}${following} · ${state.measurements.length} measurements`;
+  const nSat = state.measurements.filter((m) => m.saturated).length;
+  const satNote = nSat
+    ? `<br><strong>⚠ ${nSat} of ${state.measurements.length} measurements are saturated</strong> (SPHEREx OVERFLOW/NONLINEAR flags): drawn hollow and left out of the brightness-over-time chart. This source is too bright for reliable SPHEREx photometry${nSat === state.measurements.length ? '' : ' in those exposures'}.`
+    : '';
+  $('pick-info').innerHTML = `${formatRa(ra)} ${formatDec(dec)}${following} · ${state.measurements.length} measurements${satNote}`;
 
   const visits = state.seq.length;
   const current = state.seq[state.idx];
   scatterPlot(spec, state.measurements.map((m) => ({
-    x: m.wl, y: m.flux, err: m.err, color: `hsl(${(m.visit * 360) / Math.max(visits, 1) + 30}, 75%, 60%)`, m,
+    x: m.wl, y: m.flux, err: m.err, color: `hsl(${(m.visit * 360) / Math.max(visits, 1) + 30}, 75%, 60%)`, hollow: m.saturated, m,
   })), { xLabel: 'wavelength (µm) — colour = visit', yLabel: 'flux (mJy)', xFormat: (v) => v.toFixed(1),
     highlight: (p) => current.members.some((f) => (f.obsId || f.id) === p.m.id) });
   // Each exposure divided by the source's own brightness at that wavelength in the other
@@ -744,11 +871,11 @@ async function exportVideo() {
 }
 
 function exportCsv() {
-  const head = 'obs_id,mjd,year,wavelength_um,detector,visit,flux_mJy,flux_err_mJy,relative_brightness,relative_err';
+  const head = 'obs_id,mjd,year,wavelength_um,detector,visit,flux_mJy,flux_err_mJy,relative_brightness,relative_err,saturated';
   const num = (v, d) => (Number.isFinite(v) ? v.toPrecision(d) : '');
   const lines = state.measurements.map((m) =>
     [m.id, m.mjd.toFixed(5), mjdToYear(m.mjd).toFixed(4), m.wl.toFixed(4), m.detector, m.visit + 1,
-      num(m.flux, 5), num(m.err, 3), num(m.rel, 4), num(m.relErr, 3)].join(','));
+      num(m.flux, 5), num(m.err, 3), num(m.rel, 4), num(m.relErr, 3), m.saturated ? 1 : 0].join(','));
   download(new Blob([[head, ...lines].join('\n')], { type: 'text/csv' }), `${fileStem()}-photometry.csv`);
 }
 
@@ -763,6 +890,12 @@ async function copy(text, what) {
 
 // ---------- Aladin Lite context view ----------
 
+/** Aladin takes survey IDs directly; full URLs (like IRSA's SPHEREx all-sky cube) as a HiPS layer. */
+function hipsLayer(value) {
+  if (!value.startsWith('http') || !window.A?.imageHiPS) return value;
+  return window.A.imageHiPS(value, { name: 'SPHEREx DR1 all-sky' });
+}
+
 function initAladin() {
   const unavailable = (why) => {
     $('aladin').innerHTML = `<p class="muted small" style="padding:12px">Sky context viewer unavailable${why ? `: ${why}` : ''}.</p>`;
@@ -770,7 +903,7 @@ function initAladin() {
   if (!window.A) { unavailable('could not be loaded'); return; }
   window.A.init.then(() => {
     state.aladin = window.A.aladin('#aladin', {
-      survey: $('hips').value, fov: 0.3, target: '269.452 4.693',
+      survey: hipsLayer($('hips').value), fov: 0.3, target: '269.452 4.693',
       showReticle: true, showZoomControl: false, showFullscreenControl: false,
       showLayersControl: false, showGotoControl: false, showFrame: false, showCooGridControl: false,
       showProjectionControl: false, showSettingsControl: false, showSimbadPointerControl: false,
@@ -804,7 +937,7 @@ function wire() {
   $('next').addEventListener('click', () => { stop(); step(1); });
   $('scrub').addEventListener('input', () => { stop(); state.idx = Number($('scrub').value); render(); });
   $('fps').addEventListener('input', () => state.playing && play());
-  for (const id of ['stretch', 'cmap', 'diff', 'smooth', 'ov-track', 'ov-movers', 'show-masked', 'ov-catwise']) $(id).addEventListener('change', render);
+  for (const id of ['stretch', 'cmap', 'diff', 'smooth', 'ov-track', 'ov-movers', 'show-masked', 'ov-catwise', 'ov-bodies']) $(id).addEventListener('change', render);
   $('wise-frame').addEventListener('change', () => { state.idx = 0; rebuildSequence(); });
   $('load-all').addEventListener('click', () => {
     if (!state.sample) return;
@@ -827,7 +960,7 @@ function wire() {
   $('hips').addEventListener('change', () => {
     const al = state.aladin;
     if (!al) return;
-    try { al.setBaseImageLayer ? al.setBaseImageLayer($('hips').value) : al.setImageSurvey($('hips').value); } catch {}
+    try { al.setBaseImageLayer ? al.setBaseImageLayer(hipsLayer($('hips').value)) : al.setImageSurvey(hipsLayer($('hips').value)); } catch {}
   });
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, select, textarea')) return;

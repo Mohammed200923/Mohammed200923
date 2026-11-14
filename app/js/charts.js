@@ -1,6 +1,6 @@
 // Tiny canvas scatter plot for spectra and light curves.
 
-// points: [{ x, y, err?, color?, size?, ring? }]; `reference` draws a dashed horizontal line.
+// points: [{ x, y, err?, color?, size?, ring?, hollow? }]; `reference` draws a dashed horizontal line.
 export function scatterPlot(canvas, points, { xLabel, yLabel, xFormat = (v) => v.toFixed(1), highlight, reference } = {}) {
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.clientWidth || 320, H = canvas.clientHeight || 180;
@@ -61,7 +61,8 @@ export function scatterPlot(canvas, points, { xLabel, yLabel, xFormat = (v) => v
       ctx.beginPath(); ctx.moveTo(sx(p.x), sy(p.y - p.err)); ctx.lineTo(sx(p.x), sy(p.y + p.err)); ctx.stroke();
     }
     ctx.fillStyle = p.color || ink;
-    ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y), r, 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y), r, 0, 2 * Math.PI);
+    if (p.hollow) { ctx.strokeStyle = p.color || ink; ctx.lineWidth = 1.5; ctx.stroke(); } else ctx.fill();
     if (hl || p.ring) { ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.stroke(); }
   }
 }

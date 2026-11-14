@@ -219,3 +219,49 @@ test('CatWISE clean-up drops glare around bright stars and merges duplicate entr
   assert.equal(kept.length, 1);
   assert.equal(kept[0].w2, 13.8);
 });
+
+test('continuous Deep Survey coverage is split into visits of at most 30 days', () => {
+  const frames = Array.from({ length: 90 }, (_, i) => ({ mjd: 61000 + i * 2 })); // every 2 days for 6 months
+  const groups = groupVisits(frames, 20, 30);
+  assert.equal(groups.length, 6);
+  assert.ok(groups.every((g) => g.frames[g.frames.length - 1].mjd - g.frames[0].mjd <= 30));
+});
+
+test('an older epoch (e.g. WISE 2010) tightens the motion and rejects a wrong source', async () => {
+  const { findMovers, addEpoch, toProperMotion } = await import('../app/js/movers.js');
+  const n = 60;
+  const statics = [[12.3, 15.7], [40.1, 44.6], [25.5, 50.2], [48.8, 12.4], [8.6, 38.9], [33.3, 28.1]]
+    .map(([x, y], i) => ({ x, y, amp: 1 + i * 0.3 }));
+  // Mover: 1.0 px/yr north. SPHEREx-like visits over one year.
+  const mjds = [61000, 61091, 61182, 61274, 61365];
+  const at = (mjd) => 20 + ((mjd - 61000) / 365.25) * 1.0;
+  const visits = mjds.map((mjd, k) => ({ mjd, ...synthVisit(n, statics.concat([{ x: 30, y: at(mjd), amp: 1.5 }]), 99 + k) }));
+  const r = findMovers(visits, n);
+  assert.equal(r.movers.length, 1);
+  const m = r.movers[0];
+  const wiseMjd = 55400; // ~15 years earlier
+  const wiseYear = 2000 + (wiseMjd - 51544.5) / 365.25;
+  const good = synthVisit(n, statics.concat([{ x: 30, y: at(wiseMjd), amp: 1.5 }]), 7).data;
+  // The 2010 position is off the grid (y ≈ 4.7 px), so put the image's stars in, the mover at its true place.
+  const ok = addEpoch(m, good, n, wiseYear, r.anchorSources);
+  assert.ok(ok.fit, ok.rejected);
+  assert.ok(ok.fit.velErr < m.velErr / 4, 'much tighter');
+  const pm = toProperMotion(ok.fit, 6.15);
+  assert.ok(Math.abs(pm.pmdec - 6.15) < 0.3, `pmdec ${pm.pmdec}`);
+  // Mover absent in the old image: a static star near the predicted spot must not be taken for it…
+  const withStar = synthVisit(n, statics.concat([{ x: 31, y: 6, amp: 1.2 }]), 8).data;
+  const visitsWithStar = visits.map((v, k) => ({ ...v, ...synthVisit(n, statics.concat([{ x: 30, y: at(v.mjd), amp: 1.5 }, { x: 31, y: 6, amp: 1.2 }]), 99 + k) }));
+  const r2 = findMovers(visitsWithStar, n);
+  assert.ok(addEpoch(r2.movers[0], withStar, n, wiseYear, r2.anchorSources).rejected, 'static star rejected');
+  // …and a source far outside the search zone is not taken either.
+  const far = synthVisit(n, statics.concat([{ x: 45, y: at(wiseMjd), amp: 1.5 }]), 9).data;
+  assert.ok(addEpoch(m, far, n, wiseYear, r.anchorSources).rejected, 'far source rejected');
+});
+
+test('JPL Horizons commands from small-body names', async () => {
+  const { horizonsCommand } = await import('../app/js/providers/jpl.js');
+  assert.equal(horizonsCommand('3674 Erbisbuhl (1963 RH)'), '3674;');
+  assert.equal(horizonsCommand('(2021 UC93)'), 'DES=2021 UC93;');
+  assert.equal(horizonsCommand('29P/Schwassmann-Wachmann 1'), 'DES=29P;CAP;');
+  assert.equal(horizonsCommand('C/2023 A3 (Tsuchinshan-ATLAS)'), 'DES=C/2023 A3;CAP;');
+});

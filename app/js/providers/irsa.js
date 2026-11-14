@@ -7,7 +7,9 @@ import { parseFits, spherexPlanes, hasPlanes } from '../fits.js';
 import { detectorFromWavelength } from '../spherex.js';
 
 const SIA = 'https://irsa.ipac.caltech.edu/SIA';
-export const DEFAULT_COLLECTIONS = 'spherex_dr1,spherex_qr3';
+// Wide survey (whole sky, every ~6 months) plus the Deep Survey near the ecliptic poles, which
+// is observed almost continuously (e.g. R Draconis: 540 wide + 1,954 deep images).
+export const DEFAULT_COLLECTIONS = 'spherex_dr1,spherex_qr3,spherex_dr1_deep,spherex_qr3_deep';
 
 // A cutout is IMAGE, FLAGS, VARIANCE, ZODI (~120 KB for 6′) followed by a ~4 MB EPSF table
 // and the WCS-WAVE lookup. The server ignores Range requests, so we stop reading once
@@ -52,12 +54,14 @@ export const irsaProvider = {
     for (const c of (collection || DEFAULT_COLLECTIONS).split(/[\s,]+/).filter(Boolean)) params.append('COLLECTION', c);
     params.set('POS', `circle ${ra} ${dec} 0.002`);
     params.set('RESPONSEFORMAT', 'votable');
-    params.set('MAXREC', '5000');
+    params.set('MAXREC', '20000');
     const r = await fetchRemote(`${SIA}?${params}`);
     const rows = parseVoTable(await r.text());
+    const seen = new Set();
     return rows
       .filter((row) => row.access_url && (!row.dataproduct_type || row.dataproduct_type === 'image'))
       .map((row) => toDescriptor(row))
+      .filter((d) => !seen.has(d.id) && seen.add(d.id))
       .sort((a, b) => a.mjd - b.mjd);
   },
 
