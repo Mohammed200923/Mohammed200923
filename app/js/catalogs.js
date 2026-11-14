@@ -3,6 +3,23 @@
 
 import { fetchRemote } from './net.js';
 
+// CDS's main VizieR server has outages; the official mirrors serve the same catalogues.
+const VIZIER_MIRRORS = ['vizier.cds.unistra.fr', 'vizier.idia.ac.za', 'vizier.cfa.harvard.edu'];
+
+async function fromMirrors(urls) {
+  let lastError;
+  for (const url of urls) {
+    try {
+      const text = await (await fetchRemote(url, {}, 1)).text();
+      if (/^\s*#/.test(text)) return text; // ASU-TSV starts with '#' comments; outage pages are HTML
+      lastError = new Error(`Unexpected reply from ${new URL(url).host}`);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError;
+}
+
 /** Gaia DR3 sources in a cone. Positions are at epoch 2016.0; pm in mas/yr. */
 export async function gaiaCone(ra, dec, radiusArcsec, maxRows = 3000) {
   const params = new URLSearchParams({
@@ -12,8 +29,8 @@ export async function gaiaCone(ra, dec, radiusArcsec, maxRows = 3000) {
     '-out': 'Source,RA_ICRS,DE_ICRS,pmRA,pmDE,Gmag',
     '-out.max': String(maxRows),
   });
-  const r = await fetchRemote(`https://vizier.cds.unistra.fr/viz-bin/asu-tsv?${params}`);
-  return parseVizierTsv(await r.text()).map((row) => ({
+  const text = await fromMirrors(VIZIER_MIRRORS.map((host) => `https://${host}/viz-bin/asu-tsv?${params}`));
+  return parseVizierTsv(text).map((row) => ({
     id: row.Source,
     ra: Number(row.RA_ICRS), dec: Number(row.DE_ICRS),
     pmra: Number(row.pmRA) || 0, pmdec: Number(row.pmDE) || 0,

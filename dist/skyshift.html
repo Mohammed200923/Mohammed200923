@@ -383,7 +383,11 @@ body.embed .panel { border: 0; border-radius: 0; }
     Built for NASA Space Apps 2026 — “Planet X and SPHEREx”.
   </footer>
 
-  <script src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js" charset="utf-8" defer></script>
+  <script type="module">
+    // Aladin Lite ships as an ES module; expose it for main.js (module scripts run in order).
+    import A from 'https://cdn.jsdelivr.net/npm/aladin-lite@3.6.5/dist/aladin.js';
+    window.A = A;
+  </script>
   <script type="module">
 // app/js/targets.js
 var TARGETS = [
@@ -1060,6 +1064,19 @@ function drawOverlay(ctx2, o, n, size) {
 }
 
 // app/js/catalogs.js
+var VIZIER_MIRRORS = ["vizier.cds.unistra.fr", "vizier.idia.ac.za", "vizier.cfa.harvard.edu"];
+async function fromMirrors(urls) {
+  let lastError;
+  for (let url of urls)
+    try {
+      let text = await (await fetchRemote(url, {}, 1)).text();
+      if (/^\s*#/.test(text)) return text;
+      lastError = new Error(`Unexpected reply from ${new URL(url).host}`);
+    } catch (e) {
+      lastError = e;
+    }
+  throw lastError;
+}
 async function gaiaCone(ra, dec, radiusArcsec, maxRows = 3e3) {
   let params = new URLSearchParams({
     "-source": "I/355/gaiadr3",
@@ -1067,8 +1084,8 @@ async function gaiaCone(ra, dec, radiusArcsec, maxRows = 3e3) {
     "-c.rs": radiusArcsec.toFixed(1),
     "-out": "Source,RA_ICRS,DE_ICRS,pmRA,pmDE,Gmag",
     "-out.max": String(maxRows)
-  }), r = await fetchRemote(`https://vizier.cds.unistra.fr/viz-bin/asu-tsv?${params}`);
-  return parseVizierTsv(await r.text()).map((row) => ({
+  }), text = await fromMirrors(VIZIER_MIRRORS.map((host) => `https://${host}/viz-bin/asu-tsv?${params}`));
+  return parseVizierTsv(text).map((row) => ({
     id: row.Source,
     ra: Number(row.RA_ICRS),
     dec: Number(row.DE_ICRS),
@@ -1179,7 +1196,7 @@ var irsaProvider = {
     return parseVoTable(await r.text()).filter((row) => row.access_url && (!row.dataproduct_type || row.dataproduct_type === "image")).map((row) => toDescriptor(row)).sort((a, b) => a.mjd - b.mjd);
   },
   async fetchCutout(desc, { ra, dec, sizeDeg }) {
-    let r = await fetchRemote(cutoutUrl(desc.url, ra, dec, sizeDeg));
+    let r = await fetchRemote(cutoutUrl(desc.url, ra, dec, sizeDeg), {}, 5);
     return readPlanes(r);
   },
   concurrency: 4,
@@ -1191,7 +1208,7 @@ var irsaProvider = {
   waveTable(desc, { ra, dec }) {
     let key = desc.detector;
     if (!this._waveTables.has(key)) {
-      let p = fetchRemote(cutoutUrl(desc.url, ra, dec, 0.01)).then((r) => r.arrayBuffer()).then((b) => spherexPlanes(parseFits(b)).waveTable);
+      let p = fetchRemote(cutoutUrl(desc.url, ra, dec, 0.01), {}, 5).then((r) => r.arrayBuffer()).then((b) => spherexPlanes(parseFits(b)).waveTable);
       p.catch(() => this._waveTables.delete(key)), this._waveTables.set(key, p);
     }
     return this._waveTables.get(key);
@@ -1405,7 +1422,7 @@ function readUrl() {
   let set = (id, key = id) => {
     p.has(key) && ($(id).value = p.get(key));
   };
-  if (set("target", "q"), set("size"), set("source", "src"), set("wmin"), set("wmax"), set("mode"), set("stretch"), set("cmap"), set("fps"), p.has("ra") && p.has("dec") && !p.has("q") && ($("target").value = `${p.get("ra")} ${p.get("dec")}`), p.has("det")) {
+  if (set("target", "q"), set("size"), set("source", "src"), set("wmin"), set("wmax"), set("mode"), set("stretch"), set("cmap"), set("fps"), set("max"), p.has("ra") && p.has("dec") && !p.has("q") && ($("target").value = `${p.get("ra")} ${p.get("dec")}`), p.has("det")) {
     let ds = p.get("det").split("").map(Number);
     document.querySelectorAll("#detectors input").forEach((i) => i.checked = ds.includes(Number(i.value)));
   }
@@ -1420,6 +1437,7 @@ function shareUrl(extra = {}) {
     wmax: $("wmax").value,
     det: selectedDetectors().join(""),
     mode: $("mode").value,
+    max: $("max").value,
     stretch: $("stretch").value,
     cmap: $("cmap").value,
     fps: $("fps").value
@@ -1694,12 +1712,15 @@ async function copy(text, what) {
   }
 }
 function initAladin() {
+  let unavailable = (why) => {
+    $("aladin").innerHTML = `<p class="muted small" style="padding:12px">Sky context viewer unavailable${why ? `: ${why}` : ""}.</p>`;
+  };
   if (!window.A) {
-    $("aladin").innerHTML = '<p class="muted small" style="padding:12px">Sky context viewer could not be loaded.</p>';
+    unavailable("could not be loaded");
     return;
   }
-  A.init.then(() => {
-    state.aladin = A.aladin("#aladin", {
+  window.A.init.then(() => {
+    state.aladin = window.A.aladin("#aladin", {
       survey: $("hips").value,
       fov: 0.3,
       target: "269.452 4.693",
@@ -1715,9 +1736,8 @@ function initAladin() {
       showSimbadPointerControl: !1,
       showShareControl: !1,
       showStatusBar: !1
-    }), state.aladinOverlay = A.graphicOverlay({ color: "#ffb347", lineWidth: 2 }), state.aladin.addOverlay(state.aladinOverlay), state.grid && centerAladin(state.grid.wcs.crval[0], state.grid.wcs.crval[1], Number($("size").value));
-  }).catch(() => {
-  });
+    }), state.aladinOverlay = window.A.graphicOverlay({ color: "#ffb347", lineWidth: 2 }), state.aladin.addOverlay(state.aladinOverlay), state.grid && centerAladin(state.grid.wcs.crval[0], state.grid.wcs.crval[1], Number($("size").value));
+  }).catch((e) => unavailable(String(e?.message || e)));
 }
 function centerAladin(ra, dec, sizeArcmin) {
   let al = state.aladin;
@@ -1725,7 +1745,7 @@ function centerAladin(ra, dec, sizeArcmin) {
     try {
       al.gotoRaDec(ra, dec), al.setFoV(sizeArcmin / 60 * 3), state.aladinOverlay.removeAll();
       let n = state.grid.n, w = state.grid.wcs, corners = [[-0.5, -0.5], [n - 0.5, -0.5], [n - 0.5, n - 0.5], [-0.5, n - 0.5]].map(([x, y]) => w.pixToWorld(x, y));
-      state.aladinOverlay.add(A.polygon(corners));
+      state.aladinOverlay.add(window.A.polygon(corners));
     } catch (e) {
       console.warn("Aladin update failed", e);
     }

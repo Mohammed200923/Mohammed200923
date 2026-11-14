@@ -83,7 +83,7 @@ function readUrl() {
   if (p.get('embed') === '1') document.body.classList.add('embed');
   const set = (id, key = id) => { if (p.has(key)) $(id).value = p.get(key); };
   set('target', 'q'); set('size'); set('source', 'src'); set('wmin'); set('wmax'); set('mode');
-  set('stretch'); set('cmap'); set('fps');
+  set('stretch'); set('cmap'); set('fps'); set('max');
   if (p.has('ra') && p.has('dec') && !p.has('q')) $('target').value = `${p.get('ra')} ${p.get('dec')}`;
   if (p.has('det')) {
     const ds = p.get('det').split('').map(Number);
@@ -99,7 +99,7 @@ function shareUrl(extra = {}) {
     q: $('target').value.trim(),
     size: $('size').value, src: $('source').value,
     wmin: $('wmin').value, wmax: $('wmax').value,
-    det: selectedDetectors().join(''), mode: $('mode').value,
+    det: selectedDetectors().join(''), mode: $('mode').value, max: $('max').value,
     stretch: $('stretch').value, cmap: $('cmap').value, fps: $('fps').value,
   });
   if (state.target) { p.set('ra', state.target.ra.toFixed(5)); p.set('dec', state.target.dec.toFixed(5)); }
@@ -507,19 +507,22 @@ async function copy(text, what) {
 // ---------- Aladin Lite context view ----------
 
 function initAladin() {
-  if (!window.A) { $('aladin').innerHTML = '<p class="muted small" style="padding:12px">Sky context viewer could not be loaded.</p>'; return; }
-  A.init.then(() => {
-    state.aladin = A.aladin('#aladin', {
+  const unavailable = (why) => {
+    $('aladin').innerHTML = `<p class="muted small" style="padding:12px">Sky context viewer unavailable${why ? `: ${why}` : ''}.</p>`;
+  };
+  if (!window.A) { unavailable('could not be loaded'); return; }
+  window.A.init.then(() => {
+    state.aladin = window.A.aladin('#aladin', {
       survey: $('hips').value, fov: 0.3, target: '269.452 4.693',
       showReticle: true, showZoomControl: false, showFullscreenControl: false,
       showLayersControl: false, showGotoControl: false, showFrame: false, showCooGridControl: false,
       showProjectionControl: false, showSettingsControl: false, showSimbadPointerControl: false,
       showShareControl: false, showStatusBar: false,
     });
-    state.aladinOverlay = A.graphicOverlay({ color: '#ffb347', lineWidth: 2 });
+    state.aladinOverlay = window.A.graphicOverlay({ color: '#ffb347', lineWidth: 2 });
     state.aladin.addOverlay(state.aladinOverlay);
     if (state.grid) centerAladin(state.grid.wcs.crval[0], state.grid.wcs.crval[1], Number($('size').value));
-  }).catch(() => {});
+  }).catch((e) => unavailable(String(e?.message || e)));
 }
 
 function centerAladin(ra, dec, sizeArcmin) {
@@ -531,7 +534,7 @@ function centerAladin(ra, dec, sizeArcmin) {
     state.aladinOverlay.removeAll();
     const n = state.grid.n, w = state.grid.wcs;
     const corners = [[-0.5, -0.5], [n - 0.5, -0.5], [n - 0.5, n - 0.5], [-0.5, n - 0.5]].map(([x, y]) => w.pixToWorld(x, y));
-    state.aladinOverlay.add(A.polygon(corners));
+    state.aladinOverlay.add(window.A.polygon(corners));
   } catch (e) { console.warn('Aladin update failed', e); }
 }
 

@@ -21,6 +21,9 @@ ALLOWED_HOSTS = {
     "vizier.cds.unistra.fr",
     "cds.unistra.fr",
     "simbad.cds.unistra.fr",
+    # VizieR / Sesame mirrors (CDS redirects Sesame to these during outages)
+    "vizier.idia.ac.za",
+    "vizier.cfa.harvard.edu",
 }
 TIMEOUT = 180
 

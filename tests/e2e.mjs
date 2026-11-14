@@ -20,7 +20,8 @@ const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
+  // Aladin Lite's own background fetches (usage logger, survey mirrors) are not ours to fix.
+  page.on('pageerror', (e) => { if (!String(e.stack).includes('aladin-lite')) errors.push(e.message); });
   await page.goto(`http://127.0.0.1:${port}/?src=sim&q=${encodeURIComponent("Barnard's Star")}&size=6`);
   await page.waitForFunction(() => window.__skyshift?.seq?.length > 0, null, { timeout: 60000 });
 

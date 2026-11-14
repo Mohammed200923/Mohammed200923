@@ -154,7 +154,11 @@
     Built for NASA Space Apps 2026 — “Planet X and SPHEREx”.
   </footer>
 
-  <script src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js" charset="utf-8" defer></script>
+  <script type="module">
+    // Aladin Lite ships as an ES module; expose it for main.js (module scripts run in order).
+    import A from 'https://cdn.jsdelivr.net/npm/aladin-lite@3.6.5/dist/aladin.js';
+    window.A = A;
+  </script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -1,6 +1,9 @@
-// Live check against the real NASA/IPAC archive: node tests/live.mjs
-// Loads Barnard's Star from SPHEREx (through server.py's proxy), then checks that the
-// brightest source near the predicted position follows the star's known proper motion.
+// Live check against the real archives: node tests/live.mjs [target ...]
+// For each challenge target, loads real SPHEREx data through server.py's proxy, then:
+//  - fast movers: checks the brightest pixel near the predicted position in every visit
+//  - every target: aperture photometry per visit at the predicted position
+//  - the Gaia DR3 overlay loads
+// Screenshots go to tests/screenshots/live-<target>.png and -diff.png.
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
@@ -12,53 +15,86 @@ const root = new URL('..', import.meta.url).pathname;
 const shots = new URL('./screenshots/', import.meta.url).pathname;
 mkdirSync(shots, { recursive: true });
 
+// Per-target wavelength windows: WISE 0855 is only visible at the long end.
+const PLANS = {
+  "Barnard's Star": { wmin: 0.75, wmax: 5 },
+  'Epsilon Indi B': { wmin: 0.75, wmax: 5 },
+  'WISE 0855−0714': { wmin: 3.8, wmax: 5 },
+  'RW Aurigae': { wmin: 0.75, wmax: 5 },
+  'R Draconis': { wmin: 0.75, wmax: 5 },
+};
+const targets = process.argv.slice(2).length ? process.argv.slice(2) : ["Barnard's Star"];
+const max = process.env.MAX || '36';
+
 const port = 8766;
 const server = spawn('python3', ['server.py', '--port', String(port)], { cwd: root, stdio: 'ignore' });
 await new Promise((r) => setTimeout(r, 800));
 const browser = await chromium.launch();
+const summary = [];
+let failed = false;
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  const max = process.env.MAX || '36';
-  await page.goto(`http://127.0.0.1:${port}/?src=irsa&q=${encodeURIComponent("Barnard's Star")}&size=6`);
-  await page.fill('#max', max);
-  await page.click('#go');
-  await page.waitForFunction(() => window.__skyshift?.seq?.length > 0 || document.getElementById('status').classList.contains('error'),
-    null, { timeout: 600000 });
-  const info = await page.evaluate(() => {
-    const s = window.__skyshift;
-    return {
-      status: document.getElementById('status').textContent,
-      frames: s.frames.length, exact: s.frames.filter((f) => f.wlExact).length,
-      visits: s.seq.map((v) => ({ label: v.label, date: new Date((v.mjd - 40587) * 864e5).toISOString().slice(0, 10), n: v.members.length })),
-    };
-  });
-  console.log(JSON.stringify(info, null, 1));
-  assert.ok(info.frames > 0, info.status);
+  for (const name of targets) {
+    const plan = PLANS[name] || { wmin: 0.75, wmax: 5 };
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const errors = [];
+    // Aladin Lite's own background fetches (usage logger, survey mirrors) are not ours to fix.
+    page.on('pageerror', (e) => { if (!String(e.stack).includes('aladin-lite')) errors.push(e.message); });
+    // A link with a target starts loading by itself.
+    await page.goto(`http://127.0.0.1:${port}/?src=irsa&q=${encodeURIComponent(name)}&wmin=${plan.wmin}&wmax=${plan.wmax}&max=${max}`);
+    await page.waitForFunction(() => {
+      const s = window.__skyshift, st = document.getElementById('status');
+      return (s?.seq?.length > 0 && !document.getElementById('go').disabled) || st.classList.contains('error');
+    }, null, { timeout: 900000 });
 
-  const offsets = await page.evaluate(async () => {
-    const { propagate, mjdToYear } = await import('./js/wcs.js');
-    const s = window.__skyshift, n = s.grid.n, t = s.target;
-    return s.seq.map((f) => {
-      const [ra, dec] = propagate(t.ra, t.dec, t.pmra, t.pmdec, t.epoch, mjdToYear(f.mjd));
-      const [x, y] = s.grid.wcs.worldToPix(ra, dec);
-      let best = [0, 0], bv = -Infinity;
-      for (let j = Math.round(y) - 4; j <= Math.round(y) + 4; j++)
-        for (let i = Math.round(x) - 4; i <= Math.round(x) + 4; i++)
-          if (f.data[j * n + i] > bv) { bv = f.data[j * n + i]; best = [i, j]; }
-      return { dx: best[0] - x, dy: best[1] - y, sep: Math.hypot(best[0] - x, best[1] - y) };
+    const result = await page.evaluate(async () => {
+      const { propagate, mjdToYear } = await import('./js/wcs.js');
+      const { aperturePhotometry } = await import('./js/stack.js');
+      const s = window.__skyshift, n = s.grid?.n, t = s.target;
+      const status = document.getElementById('status').textContent;
+      if (!s.seq.length) return { status, visits: [] };
+      const visits = s.seq.map((f) => {
+        const [ra, dec] = propagate(t.ra, t.dec, t.pmra || 0, t.pmdec || 0, t.epoch ?? 2000, mjdToYear(f.mjd));
+        const [x, y] = s.grid.wcs.worldToPix(ra, dec);
+        let best = [0, 0], bv = -Infinity;
+        for (let j = Math.round(y) - 4; j <= Math.round(y) + 4; j++)
+          for (let i = Math.round(x) - 4; i <= Math.round(x) + 4; i++)
+            if (f.data[j * n + i] > bv) { bv = f.data[j * n + i]; best = [i, j]; }
+        return {
+          date: new Date((f.mjd - 40587) * 864e5).toISOString().slice(0, 10),
+          n: f.members.length,
+          lambda: `${f.wlMin.toFixed(2)}–${f.wlMax.toFixed(2)}`,
+          offsetPx: Number(Math.hypot(best[0] - x, best[1] - y).toFixed(2)),
+          fluxMJy: Number(aperturePhotometry(f.data, n, x, y, s.grid.scaleArcsec).toPrecision(3)),
+        };
+      });
+      return {
+        status, frames: s.frames.length, exact: s.frames.filter((f) => f.wlExact).length,
+        pmTotal: Math.hypot(t.pmra || 0, t.pmdec || 0), visits,
+      };
     });
-  });
-  console.log('brightest pixel vs predicted position (px):', offsets.map((o) => o.sep.toFixed(2)).join(', '));
-  await page.evaluate(() => document.getElementById('play').click());
-  await page.screenshot({ path: `${shots}live-barnard.png`, fullPage: true });
-  await page.check('#diff');
-  await page.screenshot({ path: `${shots}live-barnard-diff.png`, fullPage: true });
-  assert.ok(offsets.every((o) => o.sep <= 1.5), 'star sits on its predicted track');
-  console.log('page errors:', errors);
-  console.log('live OK');
+    const tag = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '');
+    await page.evaluate(() => document.getElementById('play').click());
+    await page.check('#ov-gaia');
+    await page.waitForFunction(() => window.__skyshift.gaia || document.getElementById('status').classList.contains('error'), null, { timeout: 60000 }).catch(() => {});
+    result.gaia = await page.evaluate(() => window.__skyshift.gaia?.length ?? document.getElementById('status').textContent);
+    await page.screenshot({ path: `${shots}live-${tag}.png`, fullPage: true });
+    await page.check('#diff');
+    await page.screenshot({ path: `${shots}live-${tag}-diff.png`, fullPage: true });
+    result.errors = errors;
+    console.log(`\n=== ${name}\n${JSON.stringify(result, null, 1)}`);
+
+    const fast = result.pmTotal > 1000;
+    const ok = result.visits.length > 0 && errors.length === 0 &&
+      // Visits with only one or two exposures may not detect a faint target (e.g. WISE 0855).
+      (!fast || result.visits.filter((v) => v.n >= 4).every((v) => v.offsetPx <= 1.5));
+    summary.push(`${ok ? 'PASS' : 'FAIL'}  ${name}: ${result.visits.length} visits, ${result.frames ?? 0} exposures` +
+      (fast ? `, max offset ${Math.max(...result.visits.filter((v) => v.n >= 4).map((v) => v.offsetPx))} px (visits with ≥4 exposures)` : '') + `, Gaia ${result.gaia}`);
+    failed ||= !ok;
+    await page.close();
+  }
 } finally {
   await browser.close();
   server.kill();
 }
+console.log('\n' + summary.join('\n'));
+assert.ok(!failed, 'some live checks failed');

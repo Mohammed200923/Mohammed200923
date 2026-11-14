@@ -80,9 +80,9 @@ npm run test:live
 ## Known limitations / next steps
 
 - **Verified on the live archive (13 Nov 2026)** against IRSA's SPHEREx tutorial notebooks and real responses: collection names, ObsCore columns, cutout syntax, FLAGS bit names (`MSKNnnnn`) and the `WCS-WAVE` lookup.
-- **Only Barnard's Star has been checked on real data so far.** Run the other four test targets next.
+- **All five challenge targets checked on real data (14 Nov).** The movers sit on their predicted tracks to within 0.6 px. See [docs/RESULTS.md](docs/RESULTS.md).
 - **IRSA throttles bursts** (HTTP 503). The app retries with back-off and keeps 4 downloads in flight.
-- **Gaia overlay and Aladin sky map** need CDS, which this sandbox couldn't reach; check them on a normal connection.
+- **Gaia overlay works**, falling back to VizieR mirrors (South Africa, Harvard) when the main CDS server is down. **The Aladin sky map** loads, but its image tiles were blocked in the test sandbox; check it on a normal connection.
 - Tile-compressed FITS isn't supported (it isn't expected for IRSA cutouts).
 - Ideas: automatic mover detection (dipole finder in difference images), JPL Horizons asteroid/comet predictions, and a WISE/NEOWISE time-series overlay for a 15-year baseline.
 

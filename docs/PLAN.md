@@ -84,8 +84,8 @@ Record a backup of the demo before judging in case the live archive is slow.
 - [x] Rows have `access_url`, `t_min`, `em_min`/`em_max` (metres), and `energy_bandpassname` (`SPHEREx-D1`…`D6`).
 - [x] `<access_url>?center=RA,DECd&size=DEG` returns IMAGE, FLAGS, VARIANCE, ZODI, EPSF and WCS-WAVE.
 - [x] Barnard's Star: 358 images over 6 visits (Aug 2025 – Sep 2026). The star follows its predicted track to within about 1 px.
-- [ ] Epsilon Indi B, WISE 0855 (4–5 µm only), RW Aur and R Dra light curves.
-- [ ] Gaia overlay and Aladin sky map on a normal connection.
+- [x] All five targets on real data (14 Nov). See [RESULTS.md](RESULTS.md).
+- [x] Gaia overlay works (falls back to VizieR mirrors when CDS is down). The Aladin sky map loads; its image tiles still need checking on a normal connection.
 
 ## Test target notes
 
