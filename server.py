@@ -333,7 +333,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             body = json.dumps({
                 "systemInstruction": {"parts": [{"text": GUIDE_INSTRUCTIONS}]},
                 "contents": contents,
-                "generationConfig": {"temperature": 0.4, "maxOutputTokens": 700},
+                # Gemini 2.5 models "think" before answering, and that thinking counts against maxOutputTokens: keep the
+                # budget generous, and turn thinking off on Flash models (short factual answers don't need it).
+                "generationConfig": dict(
+                    {"temperature": 0.4, "maxOutputTokens": 2048},
+                    **({"thinkingConfig": {"thinkingBudget": 0}} if "flash" in GEMINI_MODEL else {}),
+                ),
             }).encode()
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{urllib.parse.quote(GEMINI_MODEL)}:generateContent"
             r = urllib.request.Request(url, data=body, method="POST", headers={"Content-Type": "application/json", "x-goog-api-key": key})
