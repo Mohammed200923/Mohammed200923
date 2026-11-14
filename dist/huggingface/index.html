@@ -109,6 +109,18 @@ body.embed .panel { border: 0; border-radius: 0; }
   .frame-label { min-width: 0; }
 }
 
+.sample-note { margin: 8px 0 0; }
+#load-all { width: 100%; margin-top: 6px; }
+.movers { display: grid; gap: 6px; }
+.mover { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; text-align: left; width: 100%; padding: 8px 10px; font-size: 12px; line-height: 1.4; }
+.mover[aria-pressed=true] { border-color: var(--accent); }
+.mover .rate { font-weight: 700; font-size: 13px; color: var(--ink); grid-row: span 2; align-self: center; font-variant-numeric: tabular-nums; }
+.mover .where { color: var(--muted); font-variant-numeric: tabular-nums; }
+.badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+.badge.known { background: #16351f; color: #7fe0a0; }
+.badge.new { background: #3a2a10; color: #ffcf7a; }
+.badge.unchecked { background: var(--panel-2); color: var(--muted); }
+
   .topbar, .foot { padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
   .layout { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
   .preview-banner { margin: 14px max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); padding: 10px 14px; border: 1px solid var(--accent); border-radius: var(--radius); background: var(--panel); font-size: 13px; line-height: 1.5; }
@@ -206,6 +218,8 @@ body.embed .panel { border: 0; border-radius: 0; }
 
         <button class="primary" type="submit" id="go">Make time-lapse</button>
         <div class="progress" hidden><div class="bar" id="bar"></div></div>
+        <p class="sample-note small muted" id="sample-note" hidden></p>
+        <button type="button" id="load-all" hidden>Use all images</button>
       </form>
     </section>
 
@@ -242,6 +256,8 @@ body.embed .panel { border: 0; border-radius: 0; }
         <label class="check"><input type="checkbox" id="smooth"> Smooth pixels</label>
         <label class="check"><input type="checkbox" id="ov-track" checked> Predicted track</label>
         <label class="check"><input type="checkbox" id="ov-gaia"> Gaia DR3 stars</label>
+        <label class="check"><input type="checkbox" id="ov-movers" checked> Detected movers</label>
+        <label class="check"><input type="checkbox" id="show-masked"> Show masked pixels</label>
       </div>
 
       <div class="export">
@@ -268,11 +284,14 @@ body.embed .panel { border: 0; border-radius: 0; }
       <h3>This frame</h3>
       <table class="meta" id="meta"><tbody><tr><td colspan="2" class="muted">No data loaded</td></tr></tbody></table>
 
+      <h3>Moving objects</h3>
+      <div id="movers" class="movers" aria-live="polite"><p class="muted small">Load a field to search it automatically.</p></div>
+
       <h3>Click a source</h3>
       <p class="muted small" id="pick-info">Click in the viewer to measure brightness across all frames.</p>
       <div class="chart-title">Spectrum</div>
       <canvas class="chart" id="spectrum"></canvas>
-      <div class="chart-title">Light curve</div>
+      <div class="chart-title">Brightness over time <span class="muted small">(1 = this source's average at the same wavelength)</span></div>
       <canvas class="chart" id="lightcurve"></canvas>
       <button id="export-csv" disabled>Download measurements (CSV)</button>
     </section>
@@ -505,6 +524,10 @@ function makeGrid(ra, dec, sizeArcmin, scaleArcsec) {
     CD2_2: scaleArcsec / 3600
   };
   return { n, scaleArcsec, wcs: new Wcs(header), header };
+}
+function separationArcsec(ra1, dec1, ra2, dec2) {
+  let a = Math.sin((dec2 - dec1) * D2R / 2) ** 2 + Math.cos(dec1 * D2R) * Math.cos(dec2 * D2R) * Math.sin((ra2 - ra1) * D2R / 2) ** 2;
+  return 2 * Math.asin(Math.min(1, Math.sqrt(a))) * R2D * 3600;
 }
 function propagate(ra, dec, pmra, pmdec, fromYear, toYear) {
   let dt = toYear - fromYear, dDec = pmdec * dt / 36e5, dRa = pmra * dt / 36e5 / Math.cos(dec * D2R);
@@ -775,18 +798,19 @@ function writeFits(hdus) {
 
 // app/js/stack.js
 async function decodeCutout(buffer, desc, { subtractZodi = !0, maskFlags = !0 } = {}) {
-  let hdus = parseFits(await maybeGunzip(buffer)), { image, flags, zodi, primary } = spherexPlanes(hdus), header = { ...primary.header, ...image.header }, wcs = new Wcs(header), data = new Float32Array(image.data), masked = 0;
+  let hdus = parseFits(await maybeGunzip(buffer)), { image, flags, zodi, variance: varHdu, primary } = spherexPlanes(hdus), header = { ...primary.header, ...image.header }, wcs = new Wcs(header), data = new Float32Array(image.data), variance = varHdu && varHdu.data.length === data.length ? new Float32Array(varHdu.data) : null, masked = 0;
   if (subtractZodi && zodi && zodi.data.length === data.length)
     for (let i = 0; i < data.length; i++) data[i] -= zodi.data[i];
   let mask = flags ? badPixelMask(flags.header) : 0;
   if (maskFlags && flags && flags.data.length === data.length)
     for (let i = 0; i < data.length; i++)
-      flags.data[i] >>> 0 & mask && (data[i] = NaN, masked++);
+      flags.data[i] >>> 0 & mask && (data[i] = NaN, variance && (variance[i] = NaN), masked++);
   return {
     ...desc,
     width: image.width,
     height: image.height,
     data,
+    variance,
     wcs,
     header,
     flagNames: flags ? Object.keys(flagBits(flags.header)) : [],
@@ -794,8 +818,8 @@ async function decodeCutout(buffer, desc, { subtractZodi = !0, maskFlags = !0 } 
     zodiSubtracted: !!(subtractZodi && zodi)
   };
 }
-function reproject(frame, grid) {
-  let { n, wcs: gw } = grid, out = new Float32Array(n * n).fill(NaN), { width: w, height: h, data, wcs } = frame;
+function reproject(frame, grid, data = frame.data) {
+  let { n, wcs: gw } = grid, out = new Float32Array(n * n).fill(NaN), { width: w, height: h, wcs } = frame;
   for (let y = 0; y < n; y++)
     for (let x = 0; x < n; x++) {
       let [ra, dec] = gw.pixToWorld(x, y), [px, py] = wcs.worldToPix(ra, dec);
@@ -836,21 +860,47 @@ function coadd(arrays, method = "mean") {
   }
   return out;
 }
+function median(values) {
+  let v = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!v.length) return NaN;
+  let m = v.length >> 1;
+  return v.length % 2 ? v[m] : 0.5 * (v[m - 1] + v[m]);
+}
+function weightedCoadd(frames) {
+  let n = frames[0].aligned.length, weights = frames.map((f) => {
+    let mv = f.alignedVar ? median(Array.from(f.alignedVar)) : NaN;
+    return mv > 0 ? 1 / mv : 1;
+  }), data = new Float32Array(n), variance = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let sw = 0, s = 0, sv = 0, varOk = !0;
+    frames.forEach((f, k) => {
+      let v = f.aligned[i];
+      if (Number.isNaN(v)) return;
+      let w = weights[k];
+      sw += w, s += w * v;
+      let vv = f.alignedVar?.[i];
+      Number.isFinite(vv) ? sv += w * w * vv : varOk = !1;
+    }), data[i] = sw ? s / sw : NaN, variance[i] = sw && varOk ? sv / (sw * sw) : NaN;
+  }
+  return { data, variance };
+}
 function buildSequence(aligned, { mode, gapDays }) {
   return mode === "exposure" ? aligned.map((f) => ({
     label: f.obsId || f.id,
     mjd: f.mjd,
     data: f.aligned,
+    variance: f.alignedVar || null,
     members: [f],
     wlMin: f.wl,
     wlMax: f.wl
   })) : groupVisits(aligned, gapDays).map((g, i) => {
-    let mjds = g.frames.map((f) => f.mjd), wls = g.frames.map((f) => f.wl);
+    let mjds = g.frames.map((f) => f.mjd), wls = g.frames.map((f) => f.wl), { data, variance } = weightedCoadd(g.frames);
     return {
       label: `Visit ${i + 1}`,
       mjd: mjds.reduce((s, v) => s + v, 0) / mjds.length,
       mjdRange: [Math.min(...mjds), Math.max(...mjds)],
-      data: coadd(g.frames.map((f) => f.aligned), "mean"),
+      data,
+      variance,
       members: g.frames,
       wlMin: Math.min(...wls),
       wlMax: Math.max(...wls)
@@ -865,20 +915,217 @@ function percentiles(arrays, ps) {
   }
   return vals.length ? (vals.sort((x, y) => x - y), ps.map((p) => vals[Math.min(vals.length - 1, Math.max(0, Math.round(p / 100 * (vals.length - 1))))])) : ps.map(() => 0);
 }
-function aperturePhotometry(data, n, cx, cy, scaleArcsec, r = 2, rin = 4, rout = 7) {
-  let bg = [], sum = 0, npix = 0;
+function measure(data, variance, n, cx, cy, scaleArcsec, r = 2, rin = 4, rout = 7) {
+  let bg = [], sum = 0, npix = 0, varSum = 0, varOk = !!variance;
   for (let y = Math.floor(cy - rout); y <= Math.ceil(cy + rout); y++)
     for (let x = Math.floor(cx - rout); x <= Math.ceil(cx + rout); x++) {
       if (x < 0 || y < 0 || x >= n || y >= n) continue;
       let v = data[y * n + x];
       if (!Number.isFinite(v)) continue;
       let d = Math.hypot(x - cx, y - cy);
-      d <= r ? (sum += v, npix++) : d >= rin && d <= rout && bg.push(v);
+      if (d <= r) {
+        sum += v, npix++;
+        let vv = variance?.[y * n + x];
+        Number.isFinite(vv) ? varSum += vv : varOk = !1;
+      } else d >= rin && d <= rout && bg.push(v);
     }
-  if (!npix) return NaN;
+  if (!npix) return { flux: NaN, err: NaN };
   bg.sort((a, b) => a - b);
-  let sky = bg.length ? bg[Math.floor(bg.length / 2)] : 0, omega = (scaleArcsec / 206264.806) ** 2;
-  return (sum - sky * npix) * omega * 1e9;
+  let sky = bg.length ? bg[Math.floor(bg.length / 2)] : 0, toMJy = (scaleArcsec / 206264.806) ** 2 * 1e9, mad = bg.length ? median(bg.map((v) => Math.abs(v - sky))) * 1.4826 : NaN, skyErr = bg.length > 1 ? 1.2533 * mad / Math.sqrt(bg.length) : NaN, err = varOk ? Math.sqrt(varSum + (npix * skyErr) ** 2) * toMJy : NaN;
+  return { flux: (sum - sky * npix) * toMJy, err };
+}
+function relativeBrightness(points) {
+  return points.map((p) => {
+    for (let frac of [0.08, 0.2, 0.4]) {
+      let ref = median(points.filter((q) => q.visit !== p.visit && Math.abs(Math.log(q.wl / p.wl)) <= frac).map((q) => q.flux));
+      if (Number.isFinite(ref) && ref > 0)
+        return { ...p, rel: p.flux / ref, relErr: Number.isFinite(p.err) ? p.err / ref : NaN, refWindow: frac };
+    }
+    return { ...p, rel: NaN, relErr: NaN };
+  });
+}
+function visitBrightness(rel) {
+  let byVisit = /* @__PURE__ */ new Map();
+  for (let p of rel)
+    Number.isFinite(p.rel) && (byVisit.has(p.visit) || byVisit.set(p.visit, []), byVisit.get(p.visit).push(p));
+  return [...byVisit.entries()].map(([visit, ps]) => {
+    let m = median(ps.map((p) => p.rel)), mad = median(ps.map((p) => Math.abs(p.rel - m))) * 1.4826, fromErrs = Math.sqrt(ps.reduce((s, p) => s + (p.relErr || 0) ** 2, 0)) / ps.length, err = ps.length > 2 ? Math.max(1.2533 * mad / Math.sqrt(ps.length), fromErrs) : fromErrs || NaN;
+    return { visit, mjd: ps.reduce((s, p) => s + p.mjd, 0) / ps.length, rel: m, err, n: ps.length };
+  }).sort((a, b) => a.mjd - b.mjd);
+}
+
+// app/js/movers.js
+function median2(values) {
+  let v = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!v.length) return NaN;
+  let m = v.length >> 1;
+  return v.length % 2 ? v[m] : 0.5 * (v[m - 1] + v[m]);
+}
+function refine(data, n, x, y, bg) {
+  let at = (i, j) => data[j * n + i] - bg, axis = (l, c, r) => {
+    if (l > 0 && c > 0 && r > 0) {
+      let ll = Math.log(l), lc = Math.log(c), lr = Math.log(r), den = ll - 2 * lc + lr;
+      if (den < 0) return Math.max(-0.5, Math.min(0.5, 0.5 * (ll - lr) / den));
+    }
+    let s = l + c + r;
+    return s > 0 ? (r - l) / s : 0;
+  };
+  return [x + axis(at(x - 1, y), at(x, y), at(x + 1, y)), y + axis(at(x, y - 1), at(x, y), at(x, y + 1))];
+}
+function findSources(data, variance, n, { snr = 8, border = 2 } = {}) {
+  let finite = Array.from(data).filter(Number.isFinite), bg = median2(finite), sigmaImage = median2(finite.map((v) => Math.abs(v - bg))) * 1.4826 || 1, sigmaAt = (i) => {
+    let v = variance?.[i];
+    return Number.isFinite(v) && v > 0 ? Math.sqrt(v) : sigmaImage;
+  }, out = [];
+  for (let y = border; y < n - border; y++)
+    for (let x = border; x < n - border; x++) {
+      let i = y * n + x, v = data[i];
+      if (!Number.isFinite(v)) continue;
+      let s = (v - bg) / sigmaAt(i);
+      if (s < snr) continue;
+      let peak = !0;
+      for (let dy = -1; dy <= 1 && peak; dy++)
+        for (let dx = -1; dx <= 1; dx++)
+          if ((dx || dy) && !(data[i + dy * n + dx] < v)) {
+            peak = !1;
+            break;
+          }
+      if (!peak) continue;
+      let [rx, ry] = refine(data, n, x, y, bg);
+      out.push({ x: rx, y: ry, snr: s, peak: v - bg });
+    }
+  return out;
+}
+function solve3(m, v) {
+  let det = (a) => a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]), d = det(m);
+  return Math.abs(d) < 1e-12 ? null : [0, 1, 2].map((c) => det(m.map((row, r) => row.map((x, j) => j === c ? v[r] : x))) / d);
+}
+function fitAffine(pairs) {
+  let fit = (key) => {
+    let m = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], v = [0, 0, 0];
+    for (let p of pairs) {
+      let row = [1, p.ax, p.ay];
+      for (let i = 0; i < 3; i++) {
+        v[i] += row[i] * p[key];
+        for (let j = 0; j < 3; j++) m[i][j] += row[i] * row[j];
+      }
+    }
+    return solve3(m, v);
+  }, cx = fit("bx"), cy = fit("by");
+  return cx && cy ? { cx, cy } : null;
+}
+function toAnchorFrame(aff, x, y) {
+  let [a0, a1, a2] = aff.cx, [b0, b1, b2] = aff.cy, det = a1 * b2 - a2 * b1, dx = x - a0, dy = y - b0;
+  return [(b2 * dx - a2 * dy) / det, (-b1 * dx + a1 * dy) / det];
+}
+function fitLine(ts, vs, sig) {
+  let sw = 0, st = 0, sv = 0, stt = 0, stv = 0;
+  ts.forEach((t, k) => {
+    let w = 1 / sig[k] ** 2;
+    sw += w, st += w * t, sv += w * vs[k], stt += w * t * t, stv += w * t * vs[k];
+  });
+  let det = sw * stt - st * st;
+  if (det <= 0) return null;
+  let b = (sw * stv - st * sv) / det, a = (stt * sv - st * stv) / det, chi2 = ts.reduce((s, t, k) => s + ((vs[k] - a - b * t) / sig[k]) ** 2, 0);
+  return { a, b, bErr: Math.sqrt(sw / det), chi2r: ts.length > 2 ? chi2 / (ts.length - 2) : 0 };
+}
+function findMovers(visits, n, {
+  snr = 6,
+  linkSnr = 4,
+  linkRadius = 3,
+  minShift = 0.8,
+  minSignificance = 5,
+  floor = 0.12,
+  maxChi2r = 5,
+  centroid = 1.5,
+  confidentSnr = 8,
+  possibleSignificance = 4
+} = {}) {
+  let usable = visits.map((v, k) => ({ ...v, k, year: 2e3 + (v.mjd - 51544.5) / 365.25 })), lowest = Math.min(snr, linkSnr), detections = usable.map((v) => findSources(v.data, v.variance, n, { snr: lowest })), strong = detections.map((d) => d.filter((s) => s.snr >= snr)), anchor = strong.reduce((best, d, k) => d.length > strong[best].length ? k : best, 0), nearest = (list, x, y, radius = linkRadius) => {
+    let best = null, bd = 1 / 0;
+    for (let s of list) {
+      let d = Math.hypot(s.x - x, s.y - y);
+      d < bd && (bd = d, best = s);
+    }
+    return bd <= radius ? best : null;
+  }, tracks = strong[anchor].map((a) => {
+    let points = [];
+    usable.forEach((v, k) => {
+      let s = k === anchor ? a : nearest(detections[k], a.x, a.y);
+      s && (k !== anchor && nearest(detections[anchor], s.x, s.y) !== a || points.push({ k, year: v.year, x: s.x, y: s.y, snr: s.snr }));
+    });
+    let span = points.length ? Math.max(...points.map((p) => p.year)) - Math.min(...points.map((p) => p.year)) : 0;
+    if (points.length >= 3 || points.length === 2 && span >= 0.4) {
+      let w = points.map((p) => Math.hypot(centroid / p.snr, floor)), fx = fitLine(points.map((p) => p.year), points.map((p) => p.x), w), fy = fitLine(points.map((p) => p.year), points.map((p) => p.y), w);
+      if (fx && fy)
+        for (let v of usable) {
+          if (points.some((p) => p.k === v.k)) continue;
+          let px = fx.a + fx.b * v.year, py = fy.a + fy.b * v.year, s = nearest(detections[v.k], px, py, linkRadius / 2);
+          s && nearest(detections[anchor], s.x - (px - a.x), s.y - (py - a.y)) === a && points.push({ k: v.k, year: v.year, x: s.x, y: s.y, snr: s.snr });
+        }
+    }
+    return points.sort((p, q) => p.year - q.year), { anchor: a, points };
+  }).filter((t) => t.points.length >= Math.min(3, usable.length)), offsets = usable.map((v, k) => {
+    if (k === anchor) return [0, 0];
+    let pairs = [];
+    for (let t of tracks) {
+      let p = t.points.find((q) => q.k === k);
+      p && pairs.push({ ax: t.anchor.x, ay: t.anchor.y, bx: p.x, by: p.y });
+    }
+    if (pairs.length < 3) return [0, 0];
+    let shift = [median2(pairs.map((q) => q.bx - q.ax)), median2(pairs.map((q) => q.by - q.ay))];
+    if (pairs.length < 8) return shift;
+    let aff = null;
+    for (let iter = 0; iter < 3; iter++) {
+      if (aff = fitAffine(pairs), !aff) return shift;
+      let res = pairs.map((q) => Math.hypot(
+        aff.cx[0] + aff.cx[1] * q.ax + aff.cx[2] * q.ay - q.bx,
+        aff.cy[0] + aff.cy[1] * q.ax + aff.cy[2] * q.ay - q.by
+      )), cut = 3 * 1.4826 * median2(res) + 0.05, kept = pairs.filter((q, i) => res[i] <= cut);
+      if (kept.length === pairs.length || kept.length < 8) break;
+      pairs = kept;
+    }
+    return { affine: aff };
+  }), corrected = (k, x, y) => {
+    let o = offsets[k];
+    return o.affine ? toAnchorFrame(o.affine, x, y) : [x - o[0], y - o[1]];
+  }, t0 = usable.reduce((s, v) => s + v.year, 0) / usable.length;
+  for (let t of tracks) {
+    let ts = [], xs = [], ys = [], sig = [];
+    for (let p of t.points) {
+      let [cx, cy] = corrected(p.k, p.x, p.y);
+      ts.push(p.year - t0), xs.push(cx), ys.push(cy), sig.push(Math.hypot(centroid / p.snr, floor));
+    }
+    let fx = fitLine(ts, xs, sig), fy = fitLine(ts, ys, sig);
+    if (!fx || !fy) {
+      t.fit = null;
+      continue;
+    }
+    let span = Math.max(...ts) - Math.min(...ts), vel = Math.hypot(fx.b, fy.b), velErr = Math.hypot(fx.b * fx.bErr, fy.b * fy.bErr) / (vel || 1);
+    t.fit = {
+      x0: fx.a,
+      y0: fy.a,
+      t0,
+      vx: fx.b,
+      vy: fy.b,
+      vel,
+      velErr,
+      span,
+      shift: vel * span,
+      significance: vel / (velErr || 1 / 0),
+      chi2r: Math.max(fx.chi2r, fy.chi2r),
+      visits: t.points.length,
+      snr: median2(t.points.map((p) => p.snr))
+    };
+  }
+  let minVisits = Math.min(4, usable.length), moving = tracks.filter((t) => t.fit && t.fit.shift >= minShift && t.fit.chi2r <= maxChi2r).map((t) => t.fit), movers = moving.filter((m) => m.significance >= minSignificance && m.snr >= confidentSnr && m.visits >= minVisits).sort((a, b) => b.significance - a.significance), possible = moving.filter((m) => !movers.includes(m) && m.significance >= possibleSignificance).sort((a, b) => b.significance - a.significance);
+  return { movers, possible, tracks, offsets, anchor, detections };
+}
+function moverAt(m, year) {
+  return { x: m.x0 + m.vx * (year - m.t0), y: m.y0 + m.vy * (year - m.t0) };
+}
+function toProperMotion(m, scaleArcsec) {
+  return { pmra: -m.vx * scaleArcsec, pmdec: m.vy * scaleArcsec, total: m.vel * scaleArcsec, err: m.velErr * scaleArcsec };
 }
 
 // app/js/render.js
@@ -910,13 +1157,13 @@ function stretchFn(kind) {
       return (t) => t;
   }
 }
-function toImageData(data, n, { lo, hi, stretch, cmap, diverging }) {
+function toImageData(data, n, { lo, hi, stretch, cmap, diverging, showMasked }) {
   let img = new ImageData(n, n), map = lut(diverging ? "diverging" : cmap), f = diverging ? (t) => t : stretchFn(stretch), span = hi - lo || 1;
   for (let y = 0; y < n; y++)
     for (let x = 0; x < n; x++) {
       let v = data[y * n + x], o = ((n - 1 - y) * n + x) * 4;
       if (!Number.isFinite(v)) {
-        img.data[o] = 40, img.data[o + 1] = 20, img.data[o + 2] = 50, img.data[o + 3] = 255;
+        showMasked ? (img.data[o] = 255, img.data[o + 1] = 0, img.data[o + 2] = 200) : (img.data[o] = 40, img.data[o + 1] = 20, img.data[o + 2] = 50), img.data[o + 3] = 255;
         continue;
       }
       let t = Math.min(1, Math.max(0, (v - lo) / span)), k = Math.round(f(t) * 255) * 3;
@@ -956,6 +1203,13 @@ function drawOverlay(ctx2, o, n, size) {
       let [x, y] = gridToCanvas(o.current.x, o.current.y, n, size), r = 3.2 * k, gap = 1.2 * k;
       ctx2.lineWidth = 2, ctx2.beginPath(), ctx2.moveTo(x - r - gap, y), ctx2.lineTo(x - gap, y), ctx2.moveTo(x + gap, y), ctx2.lineTo(x + r + gap, y), ctx2.moveTo(x, y - r - gap), ctx2.lineTo(x, y - gap), ctx2.moveTo(x, y + gap), ctx2.lineTo(x, y + r + gap), ctx2.stroke(), o.label && (ctx2.font = "600 12px system-ui, sans-serif", ctx2.shadowColor = "rgba(0,0,0,0.8)", ctx2.shadowBlur = 3, ctx2.fillText(o.label, x + r + gap + 4, y - 4));
     }
+  } else if (o.type === "arrow") {
+    let [x0, y0] = gridToCanvas(o.from.x, o.from.y, n, size), [x1, y1] = gridToCanvas(o.to.x, o.to.y, n, size), len = Math.hypot(x1 - x0, y1 - y0) || 1, ux = (x1 - x0) / len, uy = (y1 - y0) / len, h = 7;
+    if (ctx2.lineWidth = 2, ctx2.beginPath(), ctx2.moveTo(x0, y0), ctx2.lineTo(x1, y1), ctx2.lineTo(x1 - h * ux + h * 0.5 * uy, y1 - h * uy - h * 0.5 * ux), ctx2.moveTo(x1, y1), ctx2.lineTo(x1 - h * ux - h * 0.5 * uy, y1 - h * uy + h * 0.5 * ux), ctx2.stroke(), o.current) {
+      let [cx, cy] = gridToCanvas(o.current.x, o.current.y, n, size);
+      ctx2.beginPath(), ctx2.arc(cx, cy, 3.4 * k, 0, 2 * Math.PI), ctx2.stroke();
+    }
+    o.label && (ctx2.font = "700 12px system-ui, sans-serif", ctx2.shadowColor = "rgba(0,0,0,0.85)", ctx2.shadowBlur = 3, ctx2.fillText(o.label, Math.max(x0, x1) + 6, Math.min(y0, y1) - 4));
   } else if (o.type === "marker") {
     let [x, y] = gridToCanvas(o.x, o.y, n, size);
     ctx2.lineWidth = 2, ctx2.beginPath(), ctx2.arc(x, y, (o.r || 2) * k, 0, 2 * Math.PI), ctx2.stroke(), o.rout && (ctx2.setLineDash([3, 3]), ctx2.beginPath(), ctx2.arc(x, y, o.rin * k, 0, 2 * Math.PI), ctx2.stroke(), ctx2.beginPath(), ctx2.arc(x, y, o.rout * k, 0, 2 * Math.PI), ctx2.stroke());
@@ -1017,7 +1271,7 @@ async function resolveName(name) {
 }
 
 // app/js/charts.js
-function scatterPlot(canvas2, points, { xLabel, yLabel, xFormat = (v) => v.toFixed(1), highlight } = {}) {
+function scatterPlot(canvas2, points, { xLabel, yLabel, xFormat = (v) => v.toFixed(1), highlight, reference } = {}) {
   let dpr = window.devicePixelRatio || 1, W = canvas2.clientWidth || 320, H = canvas2.clientHeight || 180;
   canvas2.width = W * dpr, canvas2.height = H * dpr;
   let ctx2 = canvas2.getContext("2d");
@@ -1029,7 +1283,9 @@ function scatterPlot(canvas2, points, { xLabel, yLabel, xFormat = (v) => v.toFix
     ctx2.fillStyle = muted, ctx2.textAlign = "center", ctx2.fillText("Click a source in the viewer", W / 2, H / 2);
     return;
   }
-  let [x0, x1] = extent(pts.map((p) => p.x)), [y0, y1] = extent(pts.map((p) => p.y));
+  let lows = pts.map((p) => Number.isFinite(p.err) ? p.y - p.err : p.y), highs = pts.map((p) => Number.isFinite(p.err) ? p.y + p.err : p.y);
+  Number.isFinite(reference) && (lows.push(reference), highs.push(reference));
+  let [x0, x1] = extent(pts.map((p) => p.x)), y0 = Math.min(...lows), y1 = Math.max(...highs);
   x0 === x1 && (x0 -= 1, x1 += 1), y0 === y1 && (y0 -= 1, y1 += 1);
   let py = (y1 - y0) * 0.08;
   y0 -= py, y1 += py;
@@ -1039,11 +1295,14 @@ function scatterPlot(canvas2, points, { xLabel, yLabel, xFormat = (v) => v.toFix
   ctx2.strokeStyle = line, ctx2.fillStyle = muted, ctx2.lineWidth = 1;
   for (let t of ticks(y0, y1, 4))
     ctx2.beginPath(), ctx2.moveTo(m.l, sy(t)), ctx2.lineTo(W - m.r, sy(t)), ctx2.stroke(), ctx2.textAlign = "right", ctx2.fillText(fmt(t), m.l - 5, sy(t) + 3);
-  for (let t of ticks(x0, x1, 5))
-    ctx2.textAlign = "center", ctx2.fillText(xFormat(t), sx(t), H - m.b + 14);
-  ctx2.fillStyle = ink, ctx2.textAlign = "center", ctx2.fillText(xLabel || "", (m.l + W - m.r) / 2, H - 4), ctx2.save(), ctx2.translate(11, (m.t + H - m.b) / 2), ctx2.rotate(-Math.PI / 2), ctx2.fillText(yLabel || "", 0, 0), ctx2.restore();
-  for (let p of pts)
-    ctx2.fillStyle = p.color || ink, ctx2.beginPath(), ctx2.arc(sx(p.x), sy(p.y), highlight && highlight(p) ? 4.5 : 3, 0, 2 * Math.PI), ctx2.fill(), highlight && highlight(p) && (ctx2.strokeStyle = ink, ctx2.lineWidth = 1.5, ctx2.stroke());
+  let xLabels = [...new Set(ticks(x0, x1, Math.max(2, Math.floor((W - m.l - m.r) / 70))).map((t) => xFormat(t)))];
+  for (let t of ticks(x0, x1, Math.max(2, Math.floor((W - m.l - m.r) / 70))))
+    xLabels.includes(xFormat(t)) && (xLabels.splice(xLabels.indexOf(xFormat(t)), 1), ctx2.textAlign = "center", ctx2.fillText(xFormat(t), sx(t), H - m.b + 14));
+  ctx2.fillStyle = ink, ctx2.textAlign = "center", ctx2.fillText(xLabel || "", (m.l + W - m.r) / 2, H - 4), ctx2.save(), ctx2.translate(11, (m.t + H - m.b) / 2), ctx2.rotate(-Math.PI / 2), ctx2.fillText(yLabel || "", 0, 0), ctx2.restore(), Number.isFinite(reference) && (ctx2.strokeStyle = muted, ctx2.setLineDash([4, 4]), ctx2.beginPath(), ctx2.moveTo(m.l, sy(reference)), ctx2.lineTo(W - m.r, sy(reference)), ctx2.stroke(), ctx2.setLineDash([]));
+  for (let p of pts) {
+    let hl = highlight && highlight(p), r = p.size || (hl ? 4.5 : 3);
+    Number.isFinite(p.err) && p.err > 0 && (ctx2.strokeStyle = p.color || ink, ctx2.lineWidth = 1, ctx2.beginPath(), ctx2.moveTo(sx(p.x), sy(p.y - p.err)), ctx2.lineTo(sx(p.x), sy(p.y + p.err)), ctx2.stroke()), ctx2.fillStyle = p.color || ink, ctx2.beginPath(), ctx2.arc(sx(p.x), sy(p.y), r, 0, 2 * Math.PI), ctx2.fill(), (hl || p.ring) && (ctx2.strokeStyle = ink, ctx2.lineWidth = 1.5, ctx2.stroke());
+  }
 }
 function extent(a) {
   return [Math.min(...a), Math.max(...a)];
@@ -1258,6 +1517,9 @@ var simulatedProvider = {
     return writeFits([
       { header, data: img, width: n, height: n },
       { header: [["EXTNAME", "FLAGS"], ["MSKN0006", "NONFUNC"], ["MSKN0010", "HOT"], ["MSKN0021", "SOURCE"]], data: flags, width: n, height: n },
+      // Real cutouts carry IMAGE, FLAGS, VARIANCE, ZODI in this order. The simulated noise is
+      // Gaussian with σ = 0.015 MJy/sr, so its variance plane is flat.
+      { header: [["EXTNAME", "VARIANCE"], ["BUNIT", "(MJy/sr)^2"]], data: new Float32Array(n * n).fill(0.015 ** 2), width: n, height: n },
       { header: [["EXTNAME", "ZODI"], ["BUNIT", "MJy/sr"]], data: zodi, width: n, height: n }
     ]);
   }
@@ -1280,6 +1542,8 @@ var PROVIDERS = { irsa: irsaProvider, sim: simulatedProvider }, $ = (id) => docu
   gaiaKey: "",
   pick: null,
   measurements: [],
+  movers: [],
+  sample: null,
   aladin: null,
   aladinOverlay: null,
   cache: /* @__PURE__ */ new Map()
@@ -1370,13 +1634,13 @@ async function run() {
     let all = await provider.search({ ra, dec, collection: $("collection").value.trim(), target }), wmin = Number($("wmin").value), wmax = Number($("wmax").value), dets = selectedDetectors(), list = all.filter((d) => d.wlMax >= wmin && d.wlMin <= wmax && dets.includes(d.detector));
     if (!list.length)
       throw new Error(all.length ? `${all.length} images cover this spot, but none match the wavelength/detector filter.` : "No SPHEREx images cover this position yet.");
-    let max = Math.max(1, Number($("max").value));
-    list.length > max && (list = evenlySample(list, max)), setStatus(`Downloading ${list.length} cutouts (of ${all.length} images)\u2026`);
-    let sizeDeg = sizeArcmin / 60 * 1.45, opts = { subtractZodi: $("zodi").checked, maskFlags: $("mask").checked }, results = await pool(list, provider.concurrency || 6, async (desc) => {
+    let max = Math.max(1, Number($("max").value)), available = list.length;
+    list.length > max && (list = evenlySample(list, max)), state.sample = { used: list.length, available, total: all.length }, setStatus(`Downloading ${list.length} cutouts (of ${all.length} images)\u2026`);
+    let sizeDeg = sizeArcmin / 60 * 1.45, opts = { subtractZodi: $("zodi").checked, maskFlags: $("mask").checked }, loadOne = async (desc) => {
       let key = `${provider.id}|${desc.id}|${ra.toFixed(5)}|${dec.toFixed(5)}|${sizeDeg.toFixed(4)}`, buf = state.cache.get(key);
       buf || (buf = await provider.fetchCutout(desc, { ra, dec, sizeDeg }), state.cache.set(key, buf));
       let frame = await decodeCutout(buf, desc, opts);
-      if (frame.aligned = reproject(frame, state.grid), provider.waveTable) {
+      if (frame.aligned = reproject(frame, state.grid), frame.alignedVar = frame.variance ? reproject(frame, state.grid, frame.variance) : null, provider.waveTable) {
         let table = await provider.waveTable(desc, { ra, dec }).catch(() => null);
         table && (frame.lambdaAt = (r, d) => {
           let [px, py] = frame.wcs.worldToPix(r, d);
@@ -1384,20 +1648,38 @@ async function run() {
         }, frame.wl = frame.lambdaAt(ra, dec), frame.wlExact = !0);
       }
       return frame;
-    }, (done, total) => setProgress(done / total)), frames = results.filter((r) => r && !r.error && (!r.wlExact || r.wl >= wmin && r.wl <= wmax)), failed = results.length - frames.length;
+    }, results = await pool(list, provider.concurrency || 6, loadOne, (done, total) => setProgress(done / total)), retry = results.map((r, i) => r?.error ? i : -1).filter((i) => i >= 0);
+    if (retry.length) {
+      setStatus(`Retrying ${retry.length} cutouts the archive refused, one at a time\u2026`), await new Promise((r) => setTimeout(r, 4e3));
+      let again = await pool(retry.map((i) => list[i]), 1, loadOne, (done, total) => setProgress(done / total));
+      retry.forEach((i, j) => {
+        results[i] = again[j];
+      });
+    }
+    let firstError = results.find((r) => r?.error)?.error;
+    firstError && console.warn("Cutout failures, e.g.:", firstError);
+    let frames = results.filter((r) => r && !r.error && (!r.wlExact || r.wl >= wmin && r.wl <= wmax)), failed = results.filter((r) => !r || r.error).length, outside = results.length - frames.length - failed;
     if (!frames.length)
       throw results.find((r) => r?.error)?.error || new Error("No exposure has this spot inside the chosen wavelength range. Widen the range.");
-    state.frames = frames, state.pick = null, state.measurements = [], rebuildSequence(), $("empty").hidden = !0;
+    state.frames = frames, state.pick = null, state.measurements = [], state.movers = [], rebuildSequence(), updateSampleNote(), $("empty").hidden = !0;
     try {
       history.replaceState(null, "", shareUrl());
     } catch {
     }
-    setStatus(`${state.target.name}: ${frames.length} exposures \u2192 ${state.seq.length} frames` + (failed ? ` (${failed} cutouts failed)` : "") + (provider.simulated ? " \u2014 SIMULATED data" : "")), $("ov-gaia").checked && loadGaia(), play();
+    setStatus(`${state.target.name}: ${frames.length} exposures \u2192 ${state.seq.length} frames` + (failed ? ` (${failed} cutouts failed: ${firstError?.message || "unknown error"})` : "") + (outside ? ` (${outside} outside the wavelength range at this position)` : "") + (provider.simulated ? " \u2014 SIMULATED data" : "")), loadGaia({ quiet: !$("ov-gaia").checked }), play();
   } catch (e) {
     console.error(e), setStatus(e.message || String(e), !0);
   } finally {
     setProgress(null), $("go").disabled = !1;
   }
+}
+function updateSampleNote() {
+  let s = state.sample, note = $("sample-note"), btn = $("load-all");
+  if (!s) {
+    note.hidden = btn.hidden = !0;
+    return;
+  }
+  note.hidden = !1, note.textContent = s.used < s.available ? `Using ${s.used} of ${s.available} matching images (spread evenly in time). More images: less noise, slower load.` : `Using all ${s.available} matching images.`, btn.hidden = s.used >= s.available, btn.textContent = `Use all ${s.available} images`;
 }
 function evenlySample(list, max) {
   let out = [];
@@ -1412,7 +1694,67 @@ function rebuildSequence() {
     let diffs = arrays.map((a) => a.map((v, i) => Math.abs(v - state.reference[i]))), [d] = percentiles(diffs, [99.5]);
     state.diffStats = { lo: -d, hi: d };
   }
-  state.idx = Math.min(state.idx, state.seq.length - 1), $("scrub").max = String(state.seq.length - 1), render(), updateMeasurements();
+  state.idx = Math.min(state.idx, state.seq.length - 1), $("scrub").max = String(state.seq.length - 1), searchMovers(), render(), updateMeasurements();
+}
+function searchMovers() {
+  let visits = $("mode").value === "visit" ? state.seq : buildSequence(state.frames, { mode: "visit", gapDays: Number($("gap").value) });
+  if (visits.length < 2) {
+    state.movers = [], renderMovers("Needs at least two survey visits.");
+    return;
+  }
+  let { movers, possible } = findMovers(visits, state.grid.n), t = state.target, tiers = [...movers.slice(0, 8).map((m) => [m, "confident"]), ...possible.slice(0, 5).map((m) => [m, "possible"])];
+  state.movers = tiers.map(([m, tier], i) => {
+    let pm = toProperMotion(m, state.grid.scaleArcsec), [ra, dec] = state.grid.wcs.pixToWorld(m.x0, m.y0), years = visits.map((v) => mjdToYear(v.mjd)), isTarget = !1;
+    if (t && (t.pmra || t.pmdec)) {
+      let tp = targetPosition((m.t0 - 2e3) * 365.25 + 51544.5);
+      isTarget = Math.hypot(tp.x - m.x0, tp.y - m.y0) < 2.5;
+    }
+    return {
+      ...m,
+      ...pm,
+      ra,
+      dec,
+      n: i + 1,
+      isTarget,
+      tier,
+      first: Math.min(...years),
+      last: Math.max(...years),
+      gaia: classifyWithGaia(ra, dec, m.t0, pm)
+    };
+  }), renderMovers();
+}
+function classifyWithGaia(ra, dec, year, pm) {
+  if (!state.gaia) return { kind: "unchecked" };
+  let radius = 2.5 * state.grid.scaleArcsec, tolerance = Math.max(0.6, 3 * pm.err), best = null, bestDiff = 1 / 0;
+  for (let g of state.gaia) {
+    let [gr, gd] = propagate(g.ra, g.dec, g.pmra, g.pmdec, 2016, year);
+    if (separationArcsec(ra, dec, gr, gd) > radius) continue;
+    let diff = Math.hypot(g.pmra / 1e3 - pm.pmra, g.pmdec / 1e3 - pm.pmdec);
+    diff < bestDiff && (bestDiff = diff, best = g);
+  }
+  return !best || bestDiff > tolerance ? { kind: "new" } : { kind: "known", id: best.id, gmag: best.gmag, gaiaTotal: Math.hypot(best.pmra, best.pmdec) / 1e3 };
+}
+function renderMovers(message) {
+  let box = $("movers");
+  if (message || !state.movers.length) {
+    box.innerHTML = `<p class="muted small">${message || "No moving objects found. The search covers sources above S/N 6 that shift by at least 0.8 px (5\u2033) across the visits. Faint movers may need more images."}</p>`;
+    return;
+  }
+  box.innerHTML = state.movers.map((m) => {
+    let pa = (Math.atan2(m.pmra, m.pmdec) * 180 / Math.PI + 360) % 360, badge = {
+      known: `<span class="badge known">Gaia DR3 ${m.gaia.gaiaTotal?.toFixed(2)}\u2033/yr</span>`,
+      new: '<span class="badge new">No Gaia DR3 match</span>',
+      unchecked: '<span class="badge unchecked">Gaia not checked</span>'
+    }[m.gaia.kind], name = m.isTarget ? ` \xB7 ${state.target.name}` : "", faint = m.tier === "possible" ? ' <span class="badge unchecked">Faint: check by eye</span>' : "", pressed = state.pick?.mover === m ? "true" : "false";
+    return `<button type="button" class="mover" data-n="${m.n}" aria-pressed="${pressed}">
+      <span class="rate">${m.total.toFixed(1)}\u2033/yr</span>
+      <span>#${m.n}${name} ${badge}${faint}</span>
+      <span class="where">${formatRa(m.ra)} ${formatDec(m.dec)} \xB7 toward ${pa.toFixed(0)}\xB0 \xB7 \xB1${m.err.toFixed(1)}\u2033/yr \xB7 S/N ${m.snr.toFixed(0)} \xB7 ${m.visits} visits</span>
+    </button>`;
+  }).join(""), box.querySelectorAll(".mover").forEach((b) => b.addEventListener("click", () => {
+    let m = state.movers.find((x) => x.n === Number(b.dataset.n));
+    state.pick = { mover: m }, renderMovers(), updateMeasurements(), render();
+  }));
 }
 function currentImage(i) {
   let s = state.seq[i], n = state.grid.n, diff = $("diff").checked && state.reference, data = diff ? s.data.map((v, k) => v - state.reference[k]) : s.data, { lo, hi } = diff ? state.diffStats : state.stats;
@@ -1421,7 +1763,8 @@ function currentImage(i) {
     hi,
     stretch: $("stretch").value,
     cmap: $("cmap").value,
-    diverging: !!diff
+    diverging: !!diff,
+    showMasked: $("show-masked").checked
   });
 }
 function targetPosition(mjd) {
@@ -1444,6 +1787,18 @@ function overlays(s) {
       (Math.hypot(g.pmra, g.pmdec) > 150 ? fast : slow).push({ x, y });
     }
     out.push({ type: "circles", color: "rgba(160,255,160,0.55)", width: 1, r: 1.6, points: slow }), out.push({ type: "circles", color: "#ffe066", width: 2, r: 2.6, points: fast });
+  }
+  if ($("ov-movers").checked) {
+    let year = mjdToYear(s.mjd);
+    for (let m of state.movers)
+      out.push({
+        type: "arrow",
+        color: m.tier === "possible" ? "rgba(200,200,220,0.8)" : m.gaia.kind === "known" ? "#7fe0a0" : "#ffb347",
+        from: moverAt(m, m.first),
+        to: moverAt(m, m.last),
+        current: moverAt(m, year),
+        label: `#${m.n}`
+      });
   }
   if (state.pick) {
     let p = pickPosition(s.mjd);
@@ -1494,26 +1849,29 @@ function stop() {
 function step(d) {
   state.seq.length && (state.idx = (state.idx + d + state.seq.length) % state.seq.length, render());
 }
-async function loadGaia() {
+async function loadGaia({ quiet = !1 } = {}) {
   if (!state.grid) return;
   let key = `${state.grid.wcs.crval.join(",")}|${state.grid.n}`;
   if (state.gaiaKey === key && state.gaia) {
     render();
     return;
   }
+  state.gaia = null;
   try {
-    setStatus("Loading Gaia DR3 stars from CDS VizieR\u2026");
+    quiet || setStatus("Loading Gaia DR3 stars from CDS VizieR\u2026");
     let radius = state.grid.n * state.grid.scaleArcsec * 0.75;
     state.gaia = await gaiaCone(state.grid.wcs.crval[0], state.grid.wcs.crval[1], radius), state.gaiaKey = key;
     let fast = state.gaia.filter((g) => Math.hypot(g.pmra, g.pmdec) > 150).length;
-    setStatus(`Gaia DR3: ${state.gaia.length} stars (${fast} with proper motion > 150 mas/yr, yellow).`), render();
+    quiet || setStatus(`Gaia DR3: ${state.gaia.length} stars (${fast} with proper motion > 150 mas/yr, yellow).`);
+    for (let m of state.movers) m.gaia = classifyWithGaia(m.ra, m.dec, m.t0, m);
+    renderMovers(), render();
   } catch (e) {
-    setStatus(`Gaia overlay unavailable: ${e.message}`, !0);
+    quiet || setStatus(`Gaia overlay unavailable: ${e.message}`, !0);
   }
 }
 function pickPosition(mjd) {
   let p = state.pick;
-  return p.follow ? targetPosition(mjd) : { x: p.x, y: p.y };
+  return p.mover ? moverAt(p.mover, mjdToYear(mjd)) : p.follow ? targetPosition(mjd) : { x: p.x, y: p.y };
 }
 function onCanvasClick(ev) {
   if (!state.seq.length) return;
@@ -1524,7 +1882,7 @@ function onCanvasClick(ev) {
     let tp = targetPosition(s.mjd);
     follow = Math.hypot(tp.x - x, tp.y - y) < 3;
   }
-  state.pick = { x, y, follow }, updateMeasurements(), render();
+  state.pick = { x, y, follow }, renderMovers(), updateMeasurements(), render();
 }
 function peakNear(data, n, x, y, r) {
   let best = [Math.round(x), Math.round(y)], bv = -1 / 0;
@@ -1543,23 +1901,25 @@ function updateMeasurements() {
     return;
   }
   let n = state.grid.n, visitOf = /* @__PURE__ */ new Map();
-  state.seq.forEach((s, i) => s.members.forEach((m) => visitOf.set(m, i))), state.measurements = state.frames.map((f) => {
-    let p = pickPosition(f.mjd);
+  state.seq.forEach((s, i) => s.members.forEach((m) => visitOf.set(m, i))), state.measurements = relativeBrightness(state.frames.map((f) => {
+    let p = pickPosition(f.mjd), { flux, err } = measure(f.aligned, f.alignedVar, n, p.x, p.y, state.grid.scaleArcsec);
     return {
       mjd: f.mjd,
       wl: f.lambdaAt ? f.lambdaAt(...state.grid.wcs.pixToWorld(p.x, p.y)) : f.wl,
       detector: f.detector,
       id: f.obsId || f.id,
       visit: visitOf.get(f) ?? 0,
-      flux: aperturePhotometry(f.aligned, n, p.x, p.y, state.grid.scaleArcsec)
+      flux,
+      err
     };
-  }).filter((m) => Number.isFinite(m.flux));
-  let p0 = pickPosition(state.seq[state.idx].mjd), [ra, dec] = state.grid.wcs.pixToWorld(p0.x, p0.y);
-  $("pick-info").innerHTML = `${formatRa(ra)} ${formatDec(dec)}${state.pick.follow ? ` \xB7 following ${state.target.name}'s predicted motion` : ""} \xB7 ${state.measurements.length} measurements`;
+  }).filter((m) => Number.isFinite(m.flux)));
+  let p0 = pickPosition(state.seq[state.idx].mjd), [ra, dec] = state.grid.wcs.pixToWorld(p0.x, p0.y), following = state.pick.mover ? ` \xB7 following mover #${state.pick.mover.n}'s measured motion` : state.pick.follow ? ` \xB7 following ${state.target.name}'s predicted motion` : "";
+  $("pick-info").innerHTML = `${formatRa(ra)} ${formatDec(dec)}${following} \xB7 ${state.measurements.length} measurements`;
   let visits = state.seq.length, current = state.seq[state.idx];
   scatterPlot(spec, state.measurements.map((m) => ({
     x: m.wl,
     y: m.flux,
+    err: m.err,
     color: `hsl(${m.visit * 360 / Math.max(visits, 1) + 30}, 75%, 60%)`,
     m
   })), {
@@ -1567,12 +1927,17 @@ function updateMeasurements() {
     yLabel: "flux (mJy)",
     xFormat: (v) => v.toFixed(1),
     highlight: (p) => current.members.some((f) => (f.obsId || f.id) === p.m.id)
-  }), scatterPlot(lc, state.measurements.map((m) => ({
-    x: mjdToYear(m.mjd),
-    y: m.flux,
-    color: wavelengthColor(m.wl),
-    m
-  })), { xLabel: "year \u2014 colour = wavelength", yLabel: "flux (mJy)", xFormat: (v) => v.toFixed(2) }), $("export-csv").disabled = !state.measurements.length;
+  });
+  let perVisit = visitBrightness(state.measurements);
+  scatterPlot(lc, [
+    ...state.measurements.map((m) => ({ x: mjdToYear(m.mjd), y: m.rel, color: wavelengthColor(m.wl, 0.55), size: 2.5 })),
+    ...perVisit.map((v) => ({ x: mjdToYear(v.mjd), y: v.rel, err: v.err, size: 5, ring: !0, color: "#ffb347" }))
+  ], {
+    xLabel: "year \xB7 dots: exposures, rings: visits",
+    yLabel: "relative brightness",
+    xFormat: (v) => v.toFixed(1),
+    reference: 1
+  }), $("export-csv").disabled = !state.measurements.length;
 }
 function download(blob, name) {
   let a = document.createElement("a");
@@ -1600,7 +1965,18 @@ async function exportVideo() {
   download(new Blob(chunks, { type }), `${fileStem()}.${type.includes("mp4") ? "mp4" : "webm"}`), setStatus("Video saved.");
 }
 function exportCsv() {
-  let head = "obs_id,mjd,year,wavelength_um,detector,visit,flux_mJy", lines = state.measurements.map((m) => [m.id, m.mjd.toFixed(5), mjdToYear(m.mjd).toFixed(4), m.wl.toFixed(4), m.detector, m.visit + 1, m.flux.toPrecision(5)].join(","));
+  let head = "obs_id,mjd,year,wavelength_um,detector,visit,flux_mJy,flux_err_mJy,relative_brightness,relative_err", num = (v, d) => Number.isFinite(v) ? v.toPrecision(d) : "", lines = state.measurements.map((m) => [
+    m.id,
+    m.mjd.toFixed(5),
+    mjdToYear(m.mjd).toFixed(4),
+    m.wl.toFixed(4),
+    m.detector,
+    m.visit + 1,
+    num(m.flux, 5),
+    num(m.err, 3),
+    num(m.rel, 4),
+    num(m.relErr, 3)
+  ].join(","));
   download(new Blob([[head, ...lines].join(`
 `)], { type: "text/csv" }), `${fileStem()}-photometry.csv`);
 }
@@ -1660,8 +2036,12 @@ function wire() {
   }), $("scrub").addEventListener("input", () => {
     stop(), state.idx = Number($("scrub").value), render();
   }), $("fps").addEventListener("input", () => state.playing && play());
-  for (let id of ["stretch", "cmap", "diff", "smooth", "ov-track"]) $(id).addEventListener("change", render);
-  $("ov-gaia").addEventListener("change", () => $("ov-gaia").checked ? loadGaia() : render()), $("mode").addEventListener("change", rebuildSequence), $("gap").addEventListener("change", rebuildSequence), canvas.addEventListener("click", onCanvasClick), $("export-video").addEventListener("click", exportVideo), $("export-png").addEventListener("click", () => canvas.toBlob((b) => download(b, `${fileStem()}-${state.idx + 1}.png`))), $("export-csv").addEventListener("click", exportCsv), $("copy-link").addEventListener("click", () => copy(shareUrl(), "Link")), $("copy-embed").addEventListener("click", () => copy(`<iframe src="${shareUrl({ embed: "1" })}" width="560" height="700" style="border:0" title="SkyShift SPHEREx time-lapse" loading="lazy"></iframe>`, "Embed code")), $("hips").addEventListener("change", () => {
+  for (let id of ["stretch", "cmap", "diff", "smooth", "ov-track", "ov-movers", "show-masked"]) $(id).addEventListener("change", render);
+  $("load-all").addEventListener("click", () => {
+    state.sample && ($("max").value = String(state.sample.available), run());
+  }), $("ov-gaia").addEventListener("change", () => {
+    $("ov-gaia").checked && !state.gaia ? loadGaia() : render();
+  }), $("mode").addEventListener("change", rebuildSequence), $("gap").addEventListener("change", rebuildSequence), canvas.addEventListener("click", onCanvasClick), $("export-video").addEventListener("click", exportVideo), $("export-png").addEventListener("click", () => canvas.toBlob((b) => download(b, `${fileStem()}-${state.idx + 1}.png`))), $("export-csv").addEventListener("click", exportCsv), $("copy-link").addEventListener("click", () => copy(shareUrl(), "Link")), $("copy-embed").addEventListener("click", () => copy(`<iframe src="${shareUrl({ embed: "1" })}" width="560" height="700" style="border:0" title="SkyShift SPHEREx time-lapse" loading="lazy"></iframe>`, "Embed code")), $("hips").addEventListener("change", () => {
     let al = state.aladin;
     if (al)
       try {

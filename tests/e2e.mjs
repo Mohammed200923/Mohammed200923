@@ -51,6 +51,17 @@ try {
   console.log('mover offset from prediction (px):', offsets.map((o) => o.toFixed(2)).join(', '));
   assert.ok(offsets.every((o) => o <= 1.5));
 
+  // The automatic search finds the simulated brown dwarf, at its true speed, and nothing else.
+  const movers = await page.evaluate(() => window.__skyshift.movers
+    .map((m) => ({ total: m.total, tier: m.tier, isTarget: m.isTarget })));
+  console.log('movers:', movers);
+  const confident = movers.filter((m) => m.tier === 'confident');
+  assert.equal(confident.length, 1, 'exactly one confident mover');
+  assert.ok(confident[0].isTarget && Math.abs(confident[0].total - 10.4) < 1.5, 'it is the target, at ~10.4″/yr');
+  await page.click('.mover');
+  const withErr = await page.evaluate(() => window.__skyshift.measurements.filter((m) => Number.isFinite(m.err)).length);
+  assert.ok(withErr > 40, 'measurements carry error bars');
+
   await page.screenshot({ path: `${shots}app.png`, fullPage: true });
 
   // Click on the mover → photometry follows the predicted motion.

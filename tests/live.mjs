@@ -82,6 +82,7 @@ try {
         };
       });
       return {
+        movers: s.movers.map((m) => `${m.tier} ${m.total.toFixed(1)}″/yr${m.isTarget ? ' (target)' : ''} gaia:${m.gaia.kind}`),
         status, frames: s.frames.length, exact: s.frames.filter((f) => f.wlExact).length,
         pmTotal: Math.hypot(t.pmra || 0, t.pmdec || 0), visits,
       };
@@ -97,6 +98,9 @@ try {
     result.errors = errors;
     console.log(`\n=== ${name}\n${JSON.stringify(result, null, 1)}`);
 
+    // Gaia classification arrives a few seconds after the frames.
+    await page.waitForTimeout(5000);
+    result.movers = await page.evaluate(() => window.__skyshift.movers.map((m) => `${m.tier} ${m.total.toFixed(1)}″/yr${m.isTarget ? ' (target)' : ''} gaia:${m.gaia.kind}`));
     const fast = result.pmTotal > 1000;
     const ok = result.visits.length > 0 && errors.length === 0 &&
       // Visits with only one or two exposures may not detect a faint target (e.g. WISE 0855).

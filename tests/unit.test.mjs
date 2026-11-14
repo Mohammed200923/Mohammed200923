@@ -116,3 +116,79 @@ test('flag names come from MSKN keywords and bright-star flags are never masked'
   const mask = badPixelMask({ MSKN0000: 'TRANSIENT', MSKN0001: 'OVERFLOW', MSKN0010: 'HOT', MSKN0026: 'BLOOM', MSKN0021: 'SOURCE' });
   assert.equal(mask, 1 << 10);
 });
+
+// Synthetic visit: Gaussian stars (sigma ≈ 0.8 px) on noise, with a per-pixel variance plane.
+function synthVisit(n, stars, seed, noise = 0.02) {
+  let a = seed >>> 0;
+  const rand = () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
+  const data = new Float32Array(n * n), variance = new Float32Array(n * n).fill(noise * noise);
+  for (let i = 0; i < n * n; i++) data[i] = noise * Math.sqrt(-2 * Math.log(rand() + 1e-12)) * Math.cos(2 * Math.PI * rand());
+  for (const s of stars) {
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      data[y * n + x] += s.amp * Math.exp(-((x - s.x) ** 2 + (y - s.y) ** 2) / (2 * 0.8 * 0.8));
+    }
+  }
+  return { data, variance };
+}
+
+test('mover search finds a moving star and ignores static ones', async () => {
+  const { findMovers, toProperMotion } = await import('../app/js/movers.js');
+  const n = 60;
+  const statics = [[12.3, 15.7], [40.1, 44.6], [25.5, 50.2], [48.8, 12.4], [8.6, 38.9], [33.3, 28.1]]
+    .map(([x, y], i) => ({ x, y, amp: 1 + i * 0.3 }));
+  const mjds = [60800, 60983, 61166, 61350];
+  // Mover: +0.9 px/visit in y (north), -0.4 px/visit in x (east); plus a small alignment jitter per visit.
+  const jitter = [[0, 0], [0.3, -0.2], [-0.25, 0.15], [0.1, 0.3]];
+  const visits = mjds.map((mjd, k) => {
+    const [jx, jy] = jitter[k];
+    const stars = statics.map((s) => ({ ...s, x: s.x + jx, y: s.y + jy }))
+      .concat([{ x: 30 - 0.4 * k + jx, y: 20 + 0.9 * k + jy, amp: 1.5 }]);
+    return { mjd, ...synthVisit(n, stars, 1234 + k) };
+  });
+  const { movers, tracks } = findMovers(visits, n);
+  assert.equal(movers.length, 1, `found ${movers.length} movers`);
+  const m = movers[0];
+  // Fitted position is at the mean date: x = 30 - 0.4·1.5, y = 20 + 0.9·1.5.
+  assert.ok(Math.abs(m.x0 - 29.4) < 0.3 && Math.abs(m.y0 - 21.35) < 0.3, `mover at ${m.x0},${m.y0}`);
+  const pm = toProperMotion(m, 6.15);
+  const perYear = 365.25 / 183;
+  assert.ok(Math.abs(pm.pmdec - 0.9 * perYear * 6.15) < 1.5, `pmdec ${pm.pmdec}`);
+  assert.ok(Math.abs(pm.pmra - 0.4 * perYear * 6.15) < 1.5, `pmra ${pm.pmra} (east = +)`);
+  const staticFits = tracks.filter((t) => t.fit && t.fit !== m);
+  assert.ok(staticFits.length >= 5, 'static stars are tracked');
+  assert.ok(staticFits.every((t) => t.fit.shift < 0.5), 'static stars stay put after alignment correction');
+});
+
+test('weighted coadd down-weights noisy frames and propagates variance', async () => {
+  const { weightedCoadd } = await import('../app/js/stack.js');
+  const a = { aligned: Float32Array.of(1, 1), alignedVar: Float32Array.of(1, 1) };
+  const b = { aligned: Float32Array.of(3, 3), alignedVar: Float32Array.of(4, 4) };
+  const { data, variance } = weightedCoadd([a, b]);
+  // weights 1 and 1/4 → (1 + 0.75) / 1.25 = 1.4; variance (1 + 1/16*4) / 1.25² = 0.8
+  assert.ok(Math.abs(data[0] - 1.4) < 1e-6);
+  assert.ok(Math.abs(variance[0] - 0.8) < 1e-6);
+});
+
+test('photometry error grows with pixel variance', async () => {
+  const { measure } = await import('../app/js/stack.js');
+  const n = 31, data = new Float32Array(n * n).fill(1);
+  data[15 * n + 15] += 10;
+  const low = measure(data, new Float32Array(n * n).fill(0.01), n, 15, 15, 6.15);
+  const high = measure(data, new Float32Array(n * n).fill(1), n, 15, 15, 6.15);
+  assert.ok(low.err > 0 && high.err > low.err * 5);
+  assert.ok(Math.abs(low.flux - high.flux) < 1e-12);
+});
+
+test('relative brightness removes the spectrum and reveals a variable', async () => {
+  const { relativeBrightness, visitBrightness } = await import('../app/js/stack.js');
+  // Steep spectrum (flux ∝ λ^-2); visit 1 is 50% brighter at every wavelength.
+  const points = [];
+  [0, 1, 2].forEach((visit) => {
+    for (const wl of [0.8, 1.0, 1.5, 2.2, 3.0, 4.2]) {
+      points.push({ visit, mjd: 60800 + 180 * visit, wl: wl * (1 + 0.01 * visit), flux: wl ** -2 * (visit === 1 ? 1.5 : 1), err: 0.01 });
+    }
+  });
+  const v = visitBrightness(relativeBrightness(points));
+  assert.equal(v.length, 3);
+  assert.ok(v[1].rel > 1.35 && v[0].rel < 0.85 && v[2].rel < 0.85, JSON.stringify(v.map((x) => x.rel)));
+});

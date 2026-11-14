@@ -77,6 +77,8 @@
 
         <button class="primary" type="submit" id="go">Make time-lapse</button>
         <div class="progress" hidden><div class="bar" id="bar"></div></div>
+        <p class="sample-note small muted" id="sample-note" hidden></p>
+        <button type="button" id="load-all" hidden>Use all images</button>
       </form>
     </section>
 
@@ -113,6 +115,8 @@
         <label class="check"><input type="checkbox" id="smooth"> Smooth pixels</label>
         <label class="check"><input type="checkbox" id="ov-track" checked> Predicted track</label>
         <label class="check"><input type="checkbox" id="ov-gaia"> Gaia DR3 stars</label>
+        <label class="check"><input type="checkbox" id="ov-movers" checked> Detected movers</label>
+        <label class="check"><input type="checkbox" id="show-masked"> Show masked pixels</label>
       </div>
 
       <div class="export">
@@ -139,11 +143,14 @@
       <h3>This frame</h3>
       <table class="meta" id="meta"><tbody><tr><td colspan="2" class="muted">No data loaded</td></tr></tbody></table>
 
+      <h3>Moving objects</h3>
+      <div id="movers" class="movers" aria-live="polite"><p class="muted small">Load a field to search it automatically.</p></div>
+
       <h3>Click a source</h3>
       <p class="muted small" id="pick-info">Click in the viewer to measure brightness across all frames.</p>
       <div class="chart-title">Spectrum</div>
       <canvas class="chart" id="spectrum"></canvas>
-      <div class="chart-title">Light curve</div>
+      <div class="chart-title">Brightness over time <span class="muted small">(1 = this source's average at the same wavelength)</span></div>
       <canvas class="chart" id="lightcurve"></canvas>
       <button id="export-csv" disabled>Download measurements (CSV)</button>
     </section>

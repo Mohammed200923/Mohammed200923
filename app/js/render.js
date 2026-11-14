@@ -31,7 +31,7 @@ function stretchFn(kind) {
 }
 
 /** Convert a grid-sized float array to an n×n RGBA ImageData. */
-export function toImageData(data, n, { lo, hi, stretch, cmap, diverging }) {
+export function toImageData(data, n, { lo, hi, stretch, cmap, diverging, showMasked }) {
   const img = new ImageData(n, n);
   const map = lut(diverging ? 'diverging' : cmap);
   const f = diverging ? (t) => t : stretchFn(stretch);
@@ -41,7 +41,10 @@ export function toImageData(data, n, { lo, hi, stretch, cmap, diverging }) {
       const v = data[y * n + x];
       const o = ((n - 1 - y) * n + x) * 4; // FITS row 0 is the bottom
       if (!Number.isFinite(v)) {
-        img.data[o] = 40; img.data[o + 1] = 20; img.data[o + 2] = 50; img.data[o + 3] = 255;
+        // Masked or missing pixels: dim purple, or bright magenta when highlighted.
+        if (showMasked) { img.data[o] = 255; img.data[o + 1] = 0; img.data[o + 2] = 200; }
+        else { img.data[o] = 40; img.data[o + 1] = 20; img.data[o + 2] = 50; }
+        img.data[o + 3] = 255;
         continue;
       }
       const t = Math.min(1, Math.max(0, (v - lo) / span));
@@ -141,6 +144,25 @@ function drawOverlay(ctx, o, n, size) {
         ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 3;
         ctx.fillText(o.label, x + r + gap + 4, y - 4);
       }
+    }
+  } else if (o.type === 'arrow') {
+    // Motion of a detected mover: from its first to its last visit position.
+    const [x0, y0] = gridToCanvas(o.from.x, o.from.y, n, size);
+    const [x1, y1] = gridToCanvas(o.to.x, o.to.y, n, size);
+    const len = Math.hypot(x1 - x0, y1 - y0) || 1, ux = (x1 - x0) / len, uy = (y1 - y0) / len, h = 7;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+    ctx.lineTo(x1 - h * ux + h * 0.5 * uy, y1 - h * uy - h * 0.5 * ux);
+    ctx.moveTo(x1, y1); ctx.lineTo(x1 - h * ux - h * 0.5 * uy, y1 - h * uy + h * 0.5 * ux);
+    ctx.stroke();
+    if (o.current) {
+      const [cx, cy] = gridToCanvas(o.current.x, o.current.y, n, size);
+      ctx.beginPath(); ctx.arc(cx, cy, 3.4 * k, 0, 2 * Math.PI); ctx.stroke();
+    }
+    if (o.label) {
+      ctx.font = '700 12px system-ui, sans-serif';
+      ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 3;
+      ctx.fillText(o.label, Math.max(x0, x1) + 6, Math.min(y0, y1) - 4);
     }
   } else if (o.type === 'marker') {
     const [x, y] = gridToCanvas(o.x, o.y, n, size);

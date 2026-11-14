@@ -167,6 +167,9 @@ export const simulatedProvider = {
     return writeFits([
       { header, data: img, width: n, height: n },
       { header: [['EXTNAME', 'FLAGS'], ['MSKN0006', 'NONFUNC'], ['MSKN0010', 'HOT'], ['MSKN0021', 'SOURCE']], data: flags, width: n, height: n },
+      // Real cutouts carry IMAGE, FLAGS, VARIANCE, ZODI in this order. The simulated noise is
+      // Gaussian with σ = 0.015 MJy/sr, so its variance plane is flat.
+      { header: [['EXTNAME', 'VARIANCE'], ['BUNIT', '(MJy/sr)^2']], data: new Float32Array(n * n).fill(0.015 ** 2), width: n, height: n },
       { header: [['EXTNAME', 'ZODI'], ['BUNIT', 'MJy/sr']], data: zodi, width: n, height: n },
     ]);
   },

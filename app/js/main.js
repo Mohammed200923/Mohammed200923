@@ -1,8 +1,9 @@
 import { TARGETS } from './targets.js';
 import { DETECTORS, PIXEL_SCALE_ARCSEC, wavelengthColor, wavelengthAt } from './spherex.js';
-import { parseCoordinates, makeGrid, propagate, mjdToYear, mjdToDate, formatRa, formatDec } from './wcs.js';
+import { parseCoordinates, makeGrid, propagate, mjdToYear, mjdToDate, formatRa, formatDec, separationArcsec } from './wcs.js';
 import { detectProxy, pool } from './net.js';
-import { decodeCutout, reproject, buildSequence, percentiles, coadd, aperturePhotometry } from './stack.js';
+import { decodeCutout, reproject, buildSequence, percentiles, coadd, measure, relativeBrightness, visitBrightness } from './stack.js';
+import { findMovers, moverAt, toProperMotion } from './movers.js';
 import { toImageData, drawFrame, canvasToGrid } from './render.js';
 import { gaiaCone, resolveName } from './catalogs.js';
 import { scatterPlot } from './charts.js';
@@ -18,7 +19,7 @@ const state = {
   target: null, provider: null, grid: null,
   frames: [], seq: [], idx: 0, playing: false, timer: null,
   stats: null, reference: null, diffStats: null,
-  gaia: null, gaiaKey: '', pick: null, measurements: [],
+  gaia: null, gaiaKey: '', pick: null, measurements: [], movers: [], sample: null,
   aladin: null, aladinOverlay: null, cache: new Map(),
 };
 
@@ -154,12 +155,14 @@ async function run() {
         : 'No SPHEREx images cover this position yet.');
     }
     const max = Math.max(1, Number($('max').value));
+    const available = list.length;
     if (list.length > max) list = evenlySample(list, max);
+    state.sample = { used: list.length, available, total: all.length };
 
     setStatus(`Downloading ${list.length} cutouts (of ${all.length} images)…`);
     const sizeDeg = (sizeArcmin / 60) * 1.45; // covers the grid at any roll angle
     const opts = { subtractZodi: $('zodi').checked, maskFlags: $('mask').checked };
-    const results = await pool(list, provider.concurrency || 6, async (desc) => {
+    const loadOne = async (desc) => {
       const key = `${provider.id}|${desc.id}|${ra.toFixed(5)}|${dec.toFixed(5)}|${sizeDeg.toFixed(4)}`;
       let buf = state.cache.get(key);
       if (!buf) {
@@ -168,6 +171,7 @@ async function run() {
       }
       const frame = await decodeCutout(buf, desc, opts);
       frame.aligned = reproject(frame, state.grid);
+      frame.alignedVar = frame.variance ? reproject(frame, state.grid, frame.variance) : null;
       if (provider.waveTable) {
         // Exact wavelength at the target for this exposure (linear variable filter).
         const table = await provider.waveTable(desc, { ra, dec }).catch(() => null);
@@ -181,10 +185,22 @@ async function run() {
         }
       }
       return frame;
-    }, (done, total) => setProgress(done / total));
+    };
+    const results = await pool(list, provider.concurrency || 6, loadOne, (done, total) => setProgress(done / total));
+    // The archive refuses some requests when busy; give those a second, gentler pass.
+    const retry = results.map((r, i) => (r?.error ? i : -1)).filter((i) => i >= 0);
+    if (retry.length) {
+      setStatus(`Retrying ${retry.length} cutouts the archive refused, one at a time…`);
+      await new Promise((r) => setTimeout(r, 4000));
+      const again = await pool(retry.map((i) => list[i]), 1, loadOne, (done, total) => setProgress(done / total));
+      retry.forEach((i, j) => { results[i] = again[j]; });
+    }
+    const firstError = results.find((r) => r?.error)?.error;
+    if (firstError) console.warn('Cutout failures, e.g.:', firstError);
 
     const frames = results.filter((r) => r && !r.error && (!r.wlExact || (r.wl >= wmin && r.wl <= wmax)));
-    const failed = results.length - frames.length;
+    const failed = results.filter((r) => !r || r.error).length;
+    const outside = results.length - frames.length - failed; // exact λ at the target fell outside the range
     if (!frames.length) {
       throw results.find((r) => r?.error)?.error ||
         new Error('No exposure has this spot inside the chosen wavelength range. Widen the range.');
@@ -192,12 +208,17 @@ async function run() {
     state.frames = frames;
     state.pick = null;
     state.measurements = [];
+    state.movers = [];
     rebuildSequence();
+    updateSampleNote();
     $('empty').hidden = true;
     try { history.replaceState(null, '', shareUrl()); } catch { /* sandboxed frames may refuse */ }
     setStatus(`${state.target.name}: ${frames.length} exposures → ${state.seq.length} frames` +
-      (failed ? ` (${failed} cutouts failed)` : '') + (provider.simulated ? ' — SIMULATED data' : ''));
-    if ($('ov-gaia').checked) loadGaia();
+      (failed ? ` (${failed} cutouts failed: ${firstError?.message || 'unknown error'})` : '') +
+      (outside ? ` (${outside} outside the wavelength range at this position)` : '') +
+      (provider.simulated ? ' — SIMULATED data' : ''));
+    // Gaia is needed to tell known movers from new ones, whether or not its overlay is shown.
+    loadGaia({ quiet: !$('ov-gaia').checked });
     play();
   } catch (e) {
     console.error(e);
@@ -206,6 +227,17 @@ async function run() {
     setProgress(null);
     $('go').disabled = false;
   }
+}
+
+function updateSampleNote() {
+  const s = state.sample, note = $('sample-note'), btn = $('load-all');
+  if (!s) { note.hidden = btn.hidden = true; return; }
+  note.hidden = false;
+  note.textContent = s.used < s.available
+    ? `Using ${s.used} of ${s.available} matching images (spread evenly in time). More images: less noise, slower load.`
+    : `Using all ${s.available} matching images.`;
+  btn.hidden = s.used >= s.available;
+  btn.textContent = `Use all ${s.available} images`;
 }
 
 function evenlySample(list, max) {
@@ -228,8 +260,91 @@ function rebuildSequence() {
   }
   state.idx = Math.min(state.idx, state.seq.length - 1);
   $('scrub').max = String(state.seq.length - 1);
+  searchMovers();
   render();
   updateMeasurements();
+}
+
+// ---------- automatic mover search ----------
+
+function searchMovers() {
+  // Always on survey visits (stacked), whatever the player shows: single exposures mix wavelengths.
+  const visits = $('mode').value === 'visit'
+    ? state.seq
+    : buildSequence(state.frames, { mode: 'visit', gapDays: Number($('gap').value) });
+  if (visits.length < 2) {
+    state.movers = [];
+    renderMovers('Needs at least two survey visits.');
+    return;
+  }
+  const { movers, possible } = findMovers(visits, state.grid.n);
+  const t = state.target;
+  const tiers = [...movers.slice(0, 8).map((m) => [m, 'confident']), ...possible.slice(0, 5).map((m) => [m, 'possible'])];
+  state.movers = tiers.map(([m, tier], i) => {
+    const pm = toProperMotion(m, state.grid.scaleArcsec);
+    const [ra, dec] = state.grid.wcs.pixToWorld(m.x0, m.y0);
+    const years = visits.map((v) => mjdToYear(v.mjd));
+    let isTarget = false;
+    if (t && (t.pmra || t.pmdec)) {
+      const tp = targetPosition((m.t0 - 2000) * 365.25 + 51544.5);
+      isTarget = Math.hypot(tp.x - m.x0, tp.y - m.y0) < 2.5;
+    }
+    return {
+      ...m, ...pm, ra, dec, n: i + 1, isTarget, tier,
+      first: Math.min(...years), last: Math.max(...years), gaia: classifyWithGaia(ra, dec, m.t0, pm),
+    };
+  });
+  renderMovers();
+}
+
+/**
+ * Compare a detected mover with Gaia DR3: is there a Gaia star at this position (at the
+ * mover's epoch) that also moves like it? Unrelated slow stars nearby don't count.
+ */
+function classifyWithGaia(ra, dec, year, pm) {
+  if (!state.gaia) return { kind: 'unchecked' };
+  const radius = 2.5 * state.grid.scaleArcsec;
+  const tolerance = Math.max(0.6, 3 * pm.err);
+  let best = null, bestDiff = Infinity;
+  for (const g of state.gaia) {
+    const [gr, gd] = propagate(g.ra, g.dec, g.pmra, g.pmdec, 2016.0, year);
+    if (separationArcsec(ra, dec, gr, gd) > radius) continue;
+    const diff = Math.hypot(g.pmra / 1000 - pm.pmra, g.pmdec / 1000 - pm.pmdec);
+    if (diff < bestDiff) { bestDiff = diff; best = g; }
+  }
+  if (!best || bestDiff > tolerance) return { kind: 'new' };
+  return { kind: 'known', id: best.id, gmag: best.gmag, gaiaTotal: Math.hypot(best.pmra, best.pmdec) / 1000 };
+}
+
+function renderMovers(message) {
+  const box = $('movers');
+  if (message || !state.movers.length) {
+    box.innerHTML = `<p class="muted small">${message || 'No moving objects found. The search covers sources above S/N 6 that shift by at least 0.8 px (5″) across the visits. Faint movers may need more images.'}</p>`;
+    return;
+  }
+  box.innerHTML = state.movers.map((m) => {
+    const pa = ((Math.atan2(m.pmra, m.pmdec) * 180) / Math.PI + 360) % 360;
+    const badge = {
+      known: `<span class="badge known">Gaia DR3 ${m.gaia.gaiaTotal?.toFixed(2)}″/yr</span>`,
+      new: `<span class="badge new">No Gaia DR3 match</span>`,
+      unchecked: `<span class="badge unchecked">Gaia not checked</span>`,
+    }[m.gaia.kind];
+    const name = m.isTarget ? ` · ${state.target.name}` : '';
+    const faint = m.tier === 'possible' ? ' <span class="badge unchecked">Faint: check by eye</span>' : '';
+    const pressed = state.pick?.mover === m ? 'true' : 'false';
+    return `<button type="button" class="mover" data-n="${m.n}" aria-pressed="${pressed}">
+      <span class="rate">${m.total.toFixed(1)}″/yr</span>
+      <span>#${m.n}${name} ${badge}${faint}</span>
+      <span class="where">${formatRa(m.ra)} ${formatDec(m.dec)} · toward ${pa.toFixed(0)}° · ±${m.err.toFixed(1)}″/yr · S/N ${m.snr.toFixed(0)} · ${m.visits} visits</span>
+    </button>`;
+  }).join('');
+  box.querySelectorAll('.mover').forEach((b) => b.addEventListener('click', () => {
+    const m = state.movers.find((x) => x.n === Number(b.dataset.n));
+    state.pick = { mover: m };
+    renderMovers();
+    updateMeasurements();
+    render();
+  }));
 }
 
 // ---------- rendering ----------
@@ -242,6 +357,7 @@ function currentImage(i) {
   const { lo, hi } = diff ? state.diffStats : state.stats;
   return toImageData(data, n, {
     lo, hi, stretch: $('stretch').value, cmap: $('cmap').value, diverging: Boolean(diff),
+    showMasked: $('show-masked').checked,
   });
 }
 
@@ -275,6 +391,15 @@ function overlays(s) {
     }
     out.push({ type: 'circles', color: 'rgba(160,255,160,0.55)', width: 1, r: 1.6, points: slow });
     out.push({ type: 'circles', color: '#ffe066', width: 2, r: 2.6, points: fast });
+  }
+  if ($('ov-movers').checked) {
+    const year = mjdToYear(s.mjd);
+    for (const m of state.movers) {
+      out.push({
+        type: 'arrow', color: m.tier === 'possible' ? 'rgba(200,200,220,0.8)' : m.gaia.kind === 'known' ? '#7fe0a0' : '#ffb347',
+        from: moverAt(m, m.first), to: moverAt(m, m.last), current: moverAt(m, year), label: `#${m.n}`,
+      });
+    }
   }
   if (state.pick) {
     const p = pickPosition(s.mjd);
@@ -355,20 +480,23 @@ function step(d) {
 
 // ---------- Gaia overlay ----------
 
-async function loadGaia() {
+async function loadGaia({ quiet = false } = {}) {
   if (!state.grid) return;
   const key = `${state.grid.wcs.crval.join(',')}|${state.grid.n}`;
   if (state.gaiaKey === key && state.gaia) { render(); return; }
+  state.gaia = null;
   try {
-    setStatus('Loading Gaia DR3 stars from CDS VizieR…');
+    if (!quiet) setStatus('Loading Gaia DR3 stars from CDS VizieR…');
     const radius = (state.grid.n * state.grid.scaleArcsec) * 0.75;
     state.gaia = await gaiaCone(state.grid.wcs.crval[0], state.grid.wcs.crval[1], radius);
     state.gaiaKey = key;
     const fast = state.gaia.filter((g) => Math.hypot(g.pmra, g.pmdec) > 150).length;
-    setStatus(`Gaia DR3: ${state.gaia.length} stars (${fast} with proper motion > 150 mas/yr, yellow).`);
+    if (!quiet) setStatus(`Gaia DR3: ${state.gaia.length} stars (${fast} with proper motion > 150 mas/yr, yellow).`);
+    for (const m of state.movers) m.gaia = classifyWithGaia(m.ra, m.dec, m.t0, m);
+    renderMovers();
     render();
   } catch (e) {
-    setStatus(`Gaia overlay unavailable: ${e.message}`, true);
+    if (!quiet) setStatus(`Gaia overlay unavailable: ${e.message}`, true);
   }
 }
 
@@ -376,6 +504,7 @@ async function loadGaia() {
 
 function pickPosition(mjd) {
   const p = state.pick;
+  if (p.mover) return moverAt(p.mover, mjdToYear(mjd));
   if (p.follow) return targetPosition(mjd);
   return { x: p.x, y: p.y };
 }
@@ -396,6 +525,7 @@ function onCanvasClick(ev) {
     follow = Math.hypot(tp.x - x, tp.y - y) < 3;
   }
   state.pick = { x, y, follow };
+  renderMovers();
   updateMeasurements();
   render();
 }
@@ -422,29 +552,36 @@ function updateMeasurements() {
   const n = state.grid.n;
   const visitOf = new Map();
   state.seq.forEach((s, i) => s.members.forEach((m) => visitOf.set(m, i)));
-  state.measurements = state.frames.map((f) => {
+  state.measurements = relativeBrightness(state.frames.map((f) => {
     const p = pickPosition(f.mjd);
+    const { flux, err } = measure(f.aligned, f.alignedVar, n, p.x, p.y, state.grid.scaleArcsec);
     return {
       mjd: f.mjd, wl: f.lambdaAt ? f.lambdaAt(...state.grid.wcs.pixToWorld(p.x, p.y)) : f.wl,
       detector: f.detector, id: f.obsId || f.id,
-      visit: visitOf.get(f) ?? 0,
-      flux: aperturePhotometry(f.aligned, n, p.x, p.y, state.grid.scaleArcsec),
+      visit: visitOf.get(f) ?? 0, flux, err,
     };
-  }).filter((m) => Number.isFinite(m.flux));
+  }).filter((m) => Number.isFinite(m.flux)));
 
   const p0 = pickPosition(state.seq[state.idx].mjd);
   const [ra, dec] = state.grid.wcs.pixToWorld(p0.x, p0.y);
-  $('pick-info').innerHTML = `${formatRa(ra)} ${formatDec(dec)}${state.pick.follow ? ` · following ${state.target.name}'s predicted motion` : ''} · ${state.measurements.length} measurements`;
+  const following = state.pick.mover ? ` · following mover #${state.pick.mover.n}'s measured motion`
+    : state.pick.follow ? ` · following ${state.target.name}'s predicted motion` : '';
+  $('pick-info').innerHTML = `${formatRa(ra)} ${formatDec(dec)}${following} · ${state.measurements.length} measurements`;
 
   const visits = state.seq.length;
   const current = state.seq[state.idx];
   scatterPlot(spec, state.measurements.map((m) => ({
-    x: m.wl, y: m.flux, color: `hsl(${(m.visit * 360) / Math.max(visits, 1) + 30}, 75%, 60%)`, m,
+    x: m.wl, y: m.flux, err: m.err, color: `hsl(${(m.visit * 360) / Math.max(visits, 1) + 30}, 75%, 60%)`, m,
   })), { xLabel: 'wavelength (µm) — colour = visit', yLabel: 'flux (mJy)', xFormat: (v) => v.toFixed(1),
     highlight: (p) => current.members.some((f) => (f.obsId || f.id) === p.m.id) });
-  scatterPlot(lc, state.measurements.map((m) => ({
-    x: mjdToYear(m.mjd), y: m.flux, color: wavelengthColor(m.wl), m,
-  })), { xLabel: 'year — colour = wavelength', yLabel: 'flux (mJy)', xFormat: (v) => v.toFixed(2) });
+  // Each exposure divided by the source's own brightness at that wavelength in the other
+  // visits, so wavelength differences between visits don't look like variability.
+  const perVisit = visitBrightness(state.measurements);
+  scatterPlot(lc, [
+    ...state.measurements.map((m) => ({ x: mjdToYear(m.mjd), y: m.rel, color: wavelengthColor(m.wl, 0.55), size: 2.5 })),
+    ...perVisit.map((v) => ({ x: mjdToYear(v.mjd), y: v.rel, err: v.err, size: 5, ring: true, color: '#ffb347' })),
+  ], { xLabel: 'year · dots: exposures, rings: visits', yLabel: 'relative brightness',
+    xFormat: (v) => v.toFixed(1), reference: 1 });
   $('export-csv').disabled = !state.measurements.length;
 }
 
@@ -489,9 +626,11 @@ async function exportVideo() {
 }
 
 function exportCsv() {
-  const head = 'obs_id,mjd,year,wavelength_um,detector,visit,flux_mJy';
+  const head = 'obs_id,mjd,year,wavelength_um,detector,visit,flux_mJy,flux_err_mJy,relative_brightness,relative_err';
+  const num = (v, d) => (Number.isFinite(v) ? v.toPrecision(d) : '');
   const lines = state.measurements.map((m) =>
-    [m.id, m.mjd.toFixed(5), mjdToYear(m.mjd).toFixed(4), m.wl.toFixed(4), m.detector, m.visit + 1, m.flux.toPrecision(5)].join(','));
+    [m.id, m.mjd.toFixed(5), mjdToYear(m.mjd).toFixed(4), m.wl.toFixed(4), m.detector, m.visit + 1,
+      num(m.flux, 5), num(m.err, 3), num(m.rel, 4), num(m.relErr, 3)].join(','));
   download(new Blob([[head, ...lines].join('\n')], { type: 'text/csv' }), `${fileStem()}-photometry.csv`);
 }
 
@@ -547,8 +686,16 @@ function wire() {
   $('next').addEventListener('click', () => { stop(); step(1); });
   $('scrub').addEventListener('input', () => { stop(); state.idx = Number($('scrub').value); render(); });
   $('fps').addEventListener('input', () => state.playing && play());
-  for (const id of ['stretch', 'cmap', 'diff', 'smooth', 'ov-track']) $(id).addEventListener('change', render);
-  $('ov-gaia').addEventListener('change', () => ($('ov-gaia').checked ? loadGaia() : render()));
+  for (const id of ['stretch', 'cmap', 'diff', 'smooth', 'ov-track', 'ov-movers', 'show-masked']) $(id).addEventListener('change', render);
+  $('load-all').addEventListener('click', () => {
+    if (!state.sample) return;
+    $('max').value = String(state.sample.available);
+    run();
+  });
+  $('ov-gaia').addEventListener('change', () => {
+    if ($('ov-gaia').checked && !state.gaia) loadGaia();
+    else render();
+  });
   $('mode').addEventListener('change', rebuildSequence);
   $('gap').addEventListener('change', rebuildSequence);
   canvas.addEventListener('click', onCanvasClick);
