@@ -51,7 +51,7 @@ async function gallery() {
   cards.forEach(({ id, tg }) => {
     if (!tg) return; const st = STORIES[id];
     grid.append(h('button', { class: 'gcard', type: 'button', style: `--a:${st.theme.accent};--b:${st.theme.accent2};--c1:${st.theme.bg[0]};--c2:${st.theme.bg[1]}`, onclick: () => begin(tg) },
-      h('span', { class: 'gtone', text: t('story.tone.' + st.theme.tone) }), h('span', { class: 'gname display', text: loc(tg.name) }), h('span', { class: 'gtype', text: loc(tg.typeLabel) }), h('span', { class: 'chip warn', text: t('story.draft.chip') })));
+      h('span', { class: 'gtone', text: t('story.tone.' + st.theme.tone) }), h('span', { class: 'gname display', text: loc(tg.name) }), h('span', { class: 'gtype', text: loc(tg.typeLabel) }), h('span', { class: 'chip' + (st.status === 'draft' ? ' warn' : ' ok'), text: st.status === 'draft' ? t('story.draft.chip') : t('story.verified') })));
   });
   if (S.target && !STORIES[S.target.id]) grid.append(h('button', { class: 'gcard generic', type: 'button', onclick: () => begin(S.target) }, h('span', { class: 'gtone', text: t('story.tone.neutral') }), h('span', { class: 'gname display', text: loc(S.target.name) }), h('span', { class: 'gtype', text: t('story.generic.sub') }), h('span', { class: 'chip warn', text: t('story.draft.chip') })));
   const first = grid.querySelector('button'); first && first.focus();
@@ -90,7 +90,8 @@ function render(first, dir = 1) {
   const title = h('h2', { class: 'display s-title', tabindex: '-1', 'aria-label': tx.title }, words);
   const interactive = h('div', { class: 's-inter' }); buildInteractive(interactive, c);
   const more = h('details', { class: 's-more' }, h('summary', { text: t('story.more') }), h('div', {},
-    h('p', { class: 'muted', text: story.generic ? t('story.more.generic') : t('story.more.draft') }),
+    h('p', { class: 'muted', text: story.generic ? t('story.more.generic') : story.sources ? t('story.more.sources') : t('story.more.draft') }),
+    story.sources ? h('ul', { class: 's-sources' }, story.sources.map((x) => h('li', { class: 'ltr', text: x }))) : null,
     target.metadata && target.metadata.length && ch === 2 ? [h('div', { class: 'chips' }, provChip(target.isSimulated)), metaList(target.metadata)] : null,
     ch === 2 && !(target.metadata && target.metadata.length) ? emptyState(t('story.facts.await')) : null));
   const text = h('div', { class: 's-text ' + (first ? '' : dir > 0 ? 'from-r' : 'from-l') }, h('span', { class: 'eyebrow' }, loc(target.name), ' · ', h('span', { class: 'ltr', text: num })), title, h('p', { class: 's-body', text: tx.body }), tx.sub ? h('p', { class: 's-body muted', text: tx.sub }) : null, interactive, more);
@@ -100,7 +101,7 @@ function render(first, dir = 1) {
     h('button', { class: 'btn', type: 'button', disabled: ch === 0, onclick: () => go(-1) }, icon('back', 'flip-rtl'), h('span', { text: t('common.prev') })), dots,
     h('button', { class: 'btn primary', type: 'button', disabled: ch === total - 1, onclick: () => go(1) }, h('span', { text: t('common.next') }), icon('back', 'flip-next')));
   const top = h('header', { class: 's-top' }, h('button', { class: 'btn small ghost', type: 'button', onclick: () => gallery() }, icon('back', 'flip-rtl'), h('span', { text: t('story.all') })),
-    h('span', { class: 'chip warn', title: t('story.draft.note'), text: story.status === 'draft' ? t('story.draft.chip') : t('story.verified') }), h('span', { class: 'chip', text: t('story.illustration') }),
+    h('span', { class: 'chip' + (story.status === 'draft' ? ' warn' : ' ok'), title: story.status === 'draft' ? t('story.draft.note') : '', text: story.status === 'draft' ? t('story.draft.chip') : t('story.verified') }), h('span', { class: 'chip', text: t('story.illustration') }),
     h('button', { class: 'x', type: 'button', 'aria-label': t('common.close'), onclick: hide }, icon('close')));
   root.append(sceneCv, h('div', { class: 's-shade' }), top, text, nav);
   if (story.status === 'draft') root.append(h('p', { class: 'draft-note s-draft', text: t('story.draft.note') }));
@@ -122,6 +123,7 @@ function buildInteractive(box, c) {
   else if (kind === 'go') {
     box.append(h('div', { class: 'actions' },
       h('button', { class: 'btn primary lg', type: 'button', onclick: () => { hide(); C.selectTarget(target); } }, icon('explore'), h('span', { text: t('story.go.sky') })),
+      h('button', { class: 'btn lg', type: 'button', onclick: async () => { hide(); await C.selectTarget(target); UI.open('analysis'); }, text: t('story.go.analysis') }),
       h('button', { class: 'btn lg', type: 'button', onclick: async () => { hide(); await C.selectTarget(target); UI.open('viewer', { mode: 'single' }); }, text: t('story.go.obs') })));
   }
 }
@@ -129,6 +131,20 @@ function ladder() {
   const rows = ['story.cold.l1', 'story.cold.l2', 'story.cold.l3', 'story.cold.l4'];
   return h('div', { class: 'ladder glass', role: 'img', 'aria-label': t('story.cold.ladder_aria') }, h('span', { class: 'chip warn', text: t('prov.illustrative') }),
     rows.map((k, i) => h('div', { class: 'lrow' + (i === 3 ? ' me' : '') }, h('i', { style: `--k:${i}` }), h('span', { text: t(k) }))));
+}
+/* SkyShift's own measurement of this object (from the provider's metadata), when the field has finished loading. */
+async function measured(wrap, lastObs) {
+  const line = h('p', { class: 's-measure muted', text: t('story.measure.wait') }); wrap.append(line);
+  const r = await window.SX.data.getObservationMetadata(lastObs.id);
+  if (!wrap.isConnected) return;
+  const f = r.status === 'ok' ? r.data.fields : [];
+  const mine = f.find((x) => /^mover/.test(x.key) && /target/.test(loc(x.label) || ''));
+  if (mine) { line.className = 's-measure'; line.textContent = t('story.measure.motion', { v: mine.value, u: mine.unit || '' }); return; }
+  const n = f.find((x) => x.key === 'exposures');
+  const running = f.some((x) => x.key === 'moverSearch');
+  line.textContent = running ? t('story.measure.running') : n ? t('story.measure.frames', { n: wrap.querySelectorAll('figure').length }) : '';
+  // Still downloading WISE: fill the measurement in when the field is complete.
+  if (running) window.addEventListener('skyshift:field-loaded', () => { if (wrap.isConnected) { line.remove(); measured(wrap, lastObs); } }, { once: true });
 }
 function obsBlock() {
   const wrap = h('div', { class: 'obs-strip glass' }, loadingState(t('common.loading')));
@@ -140,6 +156,7 @@ function obsBlock() {
     if (!list.length) { wrap.append(emptyState(t('tl.empty.title'), t('tl.empty.body'))); return; }
     wrap.append(h('div', { class: 'chips' }, provChip(list[0].isSimulated), h('span', { class: 'muted', text: t('story.obs.caption') })));
     const row = h('div', { class: 'thumbs' }); wrap.append(row);
+    measured(wrap, list[list.length - 1]);
     list.slice(0, 6).forEach(async (o) => {
       const cv = h('canvas', { class: 'sciimg thumb', width: 96, height: 96, role: 'img', 'aria-label': fmtDate(o.startTime, lang()) }), cell = h('figure', {}, cv, h('figcaption', { text: fmtDate(o.startTime, lang()) })); row.append(cell);
       const im = await window.SX.data.getObservationImage(o.id, 'composite', { size: 160 });

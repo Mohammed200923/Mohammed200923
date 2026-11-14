@@ -44,3 +44,6 @@
 .gcard > * { position: relative; } .gcard:hover { transform: translateY(-4px); border-color: var(--a, var(--text)); } .gcard .gname { font-size: 1.7rem; line-height: 1.1; } .gcard .gtone { font-size: 0.6875rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--a, var(--text)); font-weight: 700; } .gcard .gtype { color: var(--muted); font-size: 0.8125rem; } .gcard .chip { justify-self: start; }
 .gcard.generic { --a: #38f2c2; --b: #ffd84d; }
 :root[lang='ar'] .gcard .gtone { letter-spacing: 0; text-transform: none; font-size: 0.8125rem; }
+.chip.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 55%, transparent); }
+.s-sources { margin: 0; padding-inline-start: 1.1rem; font-size: 0.75rem; color: var(--muted); display: grid; gap: 4px; overflow-wrap: anywhere; }
+.s-measure { margin: 8px 0 0; font-weight: 700; }

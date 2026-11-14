@@ -4,7 +4,7 @@
 
 **Live demo: <https://mohammed200923-skyshift.hf.space>** (Hugging Face Space, real NASA SPHEREx data)
 
-The site is a **3D sky** (interface by Ibrahim) running on the SkyShift engine; its **Analysis** button opens every tool described below on the selected target. See [docs/COMBINE.md](docs/COMBINE.md).
+The site is a **3D sky** (interface by Ibrahim) running on the SkyShift engine; its **Analysis** button opens every tool described below on the selected target. See [docs/COMBINE.md](docs/COMBINE.md). Its **Ask the guide** panel runs on Microsoft Copilot (Copilot Studio): see [docs/COPILOT.md](docs/COPILOT.md).
 
 SkyShift is a public web tool. You type an object name or sky coordinates (RA/Dec), and it fetches every image of that spot from NASA's **SPHEREx** all-sky infrared survey. It lines the images up on a common north-up grid and plays them as a short time-lapse video. Anything that moves (nearby stars, brown dwarfs, asteroids, comets) or changes brightness (variable stars) stands out at a glance.
 

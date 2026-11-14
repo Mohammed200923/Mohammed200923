@@ -17,7 +17,7 @@ export function init(skyApi) {
   el = h('aside', { class: 'panel assistant', role: 'complementary', 'aria-label': t('as.title'), hidden: true });
   $('#panels').append(el); build();
   UI.register('assistant', { kind: 'dock', open: show, close: hide, isOpen: () => open });
-  bus.on('lang', () => { build(); }); bus.on('target', () => open && ctxLine()); bus.on('visit', () => open && ctxLine());
+  bus.on('lang', () => { build(); }); bus.on('assistant-mode', () => { build(); }); bus.on('target', () => open && ctxLine()); bus.on('visit', () => open && ctxLine());
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && open && el.contains(document.activeElement)) hide(); });
 }
 function show(arg = {}) { open = true; el.hidden = false; requestAnimationFrame(() => el.classList.add('in')); ctxLine(); bus.emit('panel'); setTimeout(() => (input.focus()), 50); if (arg.ask) send({ intent: arg.ask, question: t(arg.ask) }); }
@@ -29,12 +29,13 @@ function build() {
   input = h('input', { class: 'ask-in', type: 'text', placeholder: t('as.placeholder'), 'aria-label': t('as.placeholder'), autocomplete: 'off' });
   const form = h('form', { class: 'composer', onsubmit: (e) => { e.preventDefault(); const q = input.value.trim(); if (q) { input.value = ''; send({ question: q }); } } }, input, h('button', { class: 'btn accent small', type: 'submit', 'aria-label': t('as.send') }, icon('send', 'flip-rtl')));
   const chips = h('div', { class: 'sugg' }, SUGGEST.filter((k) => !(document.documentElement.dataset.level === 'beginner' && (k === 'q.future'))).map((k) => h('button', { class: 'btn small', type: 'button', onclick: () => send({ intent: k, question: t(k) }), text: t(k) })));
-  el.append(h('div', { class: 'ph' }, h('div', { class: 'ph-t' }, h('h2', { text: t('as.title') }), h('div', { class: 'chips' }, h('span', { class: 'chip demo', text: t('as.demo_badge') }))), h('button', { class: 'x', type: 'button', 'aria-label': t('common.close'), onclick: hide }, icon('close'))),
-    h('div', { class: 'ctxline', id: 'ctxline' }), list, chips, form, h('p', { class: 'muted fine', text: t('as.disclaimer') }));
+  el.append(h('div', { class: 'ph' }, h('div', { class: 'ph-t' }, h('h2', { text: t('as.title') }), h('div', { class: 'chips' }, h('span', { class: 'chip ' + (copilotOn() ? 'ok' : 'demo'), text: t(copilotOn() ? 'as.copilot_badge' : 'as.demo_badge') }))), h('button', { class: 'x', type: 'button', 'aria-label': t('common.close'), onclick: hide }, icon('close'))),
+    h('div', { class: 'ctxline', id: 'ctxline' }), list, chips, form, h('p', { class: 'muted fine', text: t(copilotOn() ? 'as.copilot_disclaimer' : 'as.disclaimer') }));
   history = []; greet(); keep.forEach((m) => { if (!(m.reply && m.reply.greeting)) addMsg(m.role, m.reply || m.text, true); });
   ctxLine();
 }
-function greet() { addMsg('assistant', { text: t('as.greeting'), provenance: 'demo', blocks: [], greeting: true }); }
+function greet() { addMsg('assistant', { text: t(copilotOn() ? 'as.copilot_greeting' : 'as.greeting'), provenance: copilotOn() ? 'copilot' : 'demo', blocks: [], greeting: true }); }
+const copilotOn = () => !!(window.SXI && window.SXI.copilotOn);
 function ctxLine() {
   const c = $('#ctxline'); if (!c) return; c.textContent = '';
   const v = getContext(), parts = [S.target ? loc(S.target.name) : S.pos ? t('sel.position') : t('crumb.sky')];

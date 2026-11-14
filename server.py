@@ -260,10 +260,44 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/proxy/health":
             return self._send(200, b"ok", "text/plain; charset=utf-8")
+        if parsed.path == "/copilot/token":
+            return self._copilot_token()
         if parsed.path == "/proxy":
             q = urllib.parse.parse_qs(parsed.query)
             return self._proxy(q.get("url", [""])[0], q.get("fits", [""])[0], q.get("cols", [""])[0], q.get("where", [""])[0])
         return super().do_GET()
+
+    def _copilot_token(self):
+        """Microsoft Copilot Studio: fetch a Direct Line token for the "Ask the guide" panel.
+
+        Configure with the agent's token endpoint (Copilot Studio > Channels > Mobile app / Web app, agent set to
+        "No authentication"): SKYSHIFT_COPILOT_TOKEN_URL. Optional: SKYSHIFT_COPILOT_DIRECTLINE for a regional
+        Direct Line base URL. Without configuration this answers 404 and the page uses its built-in guide.
+        """
+        token_url = os.environ.get("SKYSHIFT_COPILOT_TOKEN_URL", "").strip()
+        if not token_url:
+            return self._send(404, b'{"configured":false}', "application/json")
+        host = urllib.parse.urlparse(token_url).hostname or ""
+        if not (host.endswith(".api.powerplatform.com") or host.endswith(".powerva.microsoft.com")):
+            return self._send(500, b'{"error":"SKYSHIFT_COPILOT_TOKEN_URL is not a Copilot Studio token endpoint"}', "application/json")
+        try:
+            req = urllib.request.Request(token_url, headers={"User-Agent": "SkyShift"})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            out = {
+                "token": data.get("token"),
+                "conversationId": data.get("conversationId"),
+                "directLine": os.environ.get("SKYSHIFT_COPILOT_DIRECTLINE", "https://directline.botframework.com/v3/directline").rstrip("/"),
+            }
+            self.send_response(200)
+            body = json.dumps(out).encode()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except (urllib.error.URLError, TimeoutError, ValueError) as e:
+            self._send(502, json.dumps({"error": f"Copilot Studio token request failed: {e}"}).encode(), "application/json")
 
     def _send(self, status, body, ctype, cached=None):
         self.send_response(status)
