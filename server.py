@@ -52,6 +52,28 @@ ALLOWED_HOSTS = {
     "ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca",
 }
 TIMEOUT = 180
+# Astronomy guide (Google Gemini). See docs/GEMINI.md.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GUIDE_PER_MINUTE = 8
+GUIDE_HITS = {}
+GUIDE_LOCK = threading.Lock()
+GUIDE_INSTRUCTIONS = (
+    "You are the astronomy guide inside SkyShift, a NASA Space Apps 2026 project (challenge 'Planet X and SPHEREx'). "
+    "SkyShift shows real NASA SPHEREx infrared images of any spot in the sky as a time-lapse, adds NASA WISE/NEOWISE images "
+    "from 2010-2024, and automatically finds objects that move (nearby stars, brown dwarfs, asteroids) or change brightness "
+    "(variable stars). It checks movers against ESA Gaia DR3, CatWISE2020 and NASA JPL's asteroid list. The 3D sky shows the "
+    "real stars of ESA's Hipparcos catalogue.\n"
+    "Each question starts with a block '[SkyShift context ...]' describing what the user sees: the selected object, its "
+    "coordinates and SkyShift's own measurements. Use it, quote SkyShift's measured numbers when relevant and say they are "
+    "SkyShift's measurements.\n"
+    "Be accurate and brief: 2-5 sentences unless asked for more, plain text without markdown headings. Explain for a curious "
+    "non-expert; if the context says beginner, use very simple words. If you are not sure, say so. Never invent measurements. "
+    "If the context says 'Answer in Arabic', answer in Arabic.\n"
+    "Facts: SPHEREx observes the whole sky in 102 infrared colours from 0.75 to 5 micrometres, about every six months. Proper "
+    "motion is a star's slow drift across the sky, in arcseconds per year. Brown dwarfs are too small to fuse hydrogen and glow "
+    "mostly in infrared."
+)
+
 CACHE_DIR = os.environ.get("SKYSHIFT_CACHE", os.path.join(tempfile.gettempdir(), "skyshift-cache"))
 CACHE_MAX_BYTES = int(os.environ.get("SKYSHIFT_CACHE_MB", "2000")) * 1024 * 1024
 # Archive searches can gain new rows as SPHEREx data arrives (weekly); everything else
@@ -256,48 +278,76 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # keep hosted logs readable
 
+    def do_POST(self):
+        if urllib.parse.urlparse(self.path).path == "/guide/ask":
+            return self._guide_ask()
+        self._send(404, b"not found", "text/plain")
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/proxy/health":
             return self._send(200, b"ok", "text/plain; charset=utf-8")
-        if parsed.path == "/copilot/token":
-            return self._copilot_token()
+        if parsed.path == "/guide/status":
+            return self._guide_status()
         if parsed.path == "/proxy":
             q = urllib.parse.parse_qs(parsed.query)
             return self._proxy(q.get("url", [""])[0], q.get("fits", [""])[0], q.get("cols", [""])[0], q.get("where", [""])[0])
         return super().do_GET()
 
-    def _copilot_token(self):
-        """Microsoft Copilot Studio: fetch a Direct Line token for the "Ask the guide" panel.
+    def _guide_status(self):
+        on = bool(os.environ.get("GEMINI_API_KEY", "").strip())
+        self._send(200, json.dumps({"ai": on, "model": GEMINI_MODEL if on else None}).encode(), "application/json")
 
-        Configure with the agent's token endpoint (Copilot Studio > Channels > Mobile app / Web app, agent set to
-        "No authentication"): SKYSHIFT_COPILOT_TOKEN_URL. Optional: SKYSHIFT_COPILOT_DIRECTLINE for a regional
-        Direct Line base URL. Without configuration this answers 404 and the page uses its built-in guide.
+    def _guide_ask(self):
+        """The 3D sky's astronomy guide: one question (plus what the user is looking at) to Google Gemini.
+
+        Needs GEMINI_API_KEY (a key from Google AI Studio). GEMINI_MODEL picks the model. The key never reaches the
+        browser. Small requests only, and a per-visitor rate limit protects the key's free quota.
         """
-        token_url = os.environ.get("SKYSHIFT_COPILOT_TOKEN_URL", "").strip()
-        if not token_url:
-            return self._send(404, b'{"configured":false}', "application/json")
-        host = urllib.parse.urlparse(token_url).hostname or ""
-        if not (host.endswith(".api.powerplatform.com") or host.endswith(".powerva.microsoft.com")):
-            return self._send(500, b'{"error":"SKYSHIFT_COPILOT_TOKEN_URL is not a Copilot Studio token endpoint"}', "application/json")
+        key = os.environ.get("GEMINI_API_KEY", "").strip()
+        if not key:
+            return self._send(404, b'{"error":"not configured"}', "application/json")
+        ip = (self.headers.get("X-Forwarded-For") or self.client_address[0]).split(",")[0].strip()
+        now = time.time()
+        with GUIDE_LOCK:
+            recent = [t for t in GUIDE_HITS.get(ip, []) if now - t < 60]
+            if len(recent) >= GUIDE_PER_MINUTE:
+                return self._send(429, b'{"error":"Too many questions; wait a minute."}', "application/json")
+            GUIDE_HITS[ip] = recent + [now]
         try:
-            req = urllib.request.Request(token_url, headers={"User-Agent": "SkyShift"})
-            with urllib.request.urlopen(req, timeout=20) as r:
-                data = json.loads(r.read().decode("utf-8"))
-            out = {
-                "token": data.get("token"),
-                "conversationId": data.get("conversationId"),
-                "directLine": os.environ.get("SKYSHIFT_COPILOT_DIRECTLINE", "https://directline.botframework.com/v3/directline").rstrip("/"),
-            }
-            self.send_response(200)
-            body = json.dumps(out).encode()
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-        except (urllib.error.URLError, TimeoutError, ValueError) as e:
-            self._send(502, json.dumps({"error": f"Copilot Studio token request failed: {e}"}).encode(), "application/json")
+            n = int(self.headers.get("Content-Length") or 0)
+            if n <= 0 or n > 24000:
+                return self._send(413, b'{"error":"request too large"}', "application/json")
+            req = json.loads(self.rfile.read(n).decode("utf-8"))
+            question = str(req.get("question", ""))[:1500].strip()
+            context = str(req.get("context", ""))[:4000]
+            if not question:
+                return self._send(400, b'{"error":"empty question"}', "application/json")
+            contents = []
+            for turn in (req.get("history") or [])[-8:]:
+                role = "model" if turn.get("role") == "assistant" else "user"
+                text = str(turn.get("text", ""))[:2000]
+                if text:
+                    contents.append({"role": role, "parts": [{"text": text}]})
+            contents.append({"role": "user", "parts": [{"text": f"{context}\n\nQuestion: {question}"}]})
+            body = json.dumps({
+                "systemInstruction": {"parts": [{"text": GUIDE_INSTRUCTIONS}]},
+                "contents": contents,
+                "generationConfig": {"temperature": 0.4, "maxOutputTokens": 700},
+            }).encode()
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{urllib.parse.quote(GEMINI_MODEL)}:generateContent"
+            r = urllib.request.Request(url, data=body, method="POST", headers={"Content-Type": "application/json", "x-goog-api-key": key})
+            with urllib.request.urlopen(r, timeout=40) as resp:
+                out = json.loads(resp.read().decode("utf-8"))
+            parts = ((out.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+            text = "".join(p.get("text", "") for p in parts).strip()
+            if not text:
+                return self._send(502, b'{"error":"Gemini gave no answer"}', "application/json")
+            self._send(200, json.dumps({"text": text, "model": GEMINI_MODEL}).encode(), "application/json")
+        except urllib.error.HTTPError as e:
+            self._send(502, json.dumps({"error": f"Gemini error {e.code}"}).encode(), "application/json")
+        except (urllib.error.URLError, TimeoutError, ValueError, KeyError, IndexError) as e:
+            self._send(502, json.dumps({"error": f"Gemini unreachable: {e}"}).encode(), "application/json")
 
     def _send(self, status, body, ctype, cached=None):
         self.send_response(status)

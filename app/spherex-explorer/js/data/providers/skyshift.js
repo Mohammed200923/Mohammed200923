@@ -98,7 +98,7 @@ function field(ra, dec) {
     let spxDone;
     f.spxP = new Promise((res) => { spxDone = res; });
     f.loadP = f.searchP.then((search) => loadField({ ra, dec, sizeArcmin: s.sizeArcmin, wmin: s.wmin, wmax: s.wmax, max: s.max, search, target: s.motion, onSpherex: spxDone }));
-    f.loadP.then(spxDone, () => FIELDS.delete(key)); // a failure lets a later request retry
+    f.loadP.then((full) => { f.full = full; spxDone(full); }, () => FIELDS.delete(key)); // a failure lets a later request retry
     // Tell the interface the WISE epochs are ready, so it can add them to a timeline it already shows.
     f.loadP.then(() => window.dispatchEvent(new CustomEvent('skyshift:field-loaded', { detail: { ra, dec } }))).catch(() => {});
     FIELDS.set(key, f);
@@ -108,6 +108,8 @@ function field(ra, dec) {
 
 /** SPHEREx-only requests are answered as soon as the SPHEREx frames are in; WISE ones wait for the full load. */
 async function dataFor(f, needFull) {
+  // Once the full load is in, always answer with it (the SPHEREx-only result would hide the movers).
+  if (f.full) return f.full;
   try { return needFull ? await f.loadP : await Promise.race([f.spxP, f.loadP]); } catch (e) { throw asDataError(e); }
 }
 

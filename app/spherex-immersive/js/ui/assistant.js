@@ -29,13 +29,13 @@ function build() {
   input = h('input', { class: 'ask-in', type: 'text', placeholder: t('as.placeholder'), 'aria-label': t('as.placeholder'), autocomplete: 'off' });
   const form = h('form', { class: 'composer', onsubmit: (e) => { e.preventDefault(); const q = input.value.trim(); if (q) { input.value = ''; send({ question: q }); } } }, input, h('button', { class: 'btn accent small', type: 'submit', 'aria-label': t('as.send') }, icon('send', 'flip-rtl')));
   const chips = h('div', { class: 'sugg' }, SUGGEST.filter((k) => !(document.documentElement.dataset.level === 'beginner' && (k === 'q.future'))).map((k) => h('button', { class: 'btn small', type: 'button', onclick: () => send({ intent: k, question: t(k) }), text: t(k) })));
-  el.append(h('div', { class: 'ph' }, h('div', { class: 'ph-t' }, h('h2', { text: t('as.title') }), h('div', { class: 'chips' }, h('span', { class: 'chip ' + (copilotOn() ? 'ok' : 'demo'), text: t(copilotOn() ? 'as.copilot_badge' : 'as.demo_badge') }))), h('button', { class: 'x', type: 'button', 'aria-label': t('common.close'), onclick: hide }, icon('close'))),
-    h('div', { class: 'ctxline', id: 'ctxline' }), list, chips, form, h('p', { class: 'muted fine', text: t(copilotOn() ? 'as.copilot_disclaimer' : 'as.disclaimer') }));
+  el.append(h('div', { class: 'ph' }, h('div', { class: 'ph-t' }, h('h2', { text: t('as.title') }), h('div', { class: 'chips' }, h('span', { class: 'chip ' + (aiOn() ? 'ok' : 'demo'), text: t(aiOn() ? 'as.ai_badge' : 'as.demo_badge') }))), h('button', { class: 'x', type: 'button', 'aria-label': t('common.close'), onclick: hide }, icon('close'))),
+    h('div', { class: 'ctxline', id: 'ctxline' }), list, chips, form, h('p', { class: 'muted fine', text: t(aiOn() ? 'as.ai_disclaimer' : 'as.disclaimer') }));
   history = []; greet(); keep.forEach((m) => { if (!(m.reply && m.reply.greeting)) addMsg(m.role, m.reply || m.text, true); });
   ctxLine();
 }
-function greet() { addMsg('assistant', { text: t(copilotOn() ? 'as.copilot_greeting' : 'as.greeting'), provenance: copilotOn() ? 'copilot' : 'demo', blocks: [], greeting: true }); }
-const copilotOn = () => !!(window.SXI && window.SXI.copilotOn);
+function greet() { addMsg('assistant', { text: t(aiOn() ? 'as.ai_greeting' : 'as.greeting'), provenance: aiOn() ? 'ai' : 'demo', blocks: [], greeting: true }); }
+const aiOn = () => !!(window.SXI && window.SXI.aiOn);
 function ctxLine() {
   const c = $('#ctxline'); if (!c) return; c.textContent = '';
   const v = getContext(), parts = [S.target ? loc(S.target.name) : S.pos ? t('sel.position') : t('crumb.sky')];

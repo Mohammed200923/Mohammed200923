@@ -4,7 +4,7 @@
 
 **Live demo: <https://mohammed200923-skyshift.hf.space>** (Hugging Face Space, real NASA SPHEREx data)
 
-The site is a **3D sky** (interface by Ibrahim) running on the SkyShift engine; its **Analysis** button opens every tool described below on the selected target. See [docs/COMBINE.md](docs/COMBINE.md). Its **Ask the guide** panel runs on Microsoft Copilot (Copilot Studio): see [docs/COPILOT.md](docs/COPILOT.md).
+The site is a **3D sky** (interface by Ibrahim) running on the SkyShift engine; its **Analysis** button opens every tool described below on the selected target. See [docs/COMBINE.md](docs/COMBINE.md). Its **Ask the guide** panel runs on Google Gemini: see [docs/GEMINI.md](docs/GEMINI.md).
 
 SkyShift is a public web tool. You type an object name or sky coordinates (RA/Dec), and it fetches every image of that spot from NASA's **SPHEREx** all-sky infrared survey. It lines the images up on a common north-up grid and plays them as a short time-lapse video. Anything that moves (nearby stars, brown dwarfs, asteroids, comets) or changes brightness (variable stars) stands out at a glance.
 
@@ -108,6 +108,8 @@ The 3D sky's stars: ESA Hipparcos (new reduction, van Leeuwen 2007, via VizieR I
 ## Use of AI
 
 This code and its documentation were drafted with Anthropic's Claude (Claude Code). The team must review, test and explain all of it, and should disclose this AI use on the Space Apps project page as the rules require.
+
+Inside the product, the 3D sky's **Ask the guide** panel uses Google Gemini when a key is configured. Its answers are labelled as AI and are never used as measurements: all numbers come from the NASA/ESA data and SkyShift's own pipeline.
 
 ## License
 

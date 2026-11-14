@@ -144,7 +144,10 @@ async function measured(wrap, lastObs) {
   const running = f.some((x) => x.key === 'moverSearch');
   line.textContent = running ? t('story.measure.running') : n ? t('story.measure.frames', { n: wrap.querySelectorAll('figure').length }) : '';
   // Still downloading WISE: fill the measurement in when the field is complete.
-  if (running) window.addEventListener('skyshift:field-loaded', () => { if (wrap.isConnected) { line.remove(); measured(wrap, lastObs); } }, { once: true });
+  if (running) {
+    const again = () => { if (wrap.isConnected) { line.remove(); measured(wrap, lastObs); } };
+    window.addEventListener('skyshift:field-loaded', again, { once: true });
+  }
 }
 function obsBlock() {
   const wrap = h('div', { class: 'obs-strip glass' }, loadingState(t('common.loading')));

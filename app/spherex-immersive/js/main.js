@@ -8,7 +8,7 @@ import { createSky } from './sky/skyscene.js';
 import { buildProvider } from './data/provider.js';
 import skyshift from '../../spherex-explorer/js/data/providers/skyshift.js';
 import { ask as demoAsk } from './data/assistant-demo.js';
-import { copilotAdapter, copilotAvailable } from './data/assistant-copilot.js';
+import { aiAdapter, aiAvailable } from './data/assistant-ai.js';
 import * as hud from './ui/hud.js';
 import * as selection from './ui/selection.js';
 import * as minimap from './ui/minimap.js';
@@ -31,9 +31,9 @@ const SX = window.SX;
 const provider = buildProvider(skyshift);                   // real NASA data (SkyShift engine)
 SX.data.use(provider);
 window.SXI = window.SXI || {};
-// The guide is Microsoft Copilot (Copilot Studio agent, configured on the server); the template guide answers if it is not set up.
-window.SXI.assistant = window.SXI.assistant || copilotAdapter(demoAsk);
-copilotAvailable().then((on) => { window.SXI.copilotOn = on; if (on) bus.emit('assistant-mode'); });
+// The guide is Google Gemini (through server.py, key kept on the server); the template guide answers if it is not set up.
+window.SXI.assistant = window.SXI.assistant || aiAdapter(demoAsk);
+aiAvailable().then((on) => { window.SXI.aiOn = on; if (on) bus.emit('assistant-mode'); });
 
 /* ---- 2. first-run defaults ---- */
 if (!hasSavedPrefs()) {
