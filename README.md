@@ -50,6 +50,8 @@ python3 server.py
 
 Then open <http://localhost:8000>. **Use the server for real SPHEREx data:** IRSA sends no CORS headers, so a browser can't call it directly from a static page. The proxy is what makes live data work.
 
+**Public hosting:** the repo has a `Dockerfile`; see [docs/DEPLOY.md](docs/DEPLOY.md) for Google Cloud Run or Azure (both are free Space Apps offers).
+
 **Single-file version:** `dist/skyshift.html` contains the whole app and the team briefing in one file, so you can email it or double-click it. Rebuild it with `python3 scripts/build_standalone.py`.
 
 To try it offline, choose **Data source → Simulated demo**. This generates realistic SPHEREx-like FITS files (TAN-SIP WCS, FLAGS, ZODI) containing a fast brown dwarf, a variable star and an asteroid. Every frame is watermarked **SIMULATED DATA**.

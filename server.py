@@ -69,12 +69,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_text(502, f"upstream unreachable: {e}")
         except (BrokenPipeError, ConnectionResetError):
             pass  # the browser stops reading once it has the image planes it needs
+        except Exception as e:  # e.g. a malformed URL: answer instead of dropping the connection
+            self._send_text(400, f"bad proxy request: {e}")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--host", default="127.0.0.1")
+    # Cloud hosts (Cloud Run, Azure Container Apps, ...) pass the port in $PORT.
+    ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
+    ap.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"))
     args = ap.parse_args()
     server = http.server.ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"SkyShift running at http://{args.host}:{args.port}/")
