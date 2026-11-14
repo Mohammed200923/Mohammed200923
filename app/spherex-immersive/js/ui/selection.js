@@ -50,13 +50,13 @@ function menuItems() {
   const tg = S.target, items = [];
   if (tg) {
     items.push({ id: 'story', label: t('ctx.story'), icon: 'story', run: () => UI.open('stories', { targetId: tg.id }) });
-    items.push({ id: 'analyze', label: t('ctx.analyze'), icon: 'info', run: () => UI.open('info') });
+    items.push({ id: 'analyze', label: t('ctx.analyze'), icon: 'info', run: () => UI.open('analysis') });
     items.push({ id: 'zoom', label: t('ctx.zoom'), icon: 'target', run: () => { const v = sky.getView(); sky.flyTo({ ra: tg.coordinates.ra, dec: tg.coordinates.dec, fov: v.fov <= 3 ? C.fovFor(tg) : Math.max(1.5, v.fov / 3.5) }); } });
     items.push({ id: 'obs', label: t('ctx.observe'), icon: 'observe', run: () => UI.open('viewer', { mode: 'single' }) });
   } else {
     if (S.nearest) items.push({ id: 'near', label: t('ctx.nearest', { name: loc(S.nearest.name) }), icon: 'target', run: () => C.selectTarget(S.nearest) });
     items.push({ id: 'obs', label: t('ctx.observe_here'), icon: 'observe', run: () => UI.open('viewer', { mode: 'single' }) });
-    items.push({ id: 'analyze', label: t('ctx.analyze'), icon: 'info', run: () => UI.open('info') });
+    items.push({ id: 'analyze', label: t('ctx.analyze'), icon: 'info', run: () => UI.open('analysis') });
     items.push({ id: 'zoom', label: t('ctx.zoom'), icon: 'target', run: () => sky.flyTo({ ra: S.pos.ra, dec: S.pos.dec, fov: Math.max(1.5, sky.getView().fov / 3.5) }) });
   }
   return items;

@@ -187,3 +187,7 @@ button.on > .circ, button[aria-pressed='true'] > .circ { background: var(--hi-bg
 
 :root[data-theme='light'] .ctx button:hover, :root[data-theme='light'] .ctx button:focus-visible, :root[data-theme='light'] .ctx button.hi { background: var(--hi-bg); color: var(--hi-text); }
 .tl-row, .visits { direction: ltr; }
+/* real star names (Hipparcos positions, IAU names) */
+.star-labels { z-index: 0; }
+.slabel { position: absolute; left: 0; top: 0; font-size: 0.6875rem; color: var(--muted); white-space: nowrap; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85); opacity: 0.8; will-change: transform; }
+:root[data-theme='light'] .slabel { text-shadow: 0 0 6px rgba(255, 255, 255, 0.9); }

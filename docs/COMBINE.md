@@ -37,6 +37,10 @@ js/field.js   loadField({ra, dec, …})   ← UI-free SkyShift engine (new)
 
 The first visit to a field takes a few minutes (it downloads every exposure), so the provider allows longer time-outs than the mock. After that the server cache serves it in seconds.
 
+## The sky itself is real
+
+The 3D sky's background is the real sky: 44,861 stars from ESA's **Hipparcos** catalogue (new reduction, van Leeuwen 2007, VizieR I/311; every star brighter than Hp 8.2) at their catalogue positions, sized by brightness and coloured by B−V. The 392 named bright stars are labelled with their IAU names (from the HYG database v4.1, CC BY-SA 4.0), with more names appearing as you zoom in. The data is a 270 KB file built by `scripts/build_stars.py`. Ibrahim's original sky was randomly generated decoration; it is kept only as a fallback if the file fails to load, and the badge then says so.
+
 ## What we changed in Ibrahim's code
 
 Kept to a minimum, so his updates can be merged again:
@@ -45,6 +49,7 @@ Kept to a minimum, so his updates can be merged again:
 - `spherex-explorer/js/app.js` uses `SX.providers.skyshift` when it is present, else his mock.
 - `spherex-explorer/js/data/service.js`: a provider may set longer per-call time-outs.
 - `spherex-immersive/js/main.js` builds its provider from the SkyShift one and starts the Analysis panel; `js/data/provider.js` turns off the decorative extras.
+- `js/sky/skyscene.js` draws the Hipparcos stars; new `js/ui/starlabels.js` labels the named ones; the badge reports which sky is shown; the context menu's **Analyze** opens the Analysis panel.
 - New `spherex-immersive/js/ui/analysis.js` and `css/analysis.css`; an **Analysis** toolbar button (`index.html`, `js/ui/hud.js`) and a **Full analysis** button in `js/ui/viewer.js`.
 
 Source: [Ibrahim-oss1/Nasa-spaceapps.](https://github.com/Ibrahim-oss1/Nasa-spaceapps.), copied at commit `dca1d9d`.

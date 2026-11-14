@@ -1,6 +1,8 @@
 /* The immersive 3D sky: a Three.js scene seen from the inside of a celestial sphere.
-   DECORATIVE: the stars, Milky Way band and glow clouds are procedurally generated for atmosphere and orientation.
-   They are NOT survey data. Only the target markers come from the data provider.
+   STARS ARE REAL: 44,861 stars from ESA's Hipparcos catalogue (new reduction, Hp < 8.2) at their catalogue positions,
+   sized by brightness and coloured by B−V (data/stars.bin, built by scripts/build_stars.py). Only if that file cannot
+   load does the sky fall back to the original procedural starfield (and says so). The soft Milky Way glow follows
+   the real galactic plane but is drawn, not measured. Target markers come from the data provider.
    API: createSky(canvas) -> { setView, getView, flyTo, project, unproject, setTargets, ... , on }          */
 import * as THREE from '../vendor/three.module.js';
 
@@ -102,8 +104,35 @@ export function createSky(canvas, options = {}) {
   const glows = [];
   const group = new THREE.Group(); scene.add(group);
 
+  let catalog = null; // { n, ra:Uint16Array, dec:Int16Array, mag:Uint8Array, bv:Uint8Array }, brightest first
+  const STARS_URL = new URL('../../data/stars.bin', import.meta.url);
+  fetch(STARS_URL).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then((buf) => {
+    const n = new DataView(buf).getUint32(0, true);
+    let o = 4; const ra = new Uint16Array(buf.slice(o, o + 2 * n)); o += 2 * n;
+    const dec = new Int16Array(buf.slice(o, o + 2 * n)); o += 2 * n;
+    const mag = new Uint8Array(buf, o, n); o += n; const bv = new Uint8Array(buf, o, n);
+    catalog = { n, ra, dec, mag, bv }; buildStars(); state.dirty = true; emit('stars', { real: true, count: n });
+  }).catch((e) => { console.warn('Star catalogue unavailable; using the procedural starfield', e); emit('stars', { real: false }); });
+
+  function buildRealStars() {
+    const N = state.low ? Math.min(catalog.n, 9000) : catalog.n; // brightest first, so low-power mode keeps the bright ones
+    const pos = new Float32Array(N * 3), size = new Float32Array(N), temp = new Float32Array(N), phase = new Float32Array(N), bright = new Float32Array(N);
+    const v = new THREE.Vector3(), R = rng(20260614);
+    for (let i = 0; i < N; i++) {
+      radecToVec((catalog.ra[i] / 65535) * 360, (catalog.dec[i] / 32767) * 90, 100, v);
+      pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z;
+      const mag = catalog.mag[i] / 20 - 2, bv = catalog.bv[i] / 100 - 0.5;
+      const m = Math.pow(clamp((8.4 - mag) / 9.8, 0, 1), 1.25); // Sirius (−1.4) → 1, magnitude 8 → ~0
+      size[i] = 1.6 + m * 9; bright[i] = 0.3 + m * 0.9;
+      temp[i] = clamp((bv + 0.3) / 2.0, 0, 1); // blue-white (B−V −0.3) … red (B−V 1.7)
+      phase[i] = R();
+    }
+    return { N, pos, size, temp, phase, bright };
+  }
+
   function buildStars() {
     if (stars) { group.remove(stars); stars.geometry.dispose(); }
+    if (catalog) { const d = buildRealStars(); return finishStars(d.pos, d.size, d.temp, d.phase, d.bright); }
     const N = state.low ? 3000 : 32000, R = rng(20260614);
     const pos = new Float32Array(N * 3), size = new Float32Array(N), temp = new Float32Array(N), phase = new Float32Array(N), bright = new Float32Array(N);
     const v = new THREE.Vector3();
@@ -120,6 +149,10 @@ export function createSky(canvas, options = {}) {
       const tr = R(); temp[i] = tr < 0.3 ? R() * 0.3 : tr < 0.8 ? 0.25 + R() * 0.45 : 0.6 + R() * 0.4;
       phase[i] = R();
     }
+    finishStars(pos, size, temp, phase, bright);
+  }
+
+  function finishStars(pos, size, temp, phase, bright) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('size', new THREE.BufferAttribute(size, 1));
@@ -141,7 +174,7 @@ export function createSky(canvas, options = {}) {
     glows.splice(0).forEach((s) => { group.remove(s); s.material.map && s.material.map.dispose(); s.material.dispose(); });
     if (state.low) return;
     const R = rng(777), tex = TINTS.map((t) => glowTexture(t[0], t[1]));
-    for (let i = 0; i < 46; i++) {
+    for (let i = 0; i < 34; i++) { // along the real galactic plane only
       const band = i < 34, k = Math.floor(R() * (band ? 3 : 5));
       const l = R() * 2 * Math.PI, b = band ? (R() - 0.5) * 0.28 : (R() - 0.5) * 2.2;
       const p = band ? galToEq(l, b) : { ra: R() * 360, dec: Math.asin(R() * 2 - 1) / DEG };

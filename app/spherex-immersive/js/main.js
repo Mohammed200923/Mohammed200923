@@ -21,6 +21,7 @@ import * as onboarding from './ui/onboarding.js';
 import * as settings from './ui/settings.js';
 import * as help from './ui/help.js';
 import * as analysis from './ui/analysis.js';
+import * as starlabels from './ui/starlabels.js';
 import { UI } from './core/ui.js';
 
 const SX = window.SX;
@@ -55,13 +56,15 @@ try {
   console.warn('WebGL unavailable', e); sky = stubSky(); document.getElementById('webgl-fail').hidden = false;
   document.getElementById('webgl-retry').addEventListener('click', () => location.reload());
 }
+// The badge says what the background stars are: the real Hipparcos catalogue, or (if it failed to load) decoration.
+sky.on('stars', ({ real }) => { const s = document.querySelector('#prov-badge [data-i18n]'); if (s) { s.dataset.i18n = real ? 'prov.stars' : 'prov.decor'; s.textContent = t(s.dataset.i18n); } });
 sky.on('contextlost', () => { document.getElementById('webgl-fail').hidden = false; });
 applyAppearance(sky); sky.setView(HOME, true);
 C.attachSky(sky);
 
 /* ---- 4. UI ---- */
 bus.on('prefs', (p) => { applyAppearance(sky); if ('theme' in p) bus.emit('theme'); });
-hud.init(sky); selection.init(sky); minimap.init(sky); timeline.init(); info.init(sky); viewer.init(); search.init(sky); stories.init(); assistant.init(sky);
+hud.init(sky); starlabels.init(sky); selection.init(sky); minimap.init(sky); timeline.init(); info.init(sky); viewer.init(); search.init(sky); stories.init(); assistant.init(sky);
 settings.init(); help.init(); onboarding.init(); analysis.init();
 
 /* ---- 5. data bootstrap: never blocks the UI; failures appear as states ---- */

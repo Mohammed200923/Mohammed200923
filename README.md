@@ -90,6 +90,9 @@ npm run test:live
 - **CDS Sesame / SIMBAD** — name resolution
 - **Aladin Lite v3** (CDS, Strasbourg) — sky context with 2MASS, AllWISE, DSS2 and Pan-STARRS HiPS
 
+
+The 3D sky's stars: ESA Hipparcos (new reduction, van Leeuwen 2007, via VizieR I/311); star names from the HYG database v4.1 (CC BY-SA 4.0).
+
 ## Known limitations / next steps
 
 - **Verified on the live archive (13 Nov 2026)** against IRSA's SPHEREx tutorial notebooks and real responses: collection names, ObsCore columns, cutout syntax, FLAGS bit names (`MSKNnnnn`) and the `WCS-WAVE` lookup.
