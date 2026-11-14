@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Build dist/skyshift.html: the whole app (plus team briefing) in one self-contained file.
+"""Build single-file versions of the app (needs Node; uses npx esbuild).
 
-    python3 scripts/build_standalone.py      # needs Node (uses npx esbuild)
+    python3 scripts/build_standalone.py
 
-The file opens by double-click. It starts on simulated data. Live NASA SPHEREx mode needs
-internet access, and may need `python3 server.py` if the archive blocks cross-origin requests.
+- dist/skyshift.html: the app plus the team briefing. Opens by double-click and starts on
+  simulated data; live NASA SPHEREx mode needs `python3 server.py` (IRSA blocks direct requests).
+- dist/huggingface/: four flat files for a Hugging Face Docker Space (its web uploader drops
+  folders). The page is the same app bundled into one index.html, starting on real data.
 """
+import shutil
 import os
 import re
 import subprocess
@@ -20,7 +23,8 @@ def read(*p):
         return f.read()
 
 
-def main():
+def bundled_app():
+    """app/index.html with its stylesheet and all JavaScript modules inlined."""
     with tempfile.TemporaryDirectory() as tmp:
         out = os.path.join(tmp, "bundle.js")
         subprocess.run(["npx", "-y", "esbuild@0.24.0", "app/js/main.js", "--bundle", "--format=esm",
@@ -31,7 +35,29 @@ def main():
     html = read("app", "index.html")
     css = read("app", "css", "style.css") + "\n" + read("scripts", "standalone", "extra.css")
     html = html.replace('<link rel="stylesheet" href="css/style.css">', f"<style>\n{css}</style>")
-    html = html.replace('<script type="module" src="js/main.js"></script>', f'<script type="module">\n{bundle}</script>')
+    return html.replace('<script type="module" src="js/main.js"></script>', f'<script type="module">\n{bundle}</script>')
+
+
+def write(rel, text):
+    dest = os.path.join(ROOT, rel)
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    with open(dest, "w", encoding="utf-8") as f:
+        f.write(text)
+    print(f"wrote {rel} ({len(text) // 1024} KB)")
+
+
+def build_huggingface(app_html):
+    write("dist/huggingface/index.html", app_html)
+    write("dist/huggingface/README.md", read("deploy", "huggingface", "README.md"))
+    write("dist/huggingface/Dockerfile", read("deploy", "huggingface", "Dockerfile"))
+    shutil.copy(os.path.join(ROOT, "server.py"), os.path.join(ROOT, "dist", "huggingface", "server.py"))
+    print("wrote dist/huggingface/server.py")
+
+
+def main():
+    app_html = bundled_app()
+    build_huggingface(app_html)
+    html = app_html
     html = html.replace('<input id="target" name="target"', '<input id="target" name="target" value="Barnard\'s Star"')
     old = '<option value="irsa">NASA SPHEREx (IRSA)</option>\n              <option value="sim">Simulated demo</option>'
     assert old in html
@@ -48,11 +74,7 @@ def main():
     html = html.replace('<main class="layout">', banner + '\n  <main class="layout">', 1)
     html = html.replace('<footer class="foot">', read("scripts", "standalone", "briefing.html") + '\n  <footer class="foot">', 1)
     html = re.sub(r"<title>.*?</title>", "<title>SkyShift</title>", html, count=1)
-    os.makedirs(os.path.join(ROOT, "dist"), exist_ok=True)
-    dest = os.path.join(ROOT, "dist", "skyshift.html")
-    with open(dest, "w", encoding="utf-8") as f:
-        f.write(html)
-    print(f"wrote {dest} ({len(html) // 1024} KB)")
+    write("dist/skyshift.html", html)
 
 
 if __name__ == "__main__":
