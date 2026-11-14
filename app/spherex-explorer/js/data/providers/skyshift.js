@@ -95,11 +95,20 @@ function field(ra, dec) {
     const s = settingsFor(ra, dec);
     const f = { key, ra, dec, s };
     f.searchP = ready.then(() => searchField({ ra, dec, wmin: s.wmin, wmax: s.wmax, max: s.max }));
-    f.loadP = f.searchP.then((search) => loadField({ ra, dec, sizeArcmin: s.sizeArcmin, wmin: s.wmin, wmax: s.wmax, max: s.max, search, target: s.motion }));
-    f.loadP.catch(() => FIELDS.delete(key)); // let a later request retry
+    let spxDone;
+    f.spxP = new Promise((res) => { spxDone = res; });
+    f.loadP = f.searchP.then((search) => loadField({ ra, dec, sizeArcmin: s.sizeArcmin, wmin: s.wmin, wmax: s.wmax, max: s.max, search, target: s.motion, onSpherex: spxDone }));
+    f.loadP.then(spxDone, () => FIELDS.delete(key)); // a failure lets a later request retry
+    // Tell the interface the WISE epochs are ready, so it can add them to a timeline it already shows.
+    f.loadP.then(() => window.dispatchEvent(new CustomEvent('skyshift:field-loaded', { detail: { ra, dec } }))).catch(() => {});
     FIELDS.set(key, f);
   }
   return FIELDS.get(key);
+}
+
+/** SPHEREx-only requests are answered as soon as the SPHEREx frames are in; WISE ones wait for the full load. */
+async function dataFor(f, needFull) {
+  try { return needFull ? await f.loadP : await Promise.race([f.spxP, f.loadP]); } catch (e) { throw asDataError(e); }
 }
 
 function parseObsId(id) {
@@ -269,8 +278,9 @@ const provider = {
     });
     // WISE epochs come with the full load; list them once it has finished, so the timeline grows.
     let wise = [];
-    // A cached field loads in seconds; wait a little so the WISE epochs are part of the first answer.
-    const loaded = await Promise.race([f.loadP.catch(() => null), new Promise((r) => setTimeout(() => r(null), 45000))]);
+    // A cached field loads in seconds, so wait briefly for the WISE epochs; otherwise answer with SPHEREx now
+    // and announce 'skyshift:field-loaded' when WISE is in.
+    const loaded = await Promise.race([f.loadP.catch(() => null), new Promise((r) => setTimeout(() => r(null), 8000))]);
     if (loaded) {
       wise = pickWise(loaded.wise.frames).map((w) => ({
         ...base, id: `sx:${f.key}:w${loaded.wise.frames.indexOf(w)}`, startTime: iso(w.mjdRange[0]), endTime: iso(w.mjdRange[1]),
@@ -287,8 +297,7 @@ const provider = {
   async getObservationImage(observationId, band, opts) {
     const { f, kind, index } = parseObsId(observationId);
     const size = Math.max(64, Math.min(512, (opts && opts.size) || 256));
-    let loaded;
-    try { loaded = await f.loadP; } catch (e) { throw asDataError(e); }
+    const loaded = await dataFor(f, kind === 'w');
     const n = loaded.grid.n;
     if (kind === 'w') {
       const w = loaded.wise.frames[index];
@@ -318,8 +327,7 @@ const provider = {
 
   async getObservationMetadata(observationId) {
     const { f, kind, index } = parseObsId(observationId);
-    let loaded;
-    try { loaded = await f.loadP; } catch (e) { throw asDataError(e); }
+    const loaded = await dataFor(f, kind === 'w');
     const fields = [{ key: 'observationId', value: observationId }];
     const pointing = `${formatRa(f.ra)}  ${formatDec(f.dec)}`;
     if (kind === 'w') {
@@ -347,6 +355,7 @@ const provider = {
         { key: 'images', label: { en: 'Images', ar: 'الصور' }, value: visit.members.slice(0, 4).map((m) => m.obsId).join(', ') + (visit.members.length > 4 ? ` … +${visit.members.length - 4}` : '') },
       );
     }
+    if (loaded.partial) fields.push({ key: 'moverSearch', label: { en: 'Moving-object search', ar: 'البحث عن الأجرام المتحركة' }, value: 'running (downloading WISE 2010–2024)' });
     for (const m of loaded.movers.filter((x) => x.tier === 'confident')) {
       fields.push({ key: `mover${m.n}`, label: { en: `Moving object #${m.n}${m.isTarget ? ' (the target)' : ''}`, ar: `جرم متحرك #${m.n}` },
         value: `${m.total.toFixed(2)} ± ${m.err.toFixed(2)}`, unit: `″/yr${m.wise?.epochs ? ` · ${m.wise.epochs} WISE epochs` : ''}` });
@@ -362,8 +371,7 @@ const provider = {
     const A = parseObsId(a), B = parseObsId(b);
     if (A.f !== B.f) throw DataError('unsupported', 'These two observations are of different fields.', { retryable: false });
     const f = A.f;
-    let loaded;
-    try { loaded = await f.loadP; } catch (e) { throw asDataError(e); }
+    const loaded = await dataFor(f, A.kind === 'w' || B.kind === 'w');
     const band = (opts && opts.bandId) || 'composite';
     const search = await f.searchP;
     const frameOf = (p) => {

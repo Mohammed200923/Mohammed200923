@@ -75,6 +75,18 @@ export async function loadObservations() {
   bus.emit('obs');
 }
 
+// The SkyShift provider answers with SPHEREx first and announces when the WISE epochs (2010–2024) are ready:
+// fetch again then, keeping the observation the user is looking at.
+window.addEventListener('skyshift:field-loaded', async () => {
+  if (S.obsStatus !== 'ok' || !S.pos) return;
+  const token = obsToken, keep = S.obs[S.visit] && S.obs[S.visit].id, pos = S.pos;
+  const r = await SX().data.getObservations(pos.ra, pos.dec, sky ? sky.getView().fov : 10);
+  if (token !== obsToken || r.status !== 'ok' || r.data.length <= S.obs.length) return;
+  S.obs = r.data.slice().sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+  const i = S.obs.findIndex((o) => o.id === keep); S.visit = i >= 0 ? i : S.visit;
+  bus.emit('obs');
+});
+
 export const observed = () => S.obs.map((o, i) => ({ o, i })).filter((x) => x.o.status === 'observed');
 export const currentObs = () => S.obs[S.visit] || null;
 export function setVisit(i) { if (i < 0 || i >= S.obs.length) return; S.visit = i; bus.emit('visit'); }

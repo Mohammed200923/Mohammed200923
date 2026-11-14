@@ -156,13 +156,17 @@ function searchMovers(grid, visits, wise, catalogs, target) {
  * Load a whole field. target (optional): { name, ra, dec, epoch, pmra, pmdec } for labelling
  * the target's own motion. Never throws for the WISE / catalogue parts; their problems are listed.
  */
-export async function loadField({ ra, dec, sizeArcmin = 6, wmin = 0.75, wmax = 5, max = 36, gapDays = 20, target = null, search = null, onProgress }) {
+export async function loadField({ ra, dec, sizeArcmin = 6, wmin = 0.75, wmax = 5, max = 36, gapDays = 20, target = null, search = null, onProgress, onSpherex }) {
   const grid = makeGrid(ra, dec, sizeArcmin, PIXEL_SCALE_ARCSEC);
   const found = search || await searchField({ ra, dec, wmin, wmax, max, gapDays });
   if (!found.sample.length) return { grid, visits: [], frames: [], wise: { frames: [], neowise: [], allwise: null, problems: [] }, movers: [], catalogs: {}, search: found, problems: [] };
   const radiusArcsec = grid.n * grid.scaleArcsec * 0.75;
   const [spx, wise, gaia, catwise] = await Promise.all([
-    loadSpherex(grid, found.sample, { ra, dec, sizeArcmin, gapDays, onProgress }),
+    // onSpherex lets a caller show the SPHEREx frames while WISE (2010–2024) is still downloading.
+    loadSpherex(grid, found.sample, { ra, dec, sizeArcmin, gapDays, onProgress }).then((spx) => {
+      onSpherex?.({ grid, visits: spx.visits, frames: spx.frames, failed: spx.failed, wise: { frames: [], neowise: [], allwise: null, problems: [] }, movers: [], catalogs: {}, search: found, problems: [], partial: true });
+      return spx;
+    }),
     loadWiseFrames(grid, { ra, dec, sizeArcmin }),
     gaiaCone(ra, dec, radiusArcsec).catch(() => null),
     catwiseCone(ra, dec, radiusArcsec / 3600).catch(() => null),
