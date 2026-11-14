@@ -1,5 +1,7 @@
 # Putting SkyShift online
 
+**Current deployment:** <https://mohammed200923-skyshift.hf.space> (Hugging Face Space `Mohammed200923/skyshift`, Option C). Check it with `BASE_URL=https://mohammed200923-skyshift.hf.space node tests/live.mjs "Barnard's Star"`.
+
 Judges need a **public link that works without installing anything**. Real SPHEREx data only works through SkyShift's small proxy server (`server.py`), because NASA's IRSA archive doesn't allow direct browser requests (no CORS headers). So the app needs a host that can run a container, not only static files.
 
 The repo includes a `Dockerfile`. It needs only the Python standard library, listens on `$PORT`, and serves the app plus the allow-listed `/proxy`. Locally that's equivalent to:

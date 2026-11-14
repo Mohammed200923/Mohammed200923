@@ -6,7 +6,10 @@
 // Screenshots go to tests/screenshots/live-<target>.png and -diff.png.
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, mkdtempSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import assert from 'node:assert/strict';
 
 const require = createRequire(import.meta.url);
@@ -23,11 +26,22 @@ const PLANS = {
   'RW Aurigae': { wmin: 0.75, wmax: 5 },
   'R Draconis': { wmin: 0.75, wmax: 5 },
 };
+// Measurement helpers bundled for injection, so the test also works against the deployed
+// single-file build, which has no separate js/ modules to import.
+const helperDir = mkdtempSync(join(tmpdir(), 'skyshift-live-'));
+const entry = join(helperDir, 'entry.mjs');
+const { writeFileSync } = await import('node:fs');
+writeFileSync(entry, `export { propagate, mjdToYear } from '${root}app/js/wcs.js';\nexport { aperturePhotometry } from '${root}app/js/stack.js';\n`);
+execFileSync('npx', ['-y', 'esbuild@0.24.0', entry, '--bundle', '--format=iife', '--global-name=__liveHelpers', `--outfile=${join(helperDir, 'h.js')}`], { stdio: 'ignore' });
+const helpers = readFileSync(join(helperDir, 'h.js'), 'utf8');
+
 const targets = process.argv.slice(2).length ? process.argv.slice(2) : ["Barnard's Star"];
 const max = process.env.MAX || '36';
 
+// BASE_URL tests a deployed copy (e.g. the public Hugging Face Space) instead of a local server.
 const port = 8766;
-const server = spawn('python3', ['server.py', '--port', String(port)], { cwd: root, stdio: 'ignore' });
+const base = process.env.BASE_URL?.replace(/\/$/, '') || `http://127.0.0.1:${port}`;
+const server = process.env.BASE_URL ? null : spawn('python3', ['server.py', '--port', String(port)], { cwd: root, stdio: 'ignore' });
 await new Promise((r) => setTimeout(r, 800));
 const browser = await chromium.launch();
 const summary = [];
@@ -40,15 +54,15 @@ try {
     // Aladin Lite's own background fetches (usage logger, survey mirrors) are not ours to fix.
     page.on('pageerror', (e) => { if (!String(e.stack).includes('aladin-lite')) errors.push(e.message); });
     // A link with a target starts loading by itself.
-    await page.goto(`http://127.0.0.1:${port}/?src=irsa&q=${encodeURIComponent(name)}&wmin=${plan.wmin}&wmax=${plan.wmax}&max=${max}`);
+    await page.goto(`${base}/?src=irsa&q=${encodeURIComponent(name)}&wmin=${plan.wmin}&wmax=${plan.wmax}&max=${max}`);
     await page.waitForFunction(() => {
       const s = window.__skyshift, st = document.getElementById('status');
       return (s?.seq?.length > 0 && !document.getElementById('go').disabled) || st.classList.contains('error');
     }, null, { timeout: 900000 });
 
+    await page.addScriptTag({ content: helpers });
     const result = await page.evaluate(async () => {
-      const { propagate, mjdToYear } = await import('./js/wcs.js');
-      const { aperturePhotometry } = await import('./js/stack.js');
+      const { propagate, mjdToYear, aperturePhotometry } = window.__liveHelpers;
       const s = window.__skyshift, n = s.grid?.n, t = s.target;
       const status = document.getElementById('status').textContent;
       if (!s.seq.length) return { status, visits: [] };
@@ -94,7 +108,7 @@ try {
   }
 } finally {
   await browser.close();
-  server.kill();
+  server?.kill();
 }
 console.log('\n' + summary.join('\n'));
 assert.ok(!failed, 'some live checks failed');
