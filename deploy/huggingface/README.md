@@ -6,7 +6,7 @@ colorTo: yellow
 sdk: docker
 app_port: 8080
 pinned: false
-short_description: Time-lapse of NASA SPHEREx infrared images to spot moving objects
+short_description: SPHEREx sky time-lapse to spot moving objects
 ---
 
 # SkyShift
