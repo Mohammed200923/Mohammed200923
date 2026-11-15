@@ -75,7 +75,14 @@ p { margin: 0; }
 .steps { display: flex; flex-direction: column; gap: 14px; }
 .step { display: flex; gap: 16px; align-items: center; font-size: 27px; font-weight: 700; }
 .step .n { width: 46px; height: 46px; border-radius: 50%; background: var(--gold); color: #04100C; display: grid; place-items: center; font-weight: 800; flex: none; }
-.tabs { display: flex; flex-direction: column; gap: 10px; }
+.chapters { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; counter-reset: ch; }
+.chapters li { font-size: 21px; color: var(--muted); padding: 12px 16px 12px 18px; border-radius: 14px; border: 1px solid transparent; transition: background .3s, color .3s, border-color .3s; }
+.chapters li b { color: #DDEFE8; font-weight: 700; }
+.chapters li.on { background: var(--glass); border-color: var(--accent); color: #DDEFE8; }
+.chapters li.on b { color: var(--accent); }
+#demo { position: absolute; top: 44px; left: 0; width: 100%; height: calc(100% - 50px); object-fit: contain; background: #000; }
+.vprog { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(244,255,249,.08); }
+.vprog i { display: block; height: 100%; width: 0; background: var(--accent); }
 .tab { font: inherit; font-size: 22px; font-weight: 700; text-align: left; color: var(--text); background: var(--glass); border: 1px solid var(--line); border-radius: 16px; padding: 14px 18px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
 .tab[aria-pressed=true] { background: var(--text); color: var(--ink); border-color: transparent; }
 .tab small { font-size: 18px; font-weight: 600; opacity: .7; }
@@ -247,8 +254,8 @@ p { margin: 0; }
 </section>
 
 <!-- 3 · Solution + live demo -->
-<section class="slide" id="s-demo" data-notes="<b>0:35–1:35 · 60 s — live demo inside this slide.</b> “Three steps: pick a spot, press play, see what moved.” 1) The <b>Analysis</b> tab opens Barnard’s Star (load it before the pitch). Press play: “real NASA photos — watch the star slide while the others stay still” (20 s). 2) Point at the moving-objects list: “SkyShift found it by itself, 10.3 arcseconds a year” (10 s). 3) If time: the <b>3D sky</b> tab, or Ask the guide (10 s). No network? Press <b>B</b> for the screenshot backup.">
-  <p class="crit">Creativity · live demo</p>
+<section class="slide" id="s-demo" data-notes="<b>0:35–1:30 · 55 s — the video plays by itself.</b> “That’s where SkyShift comes in. We’ve made the whole process simple: you choose a star, press play, and SkyShift shows you what’s moving.” <i>[Video: Barnard’s Star moving.]</i> “These are real NASA photos. Watch this star slide while the others stay still. SkyShift found it by itself and measured it at about 10 arcseconds a year, matching the official value. We also built an interactive 3D sky, Star Stories, and an AI guide that answers in any language. You don’t need to be an astronomer.” Click a chapter on the left to jump in the video.">
+  <p class="crit">Creativity · demo</p>
   <div class="head"><p class="eyebrow">Our solution</p><h2>Pick a place in the sky. <em>Watch it move.</em></h2></div>
   <div class="demo">
     <div class="demo-side">
@@ -257,17 +264,18 @@ p { margin: 0; }
         <p class="step rise" style="--i:1"><span class="n">2</span>Press play</p>
         <p class="step rise" style="--i:2"><span class="n">3</span>See what moved, measured for you</p>
       </div>
-      <div class="tabs rise" style="--i:3" role="group" aria-label="Live views">
-        <button class="tab" data-src="spherex-immersive/?q=Barnard%27s%20Star" aria-pressed="true">Analysis: Barnard’s Star <small>time-lapse</small></button>
-        <button class="tab" data-src="spherex-immersive/" aria-pressed="false">3D sky <small>real stars</small></button>
-        <button class="tab" data-src="spherex-immersive/?q=WISE%200855%E2%88%920714&amp;wmin=3.8&amp;wmax=5&amp;max=200&amp;size=8" aria-pressed="false">Coldest brown dwarf <small>WISE 0855</small></button>
-      </div>
-      <p class="backup rise" style="--i:4">This is the real site running inside the slide. Press B for a screenshot backup.</p>
+      <ol class="chapters rise" style="--i:3" id="chapters">
+        <li data-t="0"><b>Search any star</b> in the 3D sky</li>
+        <li data-t="13.5"><b>Watch real NASA photos</b> as a time-lapse</li>
+        <li data-t="24.5"><b>Moving objects</b> found and measured</li>
+        <li data-t="30.4"><b>Star Stories</b> with SkyShift’s result</li>
+        <li data-t="40.7"><b>Ask the AI guide</b>, in any language</li>
+      </ol>
     </div>
     <div class="live-wrap rise" style="--i:2">
-      <div class="live-bar"><i class="dot-live"></i><i></i><i></i><span class="addr" id="addr">skyshift.earth</span><a id="open" href="#" target="_blank" rel="noopener">Open in a new tab ↗</a></div>
-      <div class="live-ph" id="ph"><img src="pitch/analysis.webp" alt=""><div>The live SkyShift app loads here.<br><button id="load">Load live demo</button></div></div>
-      <iframe id="live" title="SkyShift live" hidden allow="clipboard-write; fullscreen"></iframe>
+      <div class="live-bar"><i class="dot-live"></i><i></i><i></i><span class="addr">skyshift.earth</span><a href="https://skyshift.earth" target="_blank" rel="noopener">Open the site ↗</a></div>
+      <video id="demo" src="pitch/demo.mp4" poster="pitch/demo-poster.jpg" muted loop playsinline preload="auto" aria-label="Screen recording of SkyShift being used: searching Barnard’s Star, its time-lapse, the moving-object list, its Star Story and the AI guide"></video>
+      <div class="vprog"><i id="vbar"></i></div>
     </div>
   </div>
 </section>
@@ -388,7 +396,7 @@ function show(i) {
   document.getElementById('bar').style.width = `${((cur + 1) / slides.length) * 100}%`;
   document.getElementById('notes').innerHTML = slides[cur].dataset.notes || '';
   try { history.replaceState(null, '', '#' + (cur + 1)); } catch {}
-  if (slides[cur].id === 's-demo') loadLive(false);
+  playDemo(slides[cur].id === 's-demo');
   if (slides[cur].querySelector('#stack')) startStack();
   slides[cur].querySelectorAll('.count').forEach(countUp);
   if (slides[cur].querySelector('#flipimg')) startFlip(); else stopFlip();
@@ -403,7 +411,6 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'n' || e.key === 'N') toggleNotes();
   else if (e.key === 't' || e.key === 'T') toggleTimer();
   else if (e.key === 'f' || e.key === 'F') toggleFs();
-  else if (e.key === 'b' || e.key === 'B') backup();
 });
 function toggleNotes() { const n = document.getElementById('notes'); n.hidden = !n.hidden; }
 function toggleFs() { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); }
@@ -421,27 +428,15 @@ function toggleTimer() {
 }
 document.getElementById('tbtn').onclick = toggleTimer;
 
-// ---------- live app inside slide 3 ----------
-// Served by SkyShift itself, the page embeds the same site; opened as a file, it embeds the public deployment.
-const BASE = location.protocol === 'file:' ? 'https://mohammed200923-skyshift.hf.space/' : new URL('./', location.href).href;
-const live = document.getElementById('live'), ph = document.getElementById('ph');
-let liveSrc = document.querySelector('.tab[aria-pressed=true]').dataset.src;
-function loadLive(force) {
-  if (!force && live.dataset.loaded === liveSrc) return;
-  // Same site: skip the 3D sky's first-visit welcome inside the demo.
-  try { const k = 'sxi.prefs.v1', p = JSON.parse(localStorage.getItem(k) || '{}'); if (!p.onboarded || !p.theme) { p.onboarded = true; p.theme = p.theme || 'dark'; localStorage.setItem(k, JSON.stringify(p)); } } catch {}
-  live.dataset.loaded = liveSrc; live.src = BASE + liveSrc; live.hidden = false; ph.hidden = true;
-  document.getElementById('open').href = BASE + liveSrc;
-  document.getElementById('addr').textContent = (location.protocol === 'file:' ? 'skyshift.earth/' : location.host + '/') + decodeURIComponent(liveSrc).replace('spherex-immersive/', '');
-}
-document.getElementById('load').onclick = () => loadLive(true);
-document.querySelectorAll('.tab').forEach((b) => b.onclick = () => {
-  document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-  liveSrc = b.dataset.src; loadLive(true);
+// ---------- demo video (slide 3): plays in a loop while the slide is showing ----------
+const demo = document.getElementById('demo'), chs = [...document.querySelectorAll('#chapters li')];
+demo.addEventListener('timeupdate', () => {
+  const t = demo.currentTime; let k = 0; chs.forEach((li, i) => { if (t >= +li.dataset.t) k = i; });
+  chs.forEach((li, i) => li.classList.toggle('on', i === k));
+  document.getElementById('vbar').style.width = (demo.duration ? (t / demo.duration) * 100 : 0) + '%';
 });
-function backup() { live.hidden = !live.hidden; ph.hidden = !live.hidden; }
-// Load the live app in the background as soon as the deck opens, so the demo is instant.
-setTimeout(() => loadLive(false), 1500);
+chs.forEach((li) => { li.style.cursor = 'pointer'; li.onclick = () => { demo.currentTime = +li.dataset.t; demo.play().catch(() => {}); }; });
+function playDemo(on) { if (on) { demo.currentTime = 0; demo.play().catch(() => {}); } else demo.pause(); }
 
 // ---------- globe of real stars (cover) ----------
 (function () {

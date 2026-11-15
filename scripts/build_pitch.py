@@ -10,7 +10,7 @@ Source: app/pitch/pitch.src.html (+ images in app/pitch/). Writes:
 import base64, os, re
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-MIME = {'webp': 'image/webp', 'svg': 'image/svg+xml', 'png': 'image/png', 'jpg': 'image/jpeg'}
+MIME = {'webp': 'image/webp', 'svg': 'image/svg+xml', 'png': 'image/png', 'jpg': 'image/jpeg', 'mp4': 'video/mp4'}
 
 
 def data(rel):
@@ -21,14 +21,14 @@ def data(rel):
 
 def build(public_demo):
     s = open(os.path.join(ROOT, 'app', 'pitch', 'pitch.src.html')).read()
-    s = re.sub(r'src="(pitch/[^"]+)"', lambda m: f'src="{data(m.group(1))}"', s)
+    s = re.sub(r'(src|poster)="(pitch/[^"]+)"', lambda m: f'{m.group(1)}="{data(m.group(2))}"', s)
     flips = [data(f'pitch/flip/f{i}.webp') for i in range(7)]
     s = s.replace('const FLIP = [', 'const FLIPSRC = ' + str(flips).replace("'", '"') + ';\nconst FLIP = [', 1)
     s = s.replace('im.src = `pitch/flip/f${i}.webp`;', 'im.src = FLIPSRC[i];')
     s = s.replace("document.getElementById('flipimg').src = `pitch/flip/f${i}.webp`;", "document.getElementById('flipimg').src = FLIPSRC[i];")
     if public_demo:
         s = re.sub(r"const BASE = [^\n]+;", "const BASE = 'https://mohammed200923-skyshift.hf.space/';", s, count=1)
-    left = re.findall(r'pitch/[\w./${}-]+\.(?:webp|svg|png)', re.sub(r'data:[^"]+', '', s))
+    left = re.findall(r'pitch/[\w./${}-]+\.(?:webp|svg|png|jpg|mp4)', re.sub(r'data:[^"]+', '', s))
     assert not left, left
     return s
 

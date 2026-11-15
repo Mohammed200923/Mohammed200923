@@ -77,7 +77,7 @@ async function icon(Comp, color, px = 256) {
 
   // ---------- 3 · Solution ----------
   s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'Problem and solution' }); s._dark = true;
-  eyebrow(s, 'Our solution', C.accent1); crit(s, 'Creativity · live demo', true);
+  eyebrow(s, 'Our solution', C.accent1); crit(s, 'Creativity · demo', true);
   title(s, 'Pick a place in the sky. ', 'Watch it move.');
   ['Pick a star or a spot', 'Press play', 'See what moved, measured for you'].forEach((t, i) => {
     const y = 1.85 + i * 0.6;
@@ -85,14 +85,14 @@ async function icon(Comp, color, px = 256) {
     s.addText(String(i + 1), { x: 0.6, y, w: 0.42, h: 0.42, fontSize: 15, bold: true, color: '04100C', align: 'center', valign: 'middle', margin: 0, isTextBox: true });
     s.addText(t, { x: 1.2, y: y - 0.02, w: 3.6, h: 0.46, fontSize: 17, bold: true, color: C.background1, margin: 0, valign: 'middle', isTextBox: true }); });
   s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 3.72, w: 4.0, h: 0.5, rectRadius: 0.25, fill: { color: HEX.teal }, line: { color: HEX.teal }, objectName: 'Live demo button' });
-  s.addText('Live demo: skyshift.earth', { x: 0.6, y: 3.72, w: 4.0, h: 0.5, fontSize: 15, bold: true, color: '04100C', align: 'center', valign: 'middle', margin: 0, isTextBox: true, hyperlink: { url: 'https://skyshift.earth/?q=Barnard%27s%20Star' } });
+  s.addText('Open the site: skyshift.earth', { x: 0.6, y: 3.72, w: 4.0, h: 0.5, fontSize: 15, bold: true, color: '04100C', align: 'center', valign: 'middle', margin: 0, isTextBox: true, hyperlink: { url: 'https://skyshift.earth/?q=Barnard%27s%20Star' } });
   s.addImage({ path: IMG + 'story.png', x: 0.6, y: 4.45, w: 4.0, h: 2.25, altText: 'Star Story for Barnard’s Star: real NASA frames and SkyShift’s measured motion' });
   s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: 4.45, w: 4.0, h: 2.25, rectRadius: 0.05, fill: { type: 'none' }, line: { color: HEX.gold, width: 1.5 }, objectName: 'Story frame' });
   s.addText('Star Story: real frames and SkyShift’s own measurement', { x: 0.6, y: 6.75, w: 4.0, h: 0.3, fontSize: 12, color: C.accent5, margin: 0, isTextBox: true });
-  s.addImage({ path: IMG + 'analysis-crop.png', x: 4.95, y: 1.75, w: 7.8, h: 3.89, altText: 'SkyShift analysis panel: Barnard’s Star in real SPHEREx data, with its path and the moving-object list' });
-  s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 4.95, y: 1.75, w: 7.8, h: 3.89, rectRadius: 0.05, fill: { type: 'none' }, line: { color: HEX.line, width: 1 }, objectName: 'Screenshot frame' });
-  s.addText('Real NASA SPHEREx data · Barnard’s Star, found and measured by SkyShift (10.3″ a year, matches Gaia)', { x: 4.95, y: 5.75, w: 7.8, h: 0.3, fontSize: 12, color: C.accent5, margin: 0, isTextBox: true });
-  s.addNotes('0:35–1:35 (60 s, includes the live demo). “SkyShift does it in three steps: pick a spot, press play, see what moved.” Click “Live demo” (or have skyshift.earth already open with Barnard’s Star in Analysis). 1) Tick “Smooth pixels”, press play: “These are real NASA photos of Barnard’s Star. Watch it slide while the other stars stay still.” (20 s) 2) Point at the Moving objects list: “SkyShift found it by itself: about 10.3 arcseconds a year.” (10 s) 3) If time: the 3D sky or WISE 0855: “It works on any spot in the sky.” (10 s). If the internet fails, talk over this slide’s screenshot.');
+  const poster = 'image/jpeg;base64,' + require('fs').readFileSync(IMG + 'demo-poster.jpg').toString('base64');
+  s.addMedia({ type: 'video', path: IMG + 'demo.mp4', cover: poster, x: 4.95, y: 1.75, w: 7.8, h: 4.39, objectName: 'Demo video' });
+  s.addText('Screen recording of SkyShift: search a star, watch the time-lapse, see what moved, Star Stories, AI guide', { x: 4.95, y: 6.25, w: 7.8, h: 0.3, fontSize: 12, color: C.accent5, margin: 0, isTextBox: true });
+  s.addNotes('0:35–1:30 (55 s, the video plays and loops by itself). “That’s where SkyShift comes in. We’ve made the whole process simple: you choose a star, press play, and SkyShift shows you what’s moving.” [Video: Barnard’s Star moving.] “These are real NASA photos. Watch this star slide while the others stay still. SkyShift found it by itself and measured it at about 10 arcseconds a year, matching the official value. We also built an interactive 3D sky, Star Stories, and an AI guide that answers in any language. You don’t need to be an astronomer.”');
 
   // ---------- 4 · How it works ----------
   pres.addSection({ title: 'How it works and data' });
