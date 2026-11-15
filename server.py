@@ -95,13 +95,15 @@ def cache_path(key):
     return os.path.join(CACHE_DIR, hashlib.sha256(key.encode()).hexdigest())
 
 
-def cache_get(key, url):
+def cache_get(key, url, allow_stale=False):
+    """Cached (body, content type), or None. Searches expire after SEARCH_TTL unless allow_stale
+    (used when the archive is down: an older answer beats an error)."""
     path = cache_path(key)
     try:
         st = os.stat(path)
     except FileNotFoundError:
         return None
-    if is_search(url) and time.time() - st.st_mtime > SEARCH_TTL:
+    if not allow_stale and is_search(url) and time.time() - st.st_mtime > SEARCH_TTL:
         return None
     with open(path + ".type") as f:
         ctype = f.read().strip()
@@ -355,6 +357,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except (urllib.error.URLError, TimeoutError, ValueError, KeyError, IndexError) as e:
             self._send(502, json.dumps({"error": f"Gemini unreachable: {e}"}).encode(), "application/json")
 
+    def _send_stale(self, key, target, archive_down):
+        """When the archive is down, answer from an expired cached copy if there is one."""
+        if not archive_down:
+            return False
+        hit = cache_get(key, target, allow_stale=True)
+        if not hit:
+            return False
+        self._send(200, hit[0], hit[1], cached=True)
+        return True
+
     def _send(self, status, body, ctype, cached=None):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
@@ -383,9 +395,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             cache_put(key, body, ctype)
             self._send(200, body, ctype, cached=False)
         except urllib.error.HTTPError as e:
-            self._send(e.code, f"upstream error: {e.reason}".encode(), "text/plain")
+            if not self._send_stale(key, target, e.code >= 500):
+                self._send(e.code, f"upstream error: {e.reason}".encode(), "text/plain")
         except (urllib.error.URLError, TimeoutError) as e:
-            self._send(502, f"upstream unreachable: {e}".encode(), "text/plain")
+            if not self._send_stale(key, target, True):
+                self._send(502, f"upstream unreachable: {e}".encode(), "text/plain")
         except (BrokenPipeError, ConnectionResetError):
             pass  # the browser went away
         except Exception as e:  # e.g. a malformed URL: answer instead of dropping the connection
