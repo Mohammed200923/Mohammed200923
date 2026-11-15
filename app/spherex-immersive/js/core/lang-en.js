@@ -9,7 +9,7 @@ export const EN = {
   'need.target': 'Pick an object or a place in the sky first.',
   'sky.aria': 'Interactive sky. Drag or use the arrow keys to look around, plus and minus to zoom.', 'sky.stars': 'Stars', 'sky.grid': 'Grid',
   'sky.nowebgl.title': '3D sky is not available', 'sky.nowebgl.body': 'This browser or device could not start 3D graphics. Search, observations and Star Stories still work.',
-  'prov.decor': 'Decorative sky · not survey data', 'prov.stars': 'Real stars · ESA Hipparcos', 'prov.demo': 'Demonstration data', 'prov.real': 'Real data', 'prov.illustrative': 'Illustration',
+  'nav.analysis': 'Analysis', 'prov.decor': 'Decorative sky · not survey data', 'prov.stars': 'Real stars · ESA Hipparcos', 'prov.demo': 'Demonstration data', 'prov.real': 'Real data', 'prov.illustrative': 'Illustration',
   'ask.pill': 'Ask the guide',
 
   'ctx.story': 'Discover its story', 'ctx.analyze': 'Analyze', 'ctx.zoom': 'Zoom', 'ctx.observe': 'Observations', 'ctx.observe_here': 'Observations here', 'ctx.nearest': 'Go to {name}', 'ctx.go_nearest': 'Go to nearest object',
