@@ -14,8 +14,8 @@ SkyShift turns NASA’s newest space telescope, SPHEREx, into a time-lapse of th
 
 ## Project demo
 
-- Pitch deck (7 slides, with the live app inside slide 3): https://mohammed200923-skyshift.hf.space/pitch.html
-- Live app: https://mohammed200923-skyshift.hf.space (or https://skyshift.earth once the domain is set up)
+- Pitch deck (7 slides, with the live app inside slide 3): https://skyshift.earth/pitch.html
+- Live app: https://skyshift.earth (hosted at https://mohammed200923-skyshift.hf.space)
 
 ## Final project link
 

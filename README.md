@@ -2,7 +2,7 @@
 
 **NASA Space Apps Challenge 2026 · Challenge: _Planet X and SPHEREx_ (Advanced · Astrophysics, Planets & Moons, Software)**
 
-**Live demo: <https://mohammed200923-skyshift.hf.space>** (Hugging Face Space, real NASA SPHEREx data)
+**Live: <https://skyshift.earth>** (pitch deck: <https://skyshift.earth/pitch.html>; hosted on a Hugging Face Space, real NASA SPHEREx data)
 
 The site is a **3D sky** (interface by Ibrahim) running on the SkyShift engine; its **Analysis** button opens every tool described below on the selected target. See [docs/COMBINE.md](docs/COMBINE.md). The pitch deck is a web page served by the site itself, at `/pitch.html`, with the live app inside slide 3. Its **Ask the guide** panel runs on Google Gemini: see [docs/GEMINI.md](docs/GEMINI.md).
 
