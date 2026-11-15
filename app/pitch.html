@@ -6,14 +6,14 @@
 <title>SkyShift Pitch</title>
 <meta name="description" content="SkyShift — NASA Space Apps 2026 pitch (Planet X and SPHEREx), with the live app inside the slides.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
 <style>
 /* Same design tokens as the SkyShift 3D sky (spherex-immersive/css/tokens.css) */
 :root {
   --bg: #040807; --bg-2: #0B1614; --text: #F4FFF9; --muted: #9EB7B0; --accent: #38F2C2; --gold: #FFD84D; --amber: #F2B544;
   --glass: rgba(9,20,18,0.62); --glass-hi: rgba(244,255,249,0.08); --line: rgba(244,255,249,0.18); --line-2: rgba(244,255,249,0.32);
   --paper: #EEF5F1; --ink: #0A1A16; --ink-soft: #3F5B54;
-  --font: 'Manrope', 'Segoe UI', system-ui, sans-serif; --display: 'Instrument Serif', Georgia, serif;
+  --font: 'Manrope', 'Segoe UI', system-ui, sans-serif; --display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif; --accent-serif: 'Instrument Serif', Georgia, serif;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: #000; color: var(--text); font-family: var(--font); overflow: hidden; }
@@ -27,8 +27,10 @@ html, body { margin: 0; height: 100%; background: #000; color: var(--text); font
 .grid-bg::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(var(--glass-hi) 1px, transparent 1px), linear-gradient(90deg, var(--glass-hi) 1px, transparent 1px); background-size: 96px 96px; opacity: .35; pointer-events: none; }
 .eyebrow { font-size: 22px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); margin: 0; }
 .light .eyebrow { color: #067A64; }
-h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; letter-spacing: -0.01em; }
-h2 { font-size: 76px; line-height: 1.02; }
+h1, h2 { font-family: var(--display); font-weight: 700; margin: 0; letter-spacing: -0.03em; }
+h2 { font-size: 66px; line-height: 1.06; }
+h1 em, h2 em { font-family: var(--accent-serif); font-style: italic; font-weight: 400; letter-spacing: 0; color: var(--gold); font-size: 1.12em; }
+.light h2 em { color: #067A64; }
 .head { display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 1; }
 .crit { position: absolute; top: 48px; right: 128px; font-size: 20px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; }
 .light .crit { color: var(--ink-soft); border-color: rgba(10,26,22,.2); }
@@ -49,7 +51,7 @@ p { margin: 0; }
 /* cover */
 .cover-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .28; }
 .cover-text { position: relative; z-index: 1; margin-top: 140px; width: 980px; display: flex; flex-direction: column; gap: 26px; }
-.cover-title { font-size: 200px; line-height: .9; }
+.cover-title { font-size: 184px; line-height: .92; letter-spacing: -0.05em; }
 .cover-tag { font-size: 40px; line-height: 1.3; color: #DDEFE8; }
 .cover-meta { font-size: 26px; color: var(--muted); }
 #globe { position: absolute; right: 90px; top: 110px; width: 760px; height: 640px; }
@@ -64,7 +66,7 @@ p { margin: 0; }
 .note { font-size: 24px; line-height: 1.45; color: var(--ink-soft); width: 380px; }
 .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
 .fact { display: flex; gap: 20px; padding: 26px; }
-.fact .t { font-size: 28px; font-weight: 800; line-height: 1.25; }
+.fact .t { font-family: var(--display); font-size: 28px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
 .fact .d { font-size: 23px; line-height: 1.4; color: var(--ink-soft); margin-top: 6px; }
 
 /* live demo */
@@ -94,7 +96,7 @@ p { margin: 0; }
 .pipe { display: flex; align-items: stretch; }
 .pstep { width: 362px; flex: none; padding: 30px; display: flex; flex-direction: column; gap: 14px; }
 .pstep .k { font-size: 20px; font-weight: 800; letter-spacing: .14em; color: var(--muted); }
-.pstep .t { font-family: var(--display); font-size: 44px; line-height: 1.05; }
+.pstep .t { font-family: var(--display); font-size: 34px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
 .pstep .d { font-size: 23px; line-height: 1.45; color: var(--muted); }
 .pstep.hl { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .parrow { width: 72px; display: grid; place-items: center; color: var(--gold); font-size: 40px; }
@@ -105,7 +107,7 @@ p { margin: 0; }
 .dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
 .dcard { display: flex; gap: 22px; padding: 28px; }
 .dcard.hero { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
-.dcard .t { font-size: 30px; font-weight: 800; }
+.dcard .t { font-family: var(--display); font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
 .dcard .w { font-size: 22px; font-weight: 700; color: var(--gold); margin-top: 4px; }
 .dcard .d { font-size: 23px; line-height: 1.4; color: var(--muted); margin-top: 8px; }
 .partner { font-size: 22px; color: var(--muted); }
@@ -127,7 +129,7 @@ p { margin: 0; }
 .scale { font-size: 22px; color: var(--ink-soft); line-height: 1.4; }
 .stats { flex: 1; display: flex; flex-direction: column; gap: 22px; }
 .stat { padding: 26px 30px; }
-.stat .n { font-family: var(--display); font-size: 92px; line-height: .95; color: #067A64; }
+.stat .n { font-family: var(--display); font-size: 80px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: #067A64; }
 .stat .c { font-size: 23px; color: var(--ink-soft); margin-top: 6px; }
 
 /* community */
@@ -136,13 +138,43 @@ p { margin: 0; }
 .ccards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
 .ccard { overflow: hidden; display: flex; flex-direction: column; }
 .ccard img { width: 100%; height: 230px; object-fit: cover; object-position: top; display: block; border-bottom: 1px solid var(--line); }
-.ccard .t { font-size: 28px; font-weight: 800; color: var(--gold); padding: 20px 24px 6px; }
+.ccard .t { font-family: var(--display); font-size: 28px; font-weight: 700; color: var(--gold); padding: 20px 24px 6px; }
 .ccard .d { font-size: 22px; line-height: 1.4; color: var(--muted); padding: 0 24px 22px; }
 .bottom { display: flex; gap: 36px; align-items: center; }
 .bottom .nx { flex: 1; font-size: 23px; line-height: 1.5; color: var(--muted); }
 .bottom .nx b, .team b { display: block; font-size: 20px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
 .team { width: 560px; font-size: 24px; line-height: 1.5; }
 .qr.sm img { width: 140px; height: 140px; }
+
+/* how: grid + flipbook */
+.how { display: flex; gap: 40px; flex: 1; min-height: 0; }
+.how-left { flex: 1; display: flex; flex-direction: column; gap: 22px; }
+.g4 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.g4 .pstep { width: auto; padding: 26px; gap: 12px; transition: border-color .3s, box-shadow .3s, transform .3s; }
+.g4 .pstep.act { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 0 40px rgba(56,242,194,.18); transform: translateY(-3px); }
+.g4 .ph { display: flex; gap: 16px; align-items: center; }
+.g4 .d { font-size: 22px; }
+.flip { width: 600px; flex: none; align-self: flex-start; margin: 0; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.flip-img { width: 564px; height: 500px; border-radius: 14px; overflow: hidden; background: #000; }
+.flip-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.flip figcaption { display: flex; justify-content: space-between; align-items: center; font-size: 22px; font-weight: 700; }
+.flip-live { font-size: 18px; letter-spacing: .14em; color: #04100C; background: var(--accent); padding: 4px 12px; border-radius: 999px; }
+.flip-dots { display: flex; gap: 8px; }
+.flip-dots i { flex: 1; height: 6px; border-radius: 3px; background: rgba(244,255,249,.15); }
+.flip-dots i.on { background: var(--gold); }
+/* data: timeline */
+.tl { padding: 22px 30px; display: flex; flex-direction: column; gap: 14px; }
+.tl-h { font-size: 22px; font-weight: 700; color: #DDEFE8; }
+.tl-track { position: relative; height: 64px; }
+.tl-track .axis { position: absolute; left: 0; right: 0; top: 22px; height: 2px; background: var(--line-2); }
+.tl-track .yr { position: absolute; top: 34px; font-size: 18px; color: var(--muted); transform: translateX(-50%); }
+.tl-track .ob { position: absolute; top: 15px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; opacity: 0; transform: scale(.3); transition: opacity .4s, transform .4s; }
+.slide.on .tl-track .ob { opacity: 1; transform: none; }
+.tl-legend { display: flex; gap: 30px; font-size: 20px; color: var(--muted); align-items: center; }
+.tl-legend span { display: flex; align-items: center; gap: 8px; }
+.tl-legend i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.tl-legend .muted { margin-left: auto; font-size: 18px; }
+.dgrid .dcard { padding: 24px 26px; }
 
 /* chrome: progress, nav, timer, notes */
 #chrome { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 14px; padding: 10px 16px; font-size: 14px; color: #9EB7B0; z-index: 10; opacity: .2; transition: opacity .3s; }
@@ -175,11 +207,11 @@ p { margin: 0; }
 <!-- 2 · Problem -->
 <section class="slide light" data-notes="<b>0:10–0:35 · 25 s.</b> “Photograph the same patch of sky months apart: distant stars stay put, but something close, like a cold ‘failed star’ or a possible Planet X, shifts. NASA’s SPHEREx now photographs the whole sky every six months, but one spot alone already has 2,494 photos, and comparing them takes coding skills. So almost nobody can search them.”">
   <p class="crit">Impact</p>
-  <div class="head"><p class="eyebrow">The problem</p><h2>Some of our nearest neighbours in space<br>are still hidden</h2></div>
+  <div class="head"><p class="eyebrow">The problem</p><h2>Some of our nearest neighbours in space<br>are <em>still hidden</em></h2></div>
   <div class="prob-row"><canvas id="stack" aria-label="Three photos of the same sky in 3D: stars stay still, one gold dot moves"></canvas><p class="note rise" style="--i:3">The stars stay put. The gold dot moves between photos, so it must be close to us. <i>(Drawing, not real data.)</i></p></div>
   <div class="facts">
     <div class="fact card rise" style="--i:4"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg></div><div><p class="t">NASA’s SPHEREx photographs the whole sky</p><p class="d">Every six months, in 102 colours of infrared light.</p></div></div>
-    <div class="fact card rise" style="--i:5"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></div><div><p class="t">2,494 photos of one tiny patch</p><p class="d">Far too many to compare by eye.</p></div></div>
+    <div class="fact card rise" style="--i:5"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></div><div><p class="t"><span class="count" data-to="2494">2,494</span> photos of one tiny patch</p><p class="d">Far too many to compare by eye.</p></div></div>
     <div class="fact card rise" style="--i:6"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg></div><div><p class="t">Today it takes coding skills</p><p class="d">So almost nobody outside research can search them.</p></div></div>
   </div>
 </section>
@@ -187,7 +219,7 @@ p { margin: 0; }
 <!-- 3 · Solution + live demo -->
 <section class="slide" id="s-demo" data-notes="<b>0:35–1:35 · 60 s — live demo inside this slide.</b> “Three steps: pick a spot, press play, see what moved.” 1) The <b>Analysis</b> tab opens Barnard’s Star (load it before the pitch). Press play: “real NASA photos — watch the star slide while the others stay still” (20 s). 2) Point at the moving-objects list: “SkyShift found it by itself, 10.3 arcseconds a year” (10 s). 3) If time: the <b>3D sky</b> tab, or Ask the guide (10 s). No network? Press <b>B</b> for the screenshot backup.">
   <p class="crit">Creativity · live demo</p>
-  <div class="head"><p class="eyebrow">Our solution</p><h2>Pick a place in the sky. Watch it move.</h2></div>
+  <div class="head"><p class="eyebrow">Our solution</p><h2>Pick a place in the sky. <em>Watch it move.</em></h2></div>
   <div class="demo">
     <div class="demo-side">
       <div class="steps">
@@ -214,16 +246,22 @@ p { margin: 0; }
 <section class="slide grid-bg" data-notes="<b>1:35–1:55 · 20 s.</b> “Behind the scenes, four automatic steps: fetch every NASA photo of that spot, clean them up, line them up exactly, then find what moves and double-check it in older NASA photos back to 2010. Our maths matches the software professional astronomers use.”">
   <p class="crit">Validity</p>
   <div class="head"><p class="eyebrow">How it works</p><h2>Four steps, done automatically in seconds</h2></div>
-  <div class="pipe">
-    <div class="pstep glass rise" style="--i:0"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9a4.5 4.5 0 0 0 1 9z"/><path d="M12 11v5M10 14l2 2 2-2"/></svg></div><p class="k">STEP 1</p><p class="t">Fetch the photos</p><p class="d">Ask NASA’s archive for every SPHEREx photo of that spot.</p></div>
-    <div class="parrow">→</div>
-    <div class="pstep glass rise" style="--i:1"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5z"/></svg></div><p class="k">STEP 2</p><p class="t">Clean them up</p><p class="d">Remove the glow of space dust and any faulty pixels.</p></div>
-    <div class="parrow">→</div>
-    <div class="pstep glass rise" style="--i:2"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></div><p class="k">STEP 3</p><p class="t">Line them up</p><p class="d">Match every photo so the stars sit exactly on top of each other.</p></div>
-    <div class="parrow">→</div>
-    <div class="pstep glass hl rise" style="--i:3"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></div><p class="k">STEP 4</p><p class="t">Find and check</p><p class="d">Spot what moves, then confirm it in older NASA photos back to 2010.</p></div>
+  <div class="how">
+    <div class="how-left">
+      <div class="g4">
+        <div class="pstep glass rise" style="--i:0"><div class="ph"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9a4.5 4.5 0 0 0 1 9z"/><path d="M12 11v5M10 14l2 2 2-2"/></svg></div><div><p class="k">STEP 1</p><p class="t">Fetch the photos</p></div></div><p class="d">Every SPHEREx photo of that spot, from NASA’s archive.</p></div>
+        <div class="pstep glass rise" style="--i:1"><div class="ph"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5z"/></svg></div><div><p class="k">STEP 2</p><p class="t">Clean them up</p></div></div><p class="d">Remove the glow of space dust and faulty pixels.</p></div>
+        <div class="pstep glass rise" style="--i:2"><div class="ph"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg></div><div><p class="k">STEP 3</p><p class="t">Line them up</p></div></div><p class="d">Every photo matched so still stars sit exactly on top.</p></div>
+        <div class="pstep glass rise" style="--i:3"><div class="ph"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></div><div><p class="k">STEP 4</p><p class="t">Find and check</p></div></div><p class="d">Spot what moves; confirm it in NASA photos back to 2010.</p></div>
+      </div>
+      <p class="trust glass rise" style="--i:4"><b>Can we trust it?</b> Our maths matches the software professional astronomers use, checked by 20 automated tests.</p>
+    </div>
+    <figure class="flip glass rise" style="--i:2">
+      <div class="flip-img"><img id="flipimg" src="pitch/flip/f0.webp" alt="Real NASA photos of Barnard’s Star from 2010 to 2026, lined up by SkyShift: the star moves while the others stay still"></div>
+      <figcaption><span class="flip-live">REAL NASA DATA</span><span id="flipcap">WISE · 2010</span></figcaption>
+      <div class="flip-dots" id="flipdots"></div>
+    </figure>
   </div>
-  <p class="trust glass rise" style="--i:4"><b>Can we trust it?</b> Our maths gives the same answers as the software professional astronomers use, and 20 automated tests check it every time we change the code.</p>
 </section>
 
 <!-- 5 · NASA data -->
@@ -236,13 +274,17 @@ p { margin: 0; }
     <div class="dcard glass rise" style="--i:2"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg></div><div><p class="t">Star catalogues</p><p class="w">CatWISE (NASA) · Gaia (ESA, via NASA)</p><p class="d">Is this moving object already known, or something new?</p></div></div>
     <div class="dcard glass rise" style="--i:3"><div class="circ"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="16" cy="8" r="3"/><path d="M13.5 10.5L4 20M11 9L5 12M15 13l-3 6"/></svg></div><div><p class="t">Known asteroids and comets</p><p class="w">NASA JPL</p><p class="d">Which ones pass through each photo, so they are not mistaken for new finds.</p></div></div>
   </div>
-  <p class="partner rise" style="--i:4">Partner data on top: NEOSSat (Canadian Space Agency) photos; Hipparcos (ESA) stars for the 3D sky. Everything is fetched live, so new NASA releases appear automatically.</p>
+  <div class="tl glass rise" style="--i:4">
+    <p class="tl-h">Barnard’s Star: every NASA photo SkyShift uses, 2010 → 2026</p>
+    <div class="tl-track" id="tltrack"></div>
+    <div class="tl-legend"><span><i style="background:#38F2C2"></i>WISE / NEOWISE (2010–2024)</span><span><i style="background:#FFD84D"></i>SPHEREx (2025–2026)</span><span class="muted">Partner data on top: NEOSSat (CSA), Hipparcos (ESA). All fetched live.</span></div>
+  </div>
 </section>
 
 <!-- 6 · Results -->
 <section class="slide light" data-notes="<b>2:10–2:35 · 25 s.</b> “Does it work? On the challenge’s targets, SkyShift found all three moving stars by itself, within 3% of the official values — the dot lands on the ring — and raised no false alarms around the two stars that don’t move.” Details if asked: Barnard 10.32 ± 0.10 vs 10.39 (Gaia DR3); Epsilon Indi B 4.65 ± 0.09 vs 4.68 (Gaia DR3); WISE 0855 8.39 ± 0.13 vs 8.15 (Luhman &amp; Esplin 2016), arcseconds per year.">
   <p class="crit">Validity · Presentation</p>
-  <div class="head"><p class="eyebrow">Does it work? We tested the challenge’s targets</p><h2>It found the moving stars by itself, and measured them right</h2></div>
+  <div class="head"><p class="eyebrow">Does it work? We tested the challenge’s targets</p><h2>It found the moving stars by itself, <em>and got them right</em></h2></div>
   <div class="res">
     <div class="plot card rise" style="--i:0">
       <div class="legend"><span><i class="k-me"></i>SkyShift’s measurement</span><span><i class="k-pub"></i>Official value</span></div>
@@ -262,7 +304,7 @@ p { margin: 0; }
 <!-- 7 · Community + next -->
 <section class="slide grid-bg" data-notes="<b>2:35–2:55 · 20 s.</b> “SkyShift is built for the community: it speaks Arabic and English, an AI guide explains what you see, and beginner mode, larger text and high contrast make it accessible. Anyone can share a link or embed it, and citizen scientists can hunt for new candidates. Next: search large areas automatically and send new finds to scientists. Scan the code and try it yourself. Thank you.”">
   <p class="crit">Impact</p>
-  <div class="head"><p class="eyebrow">Impact: built for the community</p><h2>Made for everyone, not just astronomers</h2></div>
+  <div class="head"><p class="eyebrow">Impact: built for the community</p><h2>Made for everyone, <em>not just astronomers</em></h2></div>
   <div class="chips rise" style="--i:0"><span class="chip">Share links to any view</span><span class="chip">Embed anywhere</span><span class="chip">Download the video</span><span class="chip">Citizen science</span><span class="chip">Free and open source</span></div>
   <div class="ccards">
     <div class="ccard glass rise" style="--i:1"><img src="pitch/arabic.webp" alt="SkyShift in Arabic"><p class="t">In Arabic and English</p><p class="d">For students in Saudi Arabia and across the Arab world.</p></div>
@@ -302,6 +344,8 @@ function show(i) {
   try { history.replaceState(null, '', '#' + (cur + 1)); } catch {}
   if (slides[cur].id === 's-demo') loadLive(false);
   if (slides[cur].querySelector('#stack')) startStack();
+  slides[cur].querySelectorAll('.count').forEach(countUp);
+  if (slides[cur].querySelector('#flipimg')) startFlip(); else stopFlip();
 }
 const go = (d) => show(cur + d);
 document.getElementById('prev').onclick = () => go(-1);
@@ -402,6 +446,35 @@ let startStack;
   startStack = () => { cancelAnimationFrame(raf); t0 = performance.now(); raf = requestAnimationFrame(f); };
 })();
 
+// ---------- count-up ----------
+function countUp(el) {
+  const to = +el.dataset.to, t0 = performance.now();
+  (function f(now) { const k = Math.min(1, (now - t0) / 1400), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e).toLocaleString('en-US'); if (k < 1) requestAnimationFrame(f); })(t0);
+}
+// ---------- real flipbook (slide 4): SkyShift's lined-up NASA frames of Barnard's Star ----------
+const FLIP = [['WISE', '2010-06'], ['SPHEREx', '2025-08'], ['SPHEREx', '2025-09'], ['SPHEREx', '2026-03'], ['SPHEREx', '2026-05'], ['SPHEREx', '2026-08'], ['SPHEREx', '2026-09']];
+FLIP.forEach((_, i) => { const im = new Image(); im.src = `pitch/flip/f${i}.webp`; });
+const fdots = document.getElementById('flipdots'); FLIP.forEach(() => fdots.appendChild(document.createElement('i')));
+let flipTimer = null, fi = 0;
+function flipTo(i) {
+  fi = i; document.getElementById('flipimg').src = `pitch/flip/f${i}.webp`;
+  document.getElementById('flipcap').textContent = `${FLIP[i][0] === 'WISE' ? 'NASA WISE' : 'NASA SPHEREx'} · ${FLIP[i][1]}`;
+  [...fdots.children].forEach((d, k) => d.classList.toggle('on', k <= i));
+  const steps = document.querySelectorAll('.g4 .pstep'); steps.forEach((s, k) => s.classList.toggle('act', k === i % 4));
+}
+function startFlip() { stopFlip(); flipTo(0); flipTimer = setInterval(() => flipTo((fi + 1) % FLIP.length), fi === 0 ? 1400 : 900); }
+function stopFlip() { clearInterval(flipTimer); flipTimer = null; }
+// ---------- observation timeline (slide 5) ----------
+(function () {
+  const tr = document.getElementById('tltrack'), y0 = 2009.5, y1 = 2027, X = (y) => ((y - y0) / (y1 - y0)) * 100;
+  const ax = document.createElement('div'); ax.className = 'axis'; tr.appendChild(ax);
+  for (let y = 2010; y <= 2026; y += 2) { const l = document.createElement('span'); l.className = 'yr'; l.style.left = X(y) + '%'; l.textContent = y; tr.appendChild(l); }
+  const obs = [[2010.45, 'w']]; for (let y = 2014.0; y <= 2024.0; y += 0.5) obs.push([y, 'w']);
+  [2025.65, 2025.75, 2026.21, 2026.34, 2026.64, 2026.73].forEach((y) => obs.push([y, 's']));
+  obs.forEach(([y, k], i) => { const d = document.createElement('i'); d.className = 'ob'; d.style.left = X(y) + '%'; d.style.background = k === 's' ? '#FFD84D' : '#38F2C2'; d.style.transitionDelay = (0.4 + i * 0.05) + 's'; tr.appendChild(d); });
+})();
+
+addEventListener('hashchange', () => show((parseInt(location.hash.slice(1), 10) || 1) - 1));
 show(Math.max(0, (parseInt(location.hash.slice(1), 10) || 1) - 1));
 </script>
 </body>
