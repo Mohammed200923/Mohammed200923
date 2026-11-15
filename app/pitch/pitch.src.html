@@ -176,6 +176,28 @@ p { margin: 0; }
 .tl-legend .muted { margin-left: auto; font-size: 18px; }
 .dgrid .dcard { padding: 24px 26px; }
 
+/* impact */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.kpi { padding: 20px 26px; }
+.kpi .n { font-family: var(--display); font-size: 64px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: var(--gold); }
+.kpi .c { font-size: 21px; color: var(--muted); margin-top: 6px; }
+.aud { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.acard { display: flex; overflow: hidden; }
+.acard img { width: 190px; height: 168px; object-fit: cover; object-position: center; flex: none; border-right: 1px solid var(--line); }
+.acard .ab { padding: 20px 22px; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.acard .who { font-family: var(--display); font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: -0.01em; }
+.acard .what { font-size: 21px; line-height: 1.4; color: #DDEFE8; }
+.bottom2 { display: flex; gap: 34px; align-items: center; }
+.road { flex: 1; display: flex; align-items: center; }
+.rstep { width: 280px; flex: none; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--line); background: var(--glass); }
+.rstep.now { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.rk { font-size: 17px; font-weight: 800; letter-spacing: .16em; color: var(--muted); }
+.rstep.now .rk { color: var(--accent); }
+.rt { font-size: 20px; line-height: 1.35; font-weight: 600; margin-top: 4px; }
+.rline { flex: 1; height: 2px; min-width: 18px; background: repeating-linear-gradient(90deg, var(--gold) 0 10px, transparent 10px 18px); }
+.team2 { width: 360px; font-size: 21px; line-height: 1.5; color: #DDEFE8; }
+.team2 b { display: block; font-size: 18px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+
 /* chrome: progress, nav, timer, notes */
 #chrome { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 14px; padding: 10px 16px; font-size: 14px; color: #9EB7B0; z-index: 10; opacity: .2; transition: opacity .3s; }
 #chrome:hover, #chrome:focus-within { opacity: 1; }
@@ -301,19 +323,30 @@ p { margin: 0; }
   </div>
 </section>
 
-<!-- 7 · Community + next -->
-<section class="slide grid-bg" data-notes="<b>2:35–2:55 · 20 s.</b> “SkyShift is built for the community: it speaks Arabic and English, an AI guide explains what you see, and beginner mode, larger text and high contrast make it accessible. Anyone can share a link or embed it, and citizen scientists can hunt for new candidates. Next: search large areas automatically and send new finds to scientists. Scan the code and try it yourself. Thank you.”">
+<!-- 7 · Impact -->
+<section class="slide grid-bg" data-notes="<b>2:35–2:55 · 20 s.</b> “What does this change? Anyone can now search the whole SPHEREx sky, in under a minute, with no code, in Arabic or English. Students explore real NASA data, citizen scientists can hunt for nearby hidden worlds and share a link to what they find, and teachers get an AI guide and a beginner mode. Next, we search large areas automatically; later, we send new candidates to the scientists who follow them up. Scan the code and try it yourself. Thank you.”">
   <p class="crit">Impact</p>
-  <div class="head"><p class="eyebrow">Impact: built for the community</p><h2>Made for everyone, <em>not just astronomers</em></h2></div>
-  <div class="chips rise" style="--i:0"><span class="chip">Share links to any view</span><span class="chip">Embed anywhere</span><span class="chip">Download the video</span><span class="chip">Citizen science</span><span class="chip">Free and open source</span></div>
-  <div class="ccards">
-    <div class="ccard glass rise" style="--i:1"><img src="pitch/arabic.webp" alt="SkyShift in Arabic"><p class="t">In Arabic and English</p><p class="d">For students in Saudi Arabia and across the Arab world.</p></div>
-    <div class="ccard glass rise" style="--i:2"><img src="pitch/guide.webp" alt="The AI guide answering a question"><p class="t">An AI guide that explains</p><p class="d">Ask anything about what you see; no background needed.</p></div>
-    <div class="ccard glass rise" style="--i:3"><img src="pitch/settings.webp" alt="Accessibility settings"><p class="t">Accessible to all</p><p class="d">Beginner mode, larger text, high contrast, reduced motion.</p></div>
+  <div class="head"><p class="eyebrow">Impact and next steps</p><h2>Anyone can search the sky now. <em>No code needed.</em></h2></div>
+  <div class="kpis">
+    <div class="kpi glass rise" style="--i:0"><p class="n"><span class="count" data-to="100">100</span>%</p><p class="c">of the sky can be searched</p></div>
+    <div class="kpi glass rise" style="--i:1"><p class="n">&lt;&#8202;1 min</p><p class="c">to a first look at any spot</p></div>
+    <div class="kpi glass rise" style="--i:2"><p class="n">0</p><p class="c">lines of code needed</p></div>
+    <div class="kpi glass rise" style="--i:3"><p class="n">2</p><p class="c">languages: English and Arabic</p></div>
   </div>
-  <div class="bottom">
-    <p class="nx"><b>Next</b>Search large areas automatically · tell what each mover is from its colours · send new finds to scientists</p>
-    <p class="team"><b>Team [Team name]</b>Mohammed Al Badrani: data engine<br>Ibrahim Alahmadi: 3D sky and design<br>[Name]: [role]</p>
+  <div class="aud">
+    <div class="acard glass rise" style="--i:4"><img src="pitch/arabic.webp" style="object-position:right top" alt="SkyShift in Arabic"><div class="ab"><p class="who">Students and the public</p><p class="what">Explore real NASA data in Arabic or English, with Star Stories.</p></div></div>
+    <div class="acard glass rise" style="--i:5"><img src="pitch/frame.webp" alt="Barnard’s Star moving in real SPHEREx data"><div class="ab"><p class="who">Citizen scientists</p><p class="what">Hunt for nearby hidden worlds, and share a link to any find.</p></div></div>
+    <div class="acard glass rise" style="--i:6"><img src="pitch/guide.webp" alt="The AI guide answering a question"><div class="ab"><p class="who">Teachers and scientists</p><p class="what">An AI guide and beginner mode for class; a quick look for research.</p></div></div>
+  </div>
+  <div class="bottom2">
+    <div class="road">
+      <div class="rstep now rise" style="--i:7"><p class="rk">NOW · LIVE</p><p class="rt">Search any spot, free and open source</p></div>
+      <div class="rline"></div>
+      <div class="rstep rise" style="--i:8"><p class="rk">NEXT</p><p class="rt">Search whole regions; tell movers apart by colour</p></div>
+      <div class="rline"></div>
+      <div class="rstep rise" style="--i:9"><p class="rk">LATER</p><p class="rt">Send new finds to Backyard Worlds and the Minor Planet Center</p></div>
+    </div>
+    <p class="team2"><b>Team [Team name]</b>Mohammed Al Badrani · data engine<br>Ibrahim Alahmadi · 3D sky and design<br>[Name] · [role]</p>
     <div class="qr sm"><img src="pitch/qr.svg" alt="QR code to https://skyshift.earth">Try it now</div>
   </div>
 </section>
