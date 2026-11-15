@@ -10,7 +10,7 @@ SkyShift
 
 ## High-level summary
 
-SkyShift turns NASA’s newest space telescope, SPHEREx, into a time-lapse of the sky that anyone can use. Pick any star or spot in a 3D sky of real stars and press play: SkyShift fetches every SPHEREx photo of that spot live from NASA’s archive, adds NASA WISE and NEOWISE photos back to 2010, lines them all up, and plays them like a film, so anything that moves or changes brightness stands out. It then finds the moving objects by itself, measures their speed, and checks them against Gaia, CatWISE and NASA JPL’s list of known asteroids. Nearby cold worlds, such as brown dwarfs or a possible “Planet X”, reveal themselves this way. On the challenge’s targets, SkyShift found all three moving stars on its own, within 0.6–3% of their published speeds, with no false alarms around the two variable stars. It works in English and Arabic, needs no code, and includes guided Star Stories and an AI guide, so students and citizen scientists can search the sky too.
+SkyShift turns NASA’s newest space telescope, SPHEREx, into a time-lapse of the sky that anyone can use. Pick any star or spot in a 3D sky of real stars and press play: SkyShift fetches every SPHEREx photo of that spot live from NASA’s archive, adds NASA WISE and NEOWISE photos back to 2010, lines them all up, and plays them like a film, so anything that moves or changes brightness stands out. It then finds the moving objects by itself, measures their speed, and checks them against Gaia, CatWISE and NASA JPL’s list of known asteroids. Nearby cold worlds, such as brown dwarfs or a possible “Planet X”, reveal themselves this way. On the challenge’s targets, SkyShift found all three moving stars on its own, within 0.6–3% of their published speeds, with no false alarms around the two variable stars. Its AI guide answers in any language, its interface is in English and Arabic, it needs no code, and includes guided Star Stories and an AI guide, so students and citizen scientists can search the sky too.
 
 ## Project demo
 
@@ -25,13 +25,13 @@ https://github.com/Mohammed200923/Mohammed200923 (branch `claude/brave-planck-ix
 
 **What it does**
 
-- **3D sky:** 44,861 real stars from ESA’s Hipparcos catalogue. Search any object or click any spot. English and Arabic, beginner to advanced levels, larger text, high contrast and reduced-motion options.
+- **3D sky:** 44,861 real stars from ESA’s Hipparcos catalogue. Search any object or click any spot. Interface in English and Arabic (the AI guide answers in any language), beginner to advanced levels, larger text, high contrast and reduced-motion options.
 - **Time-lapse:** every SPHEREx Level 2 image covering the spot (DR1 and QR3, Wide and Deep surveys), stacked per survey visit and lined up on one north-up grid, plus WISE (2010) and NEOWISE (2014–2024) images.
 - **Moving-object search:** sources are detected in each visit, linked across visits and fitted with straight-line motion; each mover is then found again in the WISE images, which makes its speed about 9× more precise, and checked against Gaia DR3, CatWISE2020 and NASA JPL.
 - **Measurements:** click any source for its brightness over time and its spectrum across SPHEREx’s 0.75–5 µm colours.
 - **Sharing:** a link to any view, embed code, video and CSV download.
 - **Star Stories:** short guided tours of the five challenge targets, with sourced facts, real frames and SkyShift’s own measurement.
-- **AI guide:** Google Gemini answers questions using what is on screen and SkyShift’s measurements, labelled as AI.
+- **AI guide:** Google Gemini answers questions in any language, using what is on screen and SkyShift’s measurements, labelled as AI.
 
 **How it works**
 
@@ -52,7 +52,7 @@ https://github.com/Mohammed200923/Mohammed200923 (branch `claude/brave-planck-ix
 
 **Tools:** plain JavaScript (ES modules) in the browser, three.js for the 3D sky, Aladin Lite for sky context, a small Python server (archive proxy and cache), Playwright and Node tests (20 unit tests, end-to-end tests on live NASA data). Coordinates and wavelengths are validated against astropy. Hosted on a Hugging Face Space.
 
-**Goals:** make NASA’s newest all-sky survey searchable by anyone, in Arabic and English, and turn it into a tool for finding the Sun’s nearest hidden neighbours. Next: search whole regions automatically, classify movers by their SPHEREx colours, and send candidates to Backyard Worlds and the Minor Planet Center.
+**Goals:** make NASA’s newest all-sky survey searchable by anyone, in any language, and turn it into a tool for finding the Sun’s nearest hidden neighbours. Next: search whole regions automatically, classify movers by their SPHEREx colours, and send candidates to Backyard Worlds and the Minor Planet Center.
 
 ## Use of AI and NASA data
 

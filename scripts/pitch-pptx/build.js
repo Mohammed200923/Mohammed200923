@@ -168,11 +168,11 @@ async function icon(Comp, color, px = 256) {
   s = pres.addSlide({ masterName: 'CONTENT_DARK', sectionTitle: 'Results and impact' }); s._dark = true;
   eyebrow(s, 'Impact and next steps', C.accent1); crit(s, 'Impact', true);
   title(s, 'Anyone can search the sky now. ', 'No code needed.');
-  [['100%', 'of the sky can be searched'], ['< 1 min', 'to a first look at any spot'], ['0', 'lines of code needed'], ['2', 'languages: English and Arabic']].forEach(([n, c], i) => { const x = 0.6 + i * 3.08;
+  [['100%', 'of the sky can be searched'], ['< 1 min', 'to a first look at any spot'], ['0', 'lines of code needed'], ['Any', 'language for the AI guide']].forEach(([n, c], i) => { const x = 0.6 + i * 3.08;
     card(s, x, 1.65, 2.9, 1.0, true, 'KPI ' + (i + 1));
     s.addText(n, { x: x + 0.2, y: 1.7, w: 2.6, h: 0.55, fontSize: 30, bold: true, fontFace: 'Arial', color: C.accent2, margin: 0, isTextBox: true });
     s.addText(c, { x: x + 0.2, y: 2.24, w: 2.6, h: 0.32, fontSize: 13, color: C.accent5, margin: 0, isTextBox: true }); });
-  [['x-arabic.png', 'Students and the public', 'Real NASA data in Arabic or English, with Star Stories.'], ['f2026.png', 'Citizen scientists', 'Hunt for hidden worlds; share a link to any find.'], ['x-guide.png', 'Teachers and scientists', 'AI guide and beginner mode; a quick look for research.']].forEach(([f, t, d], i) => { const x = 0.6 + i * 4.11;
+  [['x-arabic.png', 'Students and the public', 'Real NASA data, questions in your own language, Star Stories.'], ['f2026.png', 'Citizen scientists', 'Hunt for hidden worlds; share a link to any find.'], ['x-guide.png', 'Teachers and scientists', 'AI guide and beginner mode; a quick look for research.']].forEach(([f, t, d], i) => { const x = 0.6 + i * 4.11;
     card(s, x, 2.85, 3.9, 1.4, true, 'Audience ' + (i + 1));
     s.addImage({ path: IMG + f, x: x + 0.06, y: 2.91, w: 1.28, h: 1.28, sizing: { type: 'cover', w: 1.28, h: 1.28 }, altText: t });
     s.addText(t, { x: x + 1.5, y: 2.95, w: 2.3, h: 0.32, fontSize: 14, bold: true, color: C.accent1, margin: 0, isTextBox: true });
@@ -190,7 +190,7 @@ async function icon(Comp, color, px = 256) {
   card(s, 11.55, 5.5, 1.2, 1.55, false, 'QR card', { fill: { color: 'F2EFE6' }, line: { color: 'F2EFE6' } });
   s.addImage({ path: IMG + 'qr-skyshift.png', x: 11.63, y: 5.57, w: 1.04, h: 1.04, altText: 'QR code to https://skyshift.earth' });
   s.addText('Try it now', { x: 11.55, y: 6.66, w: 1.2, h: 0.3, fontSize: 11, bold: true, color: '0B1220', align: 'center', margin: 0, isTextBox: true });
-  s.addNotes('2:35–3:00 (25 s). “So anyone can now search the whole sky in under a minute, with no code, in Arabic or English. Students explore real NASA data. Citizen scientists hunt for hidden worlds and share what they find. Teachers get an AI guide and a beginner mode, and Star Stories give a guided tour of each target. Next, we’ll search large areas automatically, then send new finds to scientists. Scan the code and try it yourself. Thank you.”');
+  s.addNotes('2:35–3:00 (25 s). “So anyone can now search the whole sky in under a minute, with no code, with an AI guide that answers in any language. Students explore real NASA data. Citizen scientists hunt for hidden worlds and share what they find. Teachers get an AI guide and a beginner mode, and Star Stories give a guided tour of each target. Next, we’ll search large areas automatically, then send new finds to scientists. Scan the code and try it yourself. Thank you.”');
 
   const out = __dirname + '/SkyShift-pitch.pptx';
   await pres.writeFile({ fileName: out });

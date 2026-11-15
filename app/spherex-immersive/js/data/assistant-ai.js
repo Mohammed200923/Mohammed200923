@@ -30,7 +30,7 @@ export function describeScreen(context) {
     lines.push(`Analysis panel: ${a.target.name}, ${a.frames.length} SPHEREx exposures in ${a.seq.length} frames.`);
     (a.movers || []).slice(0, 5).forEach((m, i) => lines.push(`Moving object #${i + 1} found by SkyShift: ${m.total.toFixed(2)} ± ${m.err.toFixed(2)} arcsec/yr (${m.tier})${m.isTarget ? ', it is the selected target' : ''}${m.gaia && m.gaia.kind === 'gaia' ? ', matches Gaia DR3' : ''}${m.wise && m.wise.epochs ? `, confirmed in ${m.wise.epochs} WISE epochs back to 2010` : ''}.`));
   }
-  if (context && context.language === 'ar') lines.push('Answer in Arabic.');
+  if (context && context.language === 'ar') lines.push('The interface is in Arabic: if the language of the question is unclear, answer in Arabic.');
   if (context && context.level === 'beginner') lines.push('The user chose beginner level: keep it simple.');
   return lines.join('\n');
 }
