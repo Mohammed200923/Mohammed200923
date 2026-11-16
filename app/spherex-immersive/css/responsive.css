@@ -80,3 +80,19 @@
 }
 @media (min-width: 1700px) { .minimap { width: 320px; } .dial { width: 210px; } }
 @media print { .app { display: none; } }
+
+/* phone: every toolbar button visible without sideways scrolling, and nothing covering the sky */
+@media (max-width: 720px) {
+  /* Explore = the top-left "back to the whole sky" button; Compare = the button in the observations bar */
+  .toolbar .tool[data-act='home'], .toolbar .tool[data-act='compare'] { display: none; }
+  .toolbar { justify-content: space-around; overflow-x: hidden; padding-inline: 2px; }
+  .tool { flex: 1 1 0; min-width: 0; }
+  .tool .lbl, :root[data-level='beginner'] .tool .lbl { font-size: 0.625rem; letter-spacing: 0; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; overflow-wrap: normal; }
+  .tool .circ, :root[data-level='beginner'] .tool .circ { width: 42px; height: 42px; }
+  /* drag and pinch rotate and zoom the sky directly; the dial would cover the target menu */
+  .dial-wrap { display: none; }
+}
+/* short labels for the two long names on phones */
+.tool .lbl-s { display: none; }
+@media (max-width: 720px) { .tool:has(.lbl-s) .lbl:not(.lbl-s) { display: none; } .tool .lbl-s { display: block; } }
+@media (max-width: 360px) { .tool .lbl, :root[data-level='beginner'] .tool .lbl { font-size: 0.5625rem; } }

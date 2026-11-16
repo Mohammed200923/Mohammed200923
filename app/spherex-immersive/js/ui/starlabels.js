@@ -1,6 +1,7 @@
 /* Names of real bright stars (IAU names, positions from Hipparcos). More names appear as you zoom in;
    brighter stars win when labels would overlap. Purely a label layer: clicking the sky works as before. */
 import { h } from '../core/dom.js';
+import { S } from '../core/state.js';
 
 const NAMES_URL = new URL('../../data/star-names.json', import.meta.url);
 let sky, layer, names = [], nodes = [], lastSig = '';
@@ -23,9 +24,13 @@ function update() {
   const v = sky.getView(), sz = sky.getSize(), sig = [v.ra.toFixed(3), v.dec.toFixed(3), v.fov.toFixed(3), v.roll.toFixed(1), sz.w, sz.h].join('|');
   if (sig === lastSig) return; lastSig = sig;
   const limit = v.fov >= 60 ? 1.6 : v.fov >= 30 ? 2.6 : v.fov >= 12 ? 3.6 : 6;
-  const cap = sz.w < 700 ? 8 : 30, boxes = [];
+  const cap = sz.w < 700 ? 8 : 30, boxes = [], base = layer.getBoundingClientRect();
+  // keep clear of the target labels too (they can be in another language and a different length)
+  const blocked = [...document.querySelectorAll('#labels .tlabel')].filter((e) => e.offsetParent && e.style.display !== 'none')
+    .map((e) => { const r = e.getBoundingClientRect(); return { x: r.left - base.left - 6, y: r.top - base.top, w: r.width + 12, h: r.height }; });
   // Stars that are also targets (e.g. Betelgeuse) already have a label.
-  const taken = new Set([...document.querySelectorAll('#labels .tlabel')].map((e) => e.textContent.trim().toLowerCase()));
+  // compare English names, so an Arabic target label still hides the matching English star name
+  const taken = new Set(S.targets.map((t) => String((t.name && (t.name.en || t.name)) || '').toLowerCase()));
   for (let i = 0; i < names.length; i++) {
     const [, ra, dec, mag] = names[i], el = nodes[i];
     let show = mag <= limit && boxes.length < cap && !taken.has(names[i][0].toLowerCase());
@@ -33,7 +38,7 @@ function update() {
     if (show) { p = sky.project(ra, dec); show = p.visible && p.x > 0 && p.y > 0 && p.x < sz.w - 60 && p.y < sz.h; }
     if (show) {
       const x = p.x + 8, y = p.y - 5, w = 8 + names[i][0].length * 6.5;
-      show = !boxes.some((b) => x < b.x + b.w && b.x < x + w && Math.abs(y - b.y) < 14);
+      show = !boxes.some((b) => x < b.x + b.w && b.x < x + w && Math.abs(y - b.y) < 14) && !blocked.some((b) => x < b.x + b.w && b.x < x + w && y + 14 > b.y && y < b.y + b.h + 2);
       if (show) { boxes.push({ x, y, w }); el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`; }
     }
     el.style.display = show ? '' : 'none';
