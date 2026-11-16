@@ -91,6 +91,23 @@ def is_search(url):
 
 # ---------- disk cache ----------
 
+SEED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed-cache")
+
+
+def seed_cache():
+    """Copy the archive answers shipped with the app (seed-cache/) into the cache, dated as expired:
+    the live archive is always asked first, and these answer only if it is down."""
+    if not os.path.isdir(SEED_DIR):
+        return
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    for name in os.listdir(SEED_DIR):
+        dst = os.path.join(CACHE_DIR, name)
+        if not os.path.exists(dst):
+            with open(os.path.join(SEED_DIR, name), "rb") as f, open(dst, "wb") as g:
+                g.write(f.read())
+            os.utime(dst, (0, 0))
+
+
 def cache_path(key):
     return os.path.join(CACHE_DIR, hashlib.sha256(key.encode()).hexdigest())
 
@@ -427,6 +444,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 def main():
+    seed_cache()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     # Cloud hosts (Cloud Run, Azure Container Apps, Hugging Face, ...) pass the port in $PORT.
     ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8000)))
