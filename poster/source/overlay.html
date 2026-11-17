@@ -3,131 +3,181 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 @page{size:2592pt 3456pt;margin:0}
+:root{--ink:#0e3f3c;--card:#f4f4e9;--coral:#b2483a;--bg:#c95e50;--sub:#3f5f5c;--line:#c9d3cc;--tint:#e3ebe2}
 html,body{margin:0;padding:0;background:transparent}
-body{width:2592pt;height:3456pt;position:relative;font-family:'IBM Plex Sans',sans-serif;color:#0e3f3c;font-size:20pt;line-height:1.28}
+body{width:2592pt;height:3456pt;position:relative;font-family:'IBM Plex Sans',sans-serif;color:var(--ink);font-size:var(--fs,21.5pt);line-height:1.3}
 .abs{position:absolute}
-.cover{position:absolute;background:#f4f4e9}
-.box{position:absolute;background:#f4f4e9;overflow:hidden}
-p{margin:0 0 9pt}
-h3{font-size:22.5pt;font-weight:700;margin:12pt 0 5pt;color:#b2483a}
-h3:first-child{margin-top:0}
+.cover{position:absolute;background:var(--card)}
+p{margin:0 0 .5em}
 b{font-weight:600}
-ul{margin:0 0 8pt;padding-left:24pt}
-li{margin-bottom:3pt}
-figure{margin:4pt 0 10pt}
-figure img{width:100%;display:block;border-radius:4pt}
-figcaption{font-size:15.5pt;line-height:1.25;color:#3f5f5c;margin-top:4pt}
-.cols{display:grid;gap:34pt}
-.callout{background:#e3ebe2;border-left:7pt solid #0e3f3c;padding:9pt 14pt;margin:8pt 0 10pt;border-radius:3pt}
-.warn{background:#fbe3dc;border-left:7pt solid #b2483a;padding:8pt 14pt;margin:0 0 10pt;border-radius:3pt;font-weight:500}
-table{border-collapse:collapse;width:100%;font-size:15.5pt;line-height:1.22;margin:4pt 0 4pt}
-th{background:#0e3f3c;color:#f4f4e9;font-weight:600;text-align:left;padding:5pt 7pt}
-td{padding:4.5pt 7pt;border-bottom:1.2pt solid #c9d3cc;vertical-align:top}
-tr.me td{background:#e3ebe2;font-weight:600}
-.tcap{font-size:15.5pt;color:#3f5f5c;margin:0 0 3pt}
-.small{font-size:17pt}
-.refs{columns:2;column-gap:26pt;font-size:13.6pt;line-height:1.22}
-.refs div{break-inside:avoid;margin-bottom:2.5pt;padding-left:24pt;text-indent:-24pt}
-.tl{font-size:17pt;line-height:1.25}
-.tl td{padding:3.5pt 7pt}
-.tl td:first-child{white-space:nowrap;font-weight:600;color:#b2483a}
+sub,sup{line-height:0}
+ul{margin:0 0 .5em;padding-left:1.1em}
+li{margin-bottom:.22em}
+li::marker{color:var(--coral)}
+figure{margin:0 0 .55em}
+figure .frame{border:1.5pt solid var(--line);border-radius:8pt;background:#fff;padding:3pt;position:relative}
+figure img{width:100%;display:block}
+figcaption{font-size:var(--cap,16.5pt);line-height:1.28;color:var(--sub);margin-top:6pt}
+figcaption b{color:var(--ink)}
+h4{font-size:1.12em;font-weight:700;color:var(--coral);margin:.75em 0 .3em;display:flex;align-items:center;gap:9pt}
+h4::before{content:"";width:12pt;height:12pt;background:var(--coral);border-radius:2pt;flex:none}
+h4:first-child{margin-top:0}
+.cols{display:grid;gap:36pt}
+.callout{background:var(--tint);border:1.5pt solid #b9c9bd;border-left:9pt solid var(--ink);padding:12pt 18pt;margin:.55em 0;border-radius:8pt}
+.callout p:last-child{margin:0}
+.warn{background:#fbe3dc;border:1.5pt solid #e8b3a7;border-left:9pt solid var(--coral);padding:10pt 18pt;margin:0 0 .6em;border-radius:8pt;font-weight:600}
+.tbl{border:1.5pt solid var(--line);border-radius:8pt;overflow:hidden;margin:0 0 .5em}
+table{border-collapse:collapse;width:100%;font-size:var(--tf,17.5pt);line-height:1.25}
+th{background:var(--ink);color:var(--card);font-weight:600;text-align:left;padding:7pt 10pt}
+td{padding:6pt 10pt;border-top:1.2pt solid var(--line);vertical-align:top}
+tr:nth-child(odd) td{background:#eceee2}
+tr.me td{background:var(--tint);font-weight:700}
+.tcap{font-size:var(--cap,16.5pt);color:var(--sub);margin:0 0 5pt}
+.tcap b{color:var(--ink)}
+.small{font-size:.92em}
+
+/* section cards */
+.card{position:absolute;background:var(--card);border-radius:16pt;overflow:hidden;box-shadow:0 0 0 2.5pt var(--ink) inset}
+.card>.hd{background:var(--ink);color:var(--card);height:76pt;display:flex;align-items:center;gap:18pt;padding:0 32pt;border-bottom:5pt solid var(--coral)}
+.card>.hd .n{background:var(--coral);color:#fff;width:52pt;height:52pt;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:23pt;font-weight:700}
+.card>.hd h2{margin:0;font-size:46pt;font-weight:600;letter-spacing:-.3pt}
+.card>.bd{padding:22pt 32pt 0}
+
+/* hero band */
+.hero{position:absolute;left:63pt;top:524pt;width:2466pt;height:174pt;background:var(--ink);border-radius:0 0 16pt 16pt;border-top:5pt solid var(--coral);display:flex;align-items:center;gap:22pt;padding:0 30pt 0 44pt;box-sizing:border-box;color:var(--card)}
+.hero .q{font-size:44pt;font-weight:700;line-height:1.12;letter-spacing:-.4pt;width:610pt;flex:none}
+.hero .q em{font-style:normal;color:#f2a58f}
+.stat{border:2pt solid #3d6b66;border-radius:12pt;height:132pt;width:318pt;flex:none;box-sizing:border-box;padding:18pt 22pt;display:flex;flex-direction:column;justify-content:center}
+.stat .v{font-size:58pt;font-weight:700;line-height:1;letter-spacing:-1pt}
+.stat .v small{font-size:30pt;font-weight:600}
+.stat .l{font-size:17.5pt;line-height:1.25;margin-top:10pt;color:#dfe7df}
+.stat .t{color:#f2a58f;font-weight:600}
+.hero .f2{flex:1;background:var(--card);border-radius:10pt;padding:8pt;color:var(--ink);display:flex;gap:12pt;align-items:center;height:136pt;box-sizing:border-box}
+.hero .f2 img{height:120pt;width:auto;display:block}
+.hero .f2 div{font-size:14.5pt;line-height:1.24;color:var(--sub)}
+.hero .f2 b{color:var(--ink)}
+
+.tag{position:absolute;top:-17pt;right:14pt;border-radius:6pt!important;background:var(--coral);color:#fff;font-size:15pt;font-weight:700;letter-spacing:1pt;padding:4pt 12pt;border-radius:0 0 6pt 6pt}
+.key .frame{border:3pt solid var(--coral)}
+.num{display:grid;grid-template-columns:50pt 1fr;gap:16pt;margin-bottom:.75em}
+.num .c{width:44pt;height:44pt;border:3pt solid var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22pt;box-sizing:border-box}
+.tl{font-size:19pt;line-height:1.28}
+.tl td:first-child{white-space:nowrap;font-weight:700;background:var(--ink)!important;color:var(--card);width:1%}
+.refs{columns:2;column-gap:30pt;font-size:15.5pt;line-height:1.24}
+.refs div{break-inside:avoid;margin-bottom:2.5pt;padding-left:30pt;text-indent:-30pt}
+.loc{font-size:16.5pt;color:var(--sub);margin:.1em 0 .55em}
 </style></head><body>
 
 <!-- hide the template's "Access and download your own copy" helper note -->
 <div class="abs" style="left:338pt;top:76pt;width:735pt;height:192pt;background:#c95d4f"></div>
 
-<!-- header: title + student name -->
+<!-- header: title, names, ID, QR, flag (template header box) -->
 <div class="cover" style="left:90pt;top:285pt;width:2095pt;height:119pt"></div>
 <div class="abs" style="left:103pt;top:283pt;width:2080pt;font-weight:700;font-size:58pt;line-height:1.03;letter-spacing:-.3pt">Printed Chitosan–rGO Memristors on Paper Substrates<br>for Sustainable Neuromorphic Computing</div>
-<!-- QR code in the template QR box -->
 <div class="abs" style="left:2203pt;top:303pt;width:68pt;height:68pt;background:#fff"><img src="fig/qr.svg" style="width:68pt;height:68pt;display:block"></div>
-<!-- team members (after the template's "Student Name:" label) and SAIF ID (after "ID:") -->
 <div class="abs" style="left:462pt;top:418pt;font-size:40pt;line-height:1.2;white-space:nowrap">Mohammed Khaled Albadrani, Maan Mohamad Alsulaimani, Faez Kurdi</div>
 <div class="abs" style="left:2125pt;top:415pt;font-size:44pt;line-height:1.2;font-weight:500">SAIF120131</div>
-<!-- Saudi Arabia flag in the template country-flag box (box 2399-2502 x 300-373 pt) -->
 <img class="abs" src="fig/flag_sa.svg" style="left:2401.5pt;top:303.5pt;width:99pt;height:66pt;object-fit:cover;display:block">
 
-<!-- ================= INTRODUCTION ================= -->
-<div class="box" id="intro" style="left:100pt;top:704pt;width:930pt;height:838pt">
-<p><b>The problem.</b> AI's energy demand is outpacing hardware efficiency: data-centre electricity use is projected to rise from <b>~415 TWh (2024) to ~945 TWh (2030)</b> [1]. In a von Neumann computer, memory and processor are separate, so <b>60–80% of the energy moves data</b> rather than computing with it [1].</p>
-<figure style="width:90%;margin-left:5%"><img src="fig/fig1.png"><figcaption><b>Fig. 1</b> (a) Projected data-centre demand [1]; (b) the von Neumann bottleneck; (c) a memristor stores and computes in one device, like a synapse.</figcaption></figure>
-<p><b>Memristors</b> store a weight and compute with it in the same device [9, 11, 19], ~1000× more efficient than CMOS at fJ per operation [5, 7]. But the best ones use HfO<sub>2</sub>/TaO<sub>x</sub> deposited in vacuum above 300 °C on non-degradable substrates [3, 4] — trading an energy crisis for an <b>e-waste crisis</b>. Biopolymer devices are greener but reach only 10<sup>3</sup>–10<sup>4</sup> ON/OFF and 500–10<sup>4</sup> cycles [3, 6].</p>
-<p><b>The gap.</b> Zhao et al. [5] used chitosan–rGO but did not print it or use paper; Chen et al. [2] printed 5,200 memristors on paper but with inorganic materials; Min &amp; Cho [6] showed a filler widens the window but found no optimal loading.</p>
-<div class="callout"><b>Research question:</b> Can a printed chitosan–rGO composite on paper act as a fully biodegradable memristor for neuromorphic computing — and at what rGO loading is it best?<br><b>Hypothesis:</b> ON/OFF is non-monotonic in rGO loading, peaking just below the percolation threshold [13].</div>
-<p class="small" style="margin:0"><b>Objectives:</b> O1 pinched hysteresis vs frequency · O2 ON/OFF, V<sub>set</sub> &amp; analog states vs loading · O3 independent physics cross-check · O4 synaptic behaviour (LTP/LTD, PPF, multilevel) · O5 ink inside the printability window · O6 lab test of the falsifiable prediction.</p>
+<!-- repaint the body area so the six sections can be re-laid out (template boxes underneath are hidden) -->
+<div class="abs" style="left:0;top:526pt;width:2592pt;height:2812pt;background:var(--bg)"></div>
+
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <div class="q">Can AI hardware be <em>printed on paper</em> from <em>shrimp shells</em>?</div>
+  <div class="stat"><div class="v">~1.5×10<sup style="font-size:.5em">3</sup></div><div class="l">ON/OFF ratio at ~20 wt% rGO<br><span class="t">simulated design target</span></div></div>
+  <div class="stat"><div class="v">~100 <small>°C</small></div><div class="l">Printed &amp; cured in ambient air. No vacuum, no cleanroom</div></div>
+  <div class="stat"><div class="v">&lt;$1</div><div class="l">Consumables per device</div></div>
+  <div class="f2"><img src="figc/fig2.png"><div><b>Fig. 2</b> Central hypothesis: too little rGO → random filaments; optimal window → guided growth, high ON/OFF; too much → percolation shorts the device.</div></div>
 </div>
 
-<!-- ================= METHODOLOGY ================= -->
-<div class="box" id="method" style="left:1153pt;top:704pt;width:1342pt;height:838pt">
-<div class="cols" style="grid-template-columns:600pt 1fr">
+<!-- ================= 01 INTRODUCTION ================= -->
+<div class="card" id="intro" data-row="1" style="left:63pt;width:1080pt">
+<div class="hd"><span class="n">01</span><h2>Introduction</h2></div>
+<div class="bd">
+<p><b>The problem.</b> AI's energy demand is outpacing hardware efficiency: data-centre electricity use is projected to rise from <b>~415 TWh (2024) to ~945 TWh (2030)</b> [1]. In a von Neumann computer, memory and processor are separate, so <b>60–80% of the energy moves data</b> rather than computing with it [1].</p>
+<figure><div class="frame"><img src="figc/fig1.png"></div><figcaption><b>Fig. 1</b> (a) Projected data-centre demand [1]; (b) the von Neumann bottleneck; (c) a memristor stores and computes in one device, like a synapse.</figcaption></figure>
+<p><b>Memristors</b> store a weight and compute with it in the same device [9, 11, 19], ~1000× more efficient than CMOS at fJ per operation [5, 7]. But the best ones use HfO<sub>2</sub>/TaO<sub>x</sub> deposited in vacuum above 300 °C on non-degradable substrates [3, 4] — trading an energy crisis for an <b>e-waste crisis</b>. Biopolymer devices are greener but reach only 10<sup>3</sup>–10<sup>4</sup> ON/OFF and 500–10<sup>4</sup> cycles [3, 6].</p>
+<p><b>The gap.</b> Zhao et al. [5] used chitosan–rGO but did not print it or use paper; Chen et al. [2] printed 5,200 memristors on paper but with inorganic materials; Min &amp; Cho [6] showed a filler widens the window but found no optimal loading.</p>
+<div class="callout"><p><b>Research question:</b> Can a printed chitosan–rGO composite on paper act as a fully biodegradable memristor for neuromorphic computing — and at what rGO loading is it best?</p><p><b>Hypothesis:</b> ON/OFF is non-monotonic in rGO loading, peaking just below the percolation threshold [13].</p></div>
+<p style="margin:0"><b>Objectives:</b> O1 pinched hysteresis vs frequency · O2 ON/OFF, V<sub>set</sub> &amp; analog states vs loading · O3 independent physics cross-check · O4 synaptic behaviour (LTP/LTD, PPF, multilevel) · O5 ink inside the printability window · O6 lab test of the falsifiable prediction.</p>
+</div></div>
+
+<!-- ================= 02 METHODOLOGY ================= -->
+<div class="card" id="method" data-row="1" style="left:1167pt;width:1362pt">
+<div class="hd"><span class="n">02</span><h2>Methodology</h2></div>
+<div class="bd"><div class="cols" style="grid-template-columns:470pt 1fr">
 <div>
-<h3>Materials</h3>
+<h4>Materials</h4>
 <p><b>Chitosan</b> (matrix) is extracted from shrimp-shell waste (Fig. 3); its amine/hydroxyl network lets Ag<sup>+</sup> ions migrate under bias. <b>rGO</b> (reduced with vitamin C, not hydrazine) concentrates the field so filaments grow along guided paths → gradual, multi-level switching.</p>
-<figure style="width:88%;margin-left:6%"><img src="fig/fig3.png"><figcaption><b>Fig. 3</b> Chitosan extraction from waste shrimp shells (BioRender.com).</figcaption></figure>
-<figure style="margin-bottom:6pt"><img src="fig/fig4.png"><figcaption><b>Fig. 4</b> Vertical Ag / CS-rGO / Ag stack on paper and proposed Ag<sup>+</sup> switching mechanism.</figcaption></figure>
+<figure><div class="frame"><img src="figc/fig3.png"></div><figcaption><b>Fig. 3</b> Chitosan extraction from waste shrimp shells (BioRender.com).</figcaption></figure>
+<figure style="margin:0"><div class="frame"><img src="figc/fig4.png"></div><figcaption><b>Fig. 4</b> Vertical Ag / CS-rGO / Ag stack on paper and proposed Ag<sup>+</sup> switching mechanism.</figcaption></figure>
 </div>
 <div>
-<h3>Fabrication (planned, ambient, no cleanroom)</h3>
-<figure><img src="fig/fig5.png"><figcaption><b>Fig. 5</b> Dissolve chitosan → reduce GO → mix ink → inkjet-print on paper → cure ~100 °C → I-V &amp; pulse tests (BioRender.com).</figcaption></figure>
-<p class="small">Ink checked before printing: particle &lt;300 nm, viscosity 1–30 cP, surface tension 35–70 mN/m, Z = 1–10 [14, 15]. Cost &lt;$1/device consumables.</p>
-<h3>Four Python models (NumPy, SciPy)</h3>
-<ul class="small">
+<h4>Fabrication (planned, ambient, no cleanroom)</h4>
+<figure><div class="frame"><img src="figc/fig5.png"></div><figcaption><b>Fig. 5</b> Dissolve chitosan → reduce GO → mix ink → inkjet-print on paper → cure ~100 °C → I-V &amp; pulse tests (BioRender.com).</figcaption></figure>
+<p>Ink checked before printing: particle &lt;300 nm, viscosity 1–30 cP, surface tension 35–70 mN/m, Z = 1–10 [14, 15]. <b>Cost &lt;$1/device consumables.</b></p>
+<h4>Four Python models (NumPy, SciPy)</h4>
+<ul>
 <li><b>Strukov ion-drift</b> [20] + Joglekar window [21]: 1 V sine at 1, 5, 20 Hz.</li>
 <li><b>VTEAM-based parameter map</b> [22]: R<sub>on</sub>, R<sub>off</sub> vs φ/φ<sub>c</sub>; φ<sub>c</sub> = 22 wt% <i>(assumed)</i>.</li>
 <li><b>1-D Nernst–Planck drift-diffusion</b> + percolation term (t = 1.8 [23]) as an independent check.</li>
 <li><b>Synaptic model</b>: LTP/LTD, paired-pulse, six levels with read noise.</li>
 </ul>
-<p class="small"><b>Variables.</b> Independent: rGO loading 0–24 wt% (2 wt% steps). Dependent: ON/OFF, V<sub>set</sub>, analog states. Controlled: 200×200 µm electrodes, 150 nm layer, ±2 V at 0.1 V/s, 0.8 V/50 µs pulses, 25 °C. Controls: pure chitosan (–), HfO<sub>2</sub> data [4] (+).</p>
-<p class="small" style="margin:0"><b>Lab plan.</b> ≥10 devices per loading (0–24 wt%); mean ± SD, one-way ANOVA (α = 0.05) + Tukey HSD; ±10% sensitivity on every input incl. φ<sub>c</sub>. Safety: fume hood for 5% acetic acid, Ag-ink waste via chemical-waste programme; ISEF Form 1A.</p>
+<p><b>Variables.</b> Independent: rGO loading 0–24 wt% (2 wt% steps). Dependent: ON/OFF, V<sub>set</sub>, analog states. Controlled: 200×200 µm electrodes, 150 nm layer, ±2 V at 0.1 V/s, 0.8 V/50 µs pulses, 25 °C. Controls: pure chitosan (–), HfO<sub>2</sub> data [4] (+).</p>
+<p style="margin:0"><b>Lab plan.</b> ≥10 devices per loading (0–24 wt%); mean ± SD, one-way ANOVA (α = 0.05) + Tukey HSD; ±10% sensitivity on every input incl. φ<sub>c</sub>. Safety: fume hood for 5% acetic acid, Ag-ink waste via chemical-waste programme; ISEF Form 1A.</p>
 </div>
-</div>
-</div>
+</div></div></div>
 
-<!-- ================= RESULTS ================= -->
-<div class="box" id="results" style="left:100pt;top:1745pt;width:1268pt;height:832pt">
-<div class="warn">All values below are <u>simulation outputs</u> from the inputs in the methodology — not device measurements. No devices have been fabricated yet.</div>
-<div class="cols" style="grid-template-columns:1fr 1fr;gap:30pt">
-<figure style="margin:0"><img src="fig/fig6.png"><figcaption><b>Fig. 6 · Strukov model (O1).</b> Pinched loops through the origin. Loop area 4.4×10<sup>-8</sup> V·A at 1 Hz, 3.0×10<sup>-9</sup> at 5 Hz, 6.9×10<sup>-9</sup> at 20 Hz — smaller at higher frequency, but not monotonic from 5→20 Hz (needs re-checking).</figcaption></figure>
-<figure style="margin:0"><img src="fig/fig7.png"><figcaption><b>Fig. 7 · Parameter map (O2).</b> ON/OFF rises from 5 (0 wt%) to 315 (14 wt%) and <b>1,489 at 20 wt%</b>, then collapses to 2.0 (22 wt%) and 1.7 (24 wt%). R<sub>off</sub> 25 kΩ → 0.89 MΩ; R<sub>on</sub> 5.0 → 0.60 kΩ. The peak follows from the assumed 22 wt% threshold — a design target, not an independent prediction.</figcaption></figure>
-<figure style="margin:0"><img src="fig/fig8.png"><figcaption><b>Fig. 8 · Cross-check (O3 not met).</b> The drift-diffusion model gave ON/OFF = 1.0 at every loading: the percolation conductivity is computed but not coupled into the current, so it cannot yet confirm the map.</figcaption></figure>
-<figure style="margin:0"><img src="fig/fig9.png"><figcaption><b>Fig. 9 · Synaptic model (O4, illustrative).</b> Potentiation 0.82 → 3.73 µS over 30 pulses, depression to 0.31 µS; PPF 169% at 1 ms decaying to 100% by 10<sup>3</sup> ms; six levels stay separate over 36 reads.</figcaption></figure>
+<!-- ================= 03 RESULTS ================= -->
+<div class="card" id="results" data-row="2" style="left:63pt;width:1290pt">
+<div class="hd"><span class="n">03</span><h2>Results</h2></div>
+<div class="bd">
+<div class="warn">All values below are simulation outputs from the inputs in the methodology — not device measurements. No devices have been fabricated yet.</div>
+<div class="cols" style="grid-template-columns:1fr 1fr;gap:20pt 30pt">
+<figure style="margin:0"><div class="frame"><img src="figc/fig6.png"></div><figcaption><b>Fig. 6 · Strukov model (O1).</b> Pinched loops through the origin. Loop area <span style="white-space:nowrap">4.4×10<sup>-8</sup></span> V·A at 1 Hz, <span style="white-space:nowrap">3.0×10<sup>-9</sup></span> at 5 Hz, <span style="white-space:nowrap">6.9×10<sup>-9</sup></span> at 20 Hz — smaller at higher frequency, but not monotonic from 5→20 Hz (needs re-checking).</figcaption></figure>
+<figure style="margin:0" class="key"><div class="frame"><span class="tag">KEY RESULT</span><img src="figc/fig7.png"></div><figcaption><b>Fig. 7 · Parameter map (O2).</b> ON/OFF rises from 5 (0 wt%) to 315 (14 wt%) and <b style="color:var(--coral)">1,489 at 20 wt%</b>, then collapses to 2.0 (22 wt%) and 1.7 (24 wt%). R<sub>off</sub> 25 kΩ → 0.89 MΩ; R<sub>on</sub> 5.0 → 0.60 kΩ. The peak follows from the assumed 22 wt% threshold — a design target, not an independent prediction.</figcaption></figure>
+<figure style="margin:0"><div class="frame"><img src="figc/fig8.png"></div><figcaption><b>Fig. 8 · Cross-check (O3 not met).</b> The drift-diffusion model gave ON/OFF = 1.0 at every loading: the percolation conductivity is computed but not coupled into the current, so it cannot yet confirm the map.</figcaption></figure>
+<figure style="margin:0"><div class="frame"><img src="figc/fig9.png"></div><figcaption><b>Fig. 9 · Synaptic model (O4, illustrative).</b> Potentiation 0.82 → 3.73 µS over 30 pulses, depression to 0.31 µS; PPF 169% at 1 ms decaying to 100% by 10<sup>3</sup> ms; six levels stay separate over 36 reads.</figcaption></figure>
 </div>
-</div>
+</div></div>
 
-<!-- ================= INNOVATION ================= -->
-<div class="box" id="innov" style="left:1498pt;top:1745pt;width:997pt;height:832pt">
+<!-- ================= 04 INNOVATION ================= -->
+<div class="card" id="innov" data-row="2" style="left:1383pt;width:1146pt">
+<div class="hd"><span class="n">04</span><h2>Innovation</h2></div>
+<div class="bd">
 <p class="tcap"><b>Table 1</b> Closest studies and what each leaves open.</p>
-<table>
+<div class="tbl"><table>
 <tr><th>Study</th><th>Active layer</th><th>Substrate / process</th><th>Not addressed</th></tr>
 <tr><td>Zhao [5] 2022</td><td>Chitosan–rGO</td><td>Not printed; not paper</td><td>Printing; paper</td></tr>
 <tr><td>Min &amp; Cho [6] 2021</td><td>Chitosan + CNT</td><td>TFT-gated memory</td><td>Optimal filler loading</td></tr>
 <tr><td>Chen [2] 2025</td><td>Inorganic</td><td>Inkjet on paper, 5,200 devices, &gt;90% yield</td><td>Bio-derived layer</td></tr>
 <tr><td>Zhang [3] 2026</td><td>Biopolymers (review)</td><td>Various; ON/OFF ~10<sup>6</sup></td><td>Printed on paper</td></tr>
 <tr class="me"><td>This project</td><td>Chitosan–rGO</td><td>Inkjet-printed on paper, Ag electrodes</td><td>Measurements (planned)</td></tr>
-</table>
-<h3 style="margin-top:12pt">What is new</h3>
-<p><b>1 · Material + process.</b> Combines the chitosan–rGO chemistry of [5] with inkjet printing on paper as in [2] — using chitosan from shellfish waste and vitamin-C-reduced rGO.</p>
-<p><b>2 · A mechanism for the optimum.</b> [6] saw a filler widen the window ×2.3 but found no optimum. This project explains why one should exist — guided filaments below percolation, shorting above it — and tests it across loading (Fig. 2).</p>
-<figure style="width:86%;margin-left:7%"><img src="fig/fig2.png"><figcaption><b>Fig. 2</b> Central hypothesis: too little rGO → random filaments; optimal window → guided growth, high ON/OFF; too much → percolation shorts the device.</figcaption></figure>
-<p style="margin:0"><b>3 · Design before fabrication.</b> A parameter map chose the composition range before any device was made; the lab phase measures the real threshold. Target: synaptic weights (10<sup>3</sup>–10<sup>4</sup> ON/OFF with gradual switching [12, 18]), not non-volatile memory.</p>
-</div>
+</table></div>
+<h4 style="margin-top:.9em">What is new</h4>
+<div class="num"><span class="c">1</span><div><b>Material + process.</b> Combines the chitosan–rGO chemistry of [5] with inkjet printing on paper as in [2] — using chitosan from shellfish waste and vitamin-C-reduced rGO.</div></div>
+<div class="num"><span class="c">2</span><div><b>A mechanism for the optimum.</b> [6] saw a filler widen the window ×2.3 but found no optimum. This project explains why one should exist — guided filaments below percolation, shorting above it — and tests it across loading (Fig. 2).</div></div>
+<div class="num" style="margin:0"><span class="c">3</span><div><b>Design before fabrication.</b> A parameter map chose the composition range before any device was made; the lab phase measures the real threshold. Target: synaptic weights (10<sup>3</sup>–10<sup>4</sup> ON/OFF with gradual switching [12, 18]), not non-volatile memory.</div></div>
+</div></div>
 
-<!-- ================= CONCLUSION ================= -->
-<div class="box" id="concl" style="left:100pt;top:2785pt;width:1268pt;height:522pt">
-<div class="cols" style="grid-template-columns:1fr 1fr;gap:34pt">
+<!-- ================= 05 CONCLUSION ================= -->
+<div class="card" id="concl" data-row="3" style="left:63pt;width:1290pt">
+<div class="hd"><span class="n">05</span><h2>Conclusion</h2></div>
+<div class="bd"><div class="cols" style="grid-template-columns:1fr 1fr;gap:36pt">
 <div>
-<p>Four simulation models suggest that a printed chitosan–rGO memristor on paper could reach an ON/OFF ratio of <b>~1.5×10<sup>3</sup> at ~20 wt% rGO</b> — inside the 10<sup>3</sup>–10<sup>4</sup> range neuromorphic learning needs [12, 18] — while being bio-derived, biodegradable and printed near room temperature. These results set the composition range for the first experiments; <b>they do not demonstrate device performance.</b></p>
+<p>Four simulation models suggest that a printed chitosan–rGO memristor on paper could reach an ON/OFF ratio of <b>~<span style="white-space:nowrap">1.5×10<sup>3</sup></span> at ~20 wt% rGO</b> — inside the 10<sup>3</sup>–10<sup>4</sup> range neuromorphic learning needs [12, 18] — while being bio-derived, biodegradable and printed near room temperature. These results set the composition range for the first experiments; <b>they do not demonstrate device performance.</b></p>
 <p class="tcap"><b>Table 3</b> Simulated value vs published devices.</p>
-<table>
+<div class="tbl" style="margin:0"><table>
 <tr><th>Device</th><th>ON/OFF</th><th>V<sub>switch</sub></th><th>Endurance</th></tr>
-<tr class="me"><td>CS-rGO 20 wt% (sim.)</td><td>~1.5×10<sup>3</sup></td><td>n/c</td><td>n/c</td></tr>
+<tr class="me"><td>CS-rGO 20 wt% (sim.)</td><td>~<span style="white-space:nowrap">1.5×10<sup>3</sup></span></td><td>n/c</td><td>n/c</td></tr>
 <tr><td>Chitosan + CNT [6]</td><td>~15</td><td>0.8 V</td><td>~200 cyc.</td></tr>
 <tr><td>Biopolymers [3]</td><td>≤~10<sup>6</sup></td><td>–</td><td>–</td></tr>
 <tr><td>HfO<sub>2</sub> [4]</td><td>10<sup>6</sup>–10<sup>8</sup></td><td>0.3–0.8 V</td><td>10<sup>9</sup>–10<sup>11</sup></td></tr>
-</table>
+</table></div>
 </div>
-<div class="small">
-<h3>Limitations</h3>
+<div>
+<h4>Limitations</h4>
 <ul>
 <li>All results are simulations; none is a measurement.</li>
 <li>Peak position depends on the assumed 22 wt% threshold; reported graphene–polymer thresholds can be ~0.1 vol% [24] and vary with flake size and dispersion [13].</li>
@@ -135,22 +185,22 @@ tr.me td{background:#e3ebe2;font-weight:600}
 <li>Drift-diffusion model gives no independent check yet.</li>
 <li>Model thicknesses (10 / 100 nm) ≠ planned 150 nm; coffee-ring, paper roughness and humidity not modelled.</li>
 </ul>
-<h3>Impact</h3>
-<p style="margin:0">Low-cost, compostable synaptic hardware for edge-AI and disposable sensors, made from shellfish waste without vacuum or cleanroom.</p>
+<div class="callout" style="margin:0"><h4 style="margin:0 0 .25em">Impact</h4><p>Low-cost, compostable synaptic hardware for edge-AI and disposable sensors, made from shellfish waste without vacuum or cleanroom.</p></div>
 </div>
-</div>
-</div>
+</div></div></div>
 
-<!-- ================= FUTURE WORK & REFERENCES ================= -->
-<div class="box" id="future" style="left:1498pt;top:2785pt;width:997pt;height:522pt">
-<table class="tl">
+<!-- ================= 06 FUTURE WORK & REFERENCES ================= -->
+<div class="card" id="future" data-row="3" style="left:1383pt;width:1146pt">
+<div class="hd"><span class="n">06</span><h2>Future Work &amp; References</h2></div>
+<div class="bd">
+<div class="tbl"><table class="tl">
 <tr><td>27 Oct–7 Nov</td><td>Lab access, risk assessment, materials ($500–850); fix models (couple percolation, solve VTEAM, 1–200 Hz sweep, ±10% sensitivity)</td></tr>
 <tr><td>8–25 Nov</td><td>Formulate ink → printability go/no-go; 5-device pilot at 12 wt% (continue if ≥3/5 switch)</td></tr>
 <tr><td>26 Nov–16 Dec</td><td>Print ≥10 devices at 0, 4, 8, 12, 16, 18, 20, 22, 24 wt% (90 devices)</td></tr>
 <tr><td>17 Dec–21 Jan</td><td>I-V, synaptic, endurance &amp; retention tests; ANOVA + Tukey; measure real threshold</td></tr>
 <tr><td>22–31 Jan 2027</td><td>Replace simulated results with measured data. <b>Refuted if</b> ON/OFF rises monotonically 0–24 wt% with no collapse.</td></tr>
-</table>
-<p style="font-size:14pt;margin:5pt 0 6pt;color:#3f5f5c">Location: King Abdulaziz University, Jeddah (subject to change). Code &amp; data: github.com/Mohammed200923/cs-rgo-memristor-sim (QR code above).</p>
+</table></div>
+<p class="loc">Location: King Abdulaziz University, Jeddah (subject to change). Code &amp; data: github.com/Mohammed200923/cs-rgo-memristor-sim (QR code above).</p>
 <div class="refs">
 <div>[1] IEA, Energy and AI, 2025.</div>
 <div>[2] J. Chen et al., InfoMat 7, e70000, 2025.</div>
@@ -177,9 +227,27 @@ tr.me td{background:#e3ebe2;font-weight:600}
 <div>[23] D. Stauffer, A. Aharony, Percolation Theory, 1994.</div>
 <div>[24] S. Stankovich et al., Nature 442, 282, 2006.</div>
 </div>
-</div>
+</div></div>
 
 <!-- acknowledgments (template label is at left) -->
 <div class="abs" style="left:318pt;top:3361pt;width:2200pt;color:#fff;font-size:17.5pt;line-height:1.3">Computational design study completed independently; laboratory phase planned at King Abdulaziz University (KAU), Jeddah, subject to confirmation. Figs. 3 &amp; 5 created with BioRender.com. Simulation code and data are openly available via the QR code.</div>
 
+<script>
+// Row 1 = Intro | Methodology. Below it, two independent stacks: [Results, Conclusion] | [Innovation, Future].
+// Spare height in each stack is shared out evenly so every card ends on the same bottom line.
+window.layout=function(){
+  const PT=4/3, TOP=724, BOTTOM=3325, GAP=24, PAD=9;
+  const h=id=>{const c=document.getElementById(id);c.style.height='auto';return c.getBoundingClientRect().height/PT+PAD};
+  const set=(id,y,hh)=>{const c=document.getElementById(id);c.style.top=y+'pt';c.style.height=hh+'pt'};
+  const need={};['intro','method','results','concl','innov','future'].forEach(k=>need[k]=Math.round(h(k)));
+  const r1=Math.max(need.intro,need.method);
+  const y2=TOP+r1+GAP, rest=BOTTOM-y2-GAP;
+  const L=need.results+need.concl, R=need.innov+need.future;
+  const sl=(rest-L)/2, sr=(rest-R)/2;
+  set('intro',TOP,r1);set('method',TOP,r1);
+  set('results',y2,need.results+sl);set('concl',y2+need.results+sl+GAP,need.concl+sl);
+  set('innov',y2,need.innov+sr);set('future',y2+need.innov+sr+GAP,need.future+sr);
+  return {need,r1,leftSlack:Math.round(rest-L),rightSlack:Math.round(rest-R)};
+};
+</script>
 </body></html>
