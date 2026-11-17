@@ -172,6 +172,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v74 / v74h | 0.693 / 0.693 (worse) | missing gaps right after a blank have a 1-2 minute left edge: two-sided partner with min_left=1 (realistic bench 0.747 vs 0.929 for the failed one-sided v67) |
 
+| v69a probes | forecast 0.752, hidden 0.820, hidden-future 0.640, missing ~0.520 (ratios) | top-8 cutoff 0.635 needs about -0.19 in total |
+| v75 | ? | hidden B/G on Friday 18 Sep: Friday ratio-to-cam_D pattern (Fri-to-Fri pattern correlation 0.81-0.97) x cam_D |
+
 `submission.csv` is v69a (0.683): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v69a + v69h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
