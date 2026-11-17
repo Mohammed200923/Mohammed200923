@@ -5,7 +5,7 @@
 @page{size:2592pt 3456pt;margin:0}
 :root{--ink:#0e3f3c;--card:#f4f4e9;--coral:#b2483a;--bg:#c95e50;--sub:#3f5f5c;--line:#c9d3cc;--tint:#e3ebe2}
 html,body{margin:0;padding:0;background:transparent}
-body{width:2592pt;height:3456pt;position:relative;font-family:'IBM Plex Sans',sans-serif;color:var(--ink);font-size:var(--fs,21.5pt);line-height:1.3}
+body{width:2592pt;height:3456pt;position:relative;font-family:'IBM Plex Sans',sans-serif;color:var(--ink);font-size:var(--fs,22.5pt);line-height:1.3}
 .abs{position:absolute}
 .cover{position:absolute;background:var(--card)}
 p{margin:0 0 .5em}
@@ -17,7 +17,7 @@ li::marker{color:var(--coral)}
 figure{margin:0 0 .55em}
 figure .frame{border:1.5pt solid var(--line);border-radius:8pt;background:#fff;padding:3pt;position:relative}
 figure img{width:100%;display:block}
-figcaption{font-size:var(--cap,16.5pt);line-height:1.28;color:var(--sub);margin-top:6pt}
+figcaption{font-size:var(--cap,17pt);line-height:1.28;color:var(--sub);margin-top:6pt}
 figcaption b{color:var(--ink)}
 h4{font-size:1.12em;font-weight:700;color:var(--coral);margin:.75em 0 .3em;display:flex;align-items:center;gap:9pt}
 h4::before{content:"";width:12pt;height:12pt;background:var(--coral);border-radius:2pt;flex:none}
@@ -32,7 +32,7 @@ th{background:var(--ink);color:var(--card);font-weight:600;text-align:left;paddi
 td{padding:6pt 10pt;border-top:1.2pt solid var(--line);vertical-align:top}
 tr:nth-child(odd) td{background:#eceee2}
 tr.me td{background:var(--tint);font-weight:700}
-.tcap{font-size:var(--cap,16.5pt);color:var(--sub);margin:0 0 5pt}
+.tcap{font-size:var(--cap,17pt);color:var(--sub);margin:0 0 5pt}
 .tcap b{color:var(--ink)}
 .small{font-size:.92em}
 
@@ -59,6 +59,7 @@ tr.me td{background:var(--tint);font-weight:700}
 
 .tag{position:absolute;top:-17pt;right:14pt;border-radius:6pt!important;background:var(--coral);color:#fff;font-size:15pt;font-weight:700;letter-spacing:1pt;padding:4pt 12pt;border-radius:0 0 6pt 6pt}
 .key .frame{border:3pt solid var(--coral)}
+.tagi{background:var(--coral);color:#fff;font-size:13.5pt;font-weight:700;letter-spacing:1pt;padding:2pt 9pt;border-radius:5pt;vertical-align:1pt}
 .num{display:grid;grid-template-columns:50pt 1fr;gap:16pt;margin-bottom:.75em}
 .num .c{width:44pt;height:44pt;border:3pt solid var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22pt;box-sizing:border-box}
 .tl{font-size:19pt;line-height:1.28}
@@ -85,22 +86,22 @@ tr.me td{background:var(--tint);font-weight:700}
 <!-- ================= HERO ================= -->
 <div class="hero">
   <div class="q">Can AI hardware be <em>printed on paper</em> from <em>shrimp shells</em>?</div>
-  <div class="stat"><div class="v">~1.5×10<sup style="font-size:.5em">3</sup></div><div class="l">ON/OFF ratio at ~20 wt% rGO<br><span class="t">simulated design target</span></div></div>
-  <div class="stat"><div class="v">~100 <small>°C</small></div><div class="l">Printed &amp; cured in ambient air. No vacuum, no cleanroom</div></div>
-  <div class="stat"><div class="v">&lt;$1</div><div class="l">Consumables per device</div></div>
-  <div class="f2"><img src="figc/fig2.png"><div><b>Fig. 2</b> Central hypothesis: too little rGO → random filaments; optimal window → guided growth, high ON/OFF; too much → percolation shorts the device.</div></div>
+  <div class="stat"><div class="v">10<sup style="font-size:.5em">3</sup> <small>range</small></div><div class="l">ON/OFF below the threshold<br><span class="t">simulated target</span></div></div>
+  <div class="stat"><div class="v">~100 <small>°C</small></div><div class="l">Highest process step. Ambient air, no vacuum, no cleanroom</div></div>
+  <div class="stat"><div class="v">&lt;$1</div><div class="l">Estimated consumables per device</div></div>
+  <div class="f2"><img src="figc/fig2.png"><div><b>Fig. 2</b> Our hypothesis. Too little rGO gives random filaments, the optimal window guides filament growth, and too much rGO percolates and shorts the device.</div></div>
 </div>
 
 <!-- ================= 01 INTRODUCTION ================= -->
 <div class="card" id="intro" data-row="1" style="left:63pt;width:1080pt">
 <div class="hd"><span class="n">01</span><h2>Introduction</h2></div>
 <div class="bd">
-<p><b>The problem.</b> AI's energy demand is outpacing hardware efficiency: data-centre electricity use is projected to rise from <b>~415 TWh (2024) to ~945 TWh (2030)</b> [1]. In a von Neumann computer, memory and processor are separate, so <b>60–80% of the energy moves data</b> rather than computing with it [1].</p>
-<figure><div class="frame"><img src="figc/fig1.png"></div><figcaption><b>Fig. 1</b> (a) Projected data-centre demand [1]; (b) the von Neumann bottleneck; (c) a memristor stores and computes in one device, like a synapse.</figcaption></figure>
-<p><b>Memristors</b> store a weight and compute with it in the same device [9, 11, 19], ~1000× more efficient than CMOS at fJ per operation [5, 7]. But the best ones use HfO<sub>2</sub>/TaO<sub>x</sub> deposited in vacuum above 300 °C on non-degradable substrates [3, 4] — trading an energy crisis for an <b>e-waste crisis</b>. Biopolymer devices are greener but reach only 10<sup>3</sup>–10<sup>4</sup> ON/OFF and 500–10<sup>4</sup> cycles [3, 6].</p>
-<p><b>The gap.</b> Zhao et al. [5] used chitosan–rGO but did not print it or use paper; Chen et al. [2] printed 5,200 memristors on paper but with inorganic materials; Min &amp; Cho [6] showed a filler widens the window but found no optimal loading.</p>
-<div class="callout"><p><b>Research question:</b> Can a printed chitosan–rGO composite on paper act as a fully biodegradable memristor for neuromorphic computing — and at what rGO loading is it best?</p><p><b>Hypothesis:</b> ON/OFF is non-monotonic in rGO loading, peaking just below the percolation threshold [13].</p></div>
-<p style="margin:0"><b>Objectives:</b> O1 pinched hysteresis vs frequency · O2 ON/OFF, V<sub>set</sub> &amp; analog states vs loading · O3 independent physics cross-check · O4 synaptic behaviour (LTP/LTD, PPF, multilevel) · O5 ink inside the printability window · O6 lab test of the falsifiable prediction.</p>
+<p>AI's energy use is growing faster than hardware efficiency. Data-centre electricity is projected to rise from <b>about 415 TWh in 2024 to about 945 TWh in 2030</b> [1]. In conventional computers, memory and processor are separate, and moving data between them takes <b>more than 60% of system energy</b> (62.7% on average across Google's consumer workloads) [25].</p>
+<figure><div class="frame"><img src="figc/fig1.png"></div><figcaption><b>Fig. 1</b> (a) Projected data-centre demand [1]. (b) The von Neumann bottleneck [25]. (c) A memristor stores and computes in one device, like a synapse.</figcaption></figure>
+<p>A memristor stores a weight and computes with it in one device [9, 11, 19], about 1000× more efficiently than CMOS [5, 7]. The best ones use HfO<sub>2</sub> or TaO<sub>x</sub> made in vacuum above 300 °C on substrates that never degrade [3, 4], trading an energy problem for an <b>e-waste problem</b>. Greener biopolymer and biodegradable devices exist [3, 17] but reach only 10<sup>3</sup>–10<sup>4</sup> ON/OFF and 500–10<sup>4</sup> cycles [3, 6].</p>
+<p>Zhao et al. made a chitosan–rGO memristor, but not printed and not on paper [5]. Chen et al. inkjet-printed memristors on paper, but with inorganic materials [2]. A conductive filler widens the window of chitosan devices [6, 10], but its best loading is unknown.</p>
+<div class="callout"><p><b>Research question:</b> Can a printed chitosan–rGO layer on paper work as a memristor for neuromorphic computing, and at what rGO loading does it work best?</p><p><b>Hypothesis:</b> ON/OFF peaks just below the rGO percolation threshold [13]. Below it, filaments grow at random; above it, the rGO network shorts the device.</p></div>
+<p style="margin:0"><b>Objectives:</b> simulate switching, map ON/OFF against loading, keep the ink printable, then test the hypothesis in the lab.</p>
 </div></div>
 
 <!-- ================= 02 METHODOLOGY ================= -->
@@ -109,23 +110,23 @@ tr.me td{background:var(--tint);font-weight:700}
 <div class="bd"><div class="cols" style="grid-template-columns:470pt 1fr">
 <div>
 <h4>Materials</h4>
-<p><b>Chitosan</b> (matrix) is extracted from shrimp-shell waste (Fig. 3); its amine/hydroxyl network lets Ag<sup>+</sup> ions migrate under bias. <b>rGO</b> (reduced with vitamin C, not hydrazine) concentrates the field so filaments grow along guided paths → gradual, multi-level switching.</p>
+<p>We extract chitosan from shrimp-shell waste (Fig. 3); Ag<sup>+</sup> ions move through it under bias. rGO, reduced with vitamin C, concentrates the field so filaments grow along guided paths, for gradual, multi-level switching.</p>
 <figure><div class="frame"><img src="figc/fig3.png"></div><figcaption><b>Fig. 3</b> Chitosan extraction from waste shrimp shells (BioRender.com).</figcaption></figure>
-<figure style="margin:0"><div class="frame"><img src="figc/fig4.png"></div><figcaption><b>Fig. 4</b> Vertical Ag / CS-rGO / Ag stack on paper and proposed Ag<sup>+</sup> switching mechanism.</figcaption></figure>
+<figure style="margin:0"><div class="frame"><img src="figc/fig4.png"></div><figcaption><b>Fig. 4</b> Vertical Ag / CS-rGO / Ag stack on paper and the proposed Ag<sup>+</sup> switching mechanism.</figcaption></figure>
 </div>
 <div>
-<h4>Fabrication (planned, ambient, no cleanroom)</h4>
-<figure><div class="frame"><img src="figc/fig5.png"></div><figcaption><b>Fig. 5</b> Dissolve chitosan → reduce GO → mix ink → inkjet-print on paper → cure ~100 °C → I-V &amp; pulse tests (BioRender.com).</figcaption></figure>
-<p>Ink checked before printing: particle &lt;300 nm, viscosity 1–30 cP, surface tension 35–70 mN/m, Z = 1–10 [14, 15]. <b>Cost &lt;$1/device consumables.</b></p>
-<h4>Four Python models (NumPy, SciPy)</h4>
+<h4>Fabrication (planned)</h4>
+<figure><div class="frame"><img src="figc/fig5.png"></div><figcaption><b>Fig. 5</b> Six-step process in ambient air. Only the cure is heated, to about 100 °C; no vacuum or cleanroom (BioRender.com).</figcaption></figure>
+<p>We check the ink before printing: particles under 300 nm, 1–30 cP, 35–70 mN/m, Z = 1–10 [8, 14, 15, 16]. Estimated consumables: under $1 per device.</p>
+<h4>Simulation models (Python)</h4>
 <ul>
-<li><b>Strukov ion-drift</b> [20] + Joglekar window [21]: 1 V sine at 1, 5, 20 Hz.</li>
-<li><b>VTEAM-based parameter map</b> [22]: R<sub>on</sub>, R<sub>off</sub> vs φ/φ<sub>c</sub>; φ<sub>c</sub> = 22 wt% <i>(assumed)</i>.</li>
-<li><b>1-D Nernst–Planck drift-diffusion</b> + percolation term (t = 1.8 [23]) as an independent check.</li>
-<li><b>Synaptic model</b>: LTP/LTD, paired-pulse, six levels with read noise.</li>
+<li><b>Strukov ion drift</b> [20, 21]: 1 V sine at 1, 5 and 20 Hz.</li>
+<li><b>Empirical parameter map</b> [22]: R<sub>on</sub>, R<sub>off</sub> vs loading; threshold assumed at 22 wt%.</li>
+<li><b>1-D drift-diffusion</b> with percolation [23]: an independent check.</li>
+<li><b>Synaptic model</b>: target curves from chosen inputs.</li>
 </ul>
-<p><b>Variables.</b> Independent: rGO loading 0–24 wt% (2 wt% steps). Dependent: ON/OFF, V<sub>set</sub>, analog states. Controlled: 200×200 µm electrodes, 150 nm layer, ±2 V at 0.1 V/s, 0.8 V/50 µs pulses, 25 °C. Controls: pure chitosan (–), HfO<sub>2</sub> data [4] (+).</p>
-<p style="margin:0"><b>Lab plan.</b> ≥10 devices per loading (0–24 wt%); mean ± SD, one-way ANOVA (α = 0.05) + Tukey HSD; ±10% sensitivity on every input incl. φ<sub>c</sub>. Safety: fume hood for 5% acetic acid, Ag-ink waste via chemical-waste programme; ISEF Form 1A.</p>
+<p><b>Variables.</b> Independent: rGO loading. Dependent: ON/OFF, switching voltage, analog states. Fixed: 200×200 µm electrodes, 150 nm layer, ±2 V at 0.1 V/s, 0.8 V/50 µs pulses, 25 °C. Controls: pure chitosan; HfO<sub>2</sub> data [4].</p>
+<p style="margin:0"><b>Lab plan.</b> Real thresholds can be far below 22 wt% [24], so we print a log-spaced series from 0 to 16 wt% with at least 10 devices each, compared by one-way ANOVA (α = 0.05) and Tukey HSD. Acid work in a fume hood; silver waste via the chemical-waste programme.</p>
 </div>
 </div></div></div>
 
@@ -133,12 +134,12 @@ tr.me td{background:var(--tint);font-weight:700}
 <div class="card" id="results" data-row="2" style="left:63pt;width:1290pt">
 <div class="hd"><span class="n">03</span><h2>Results</h2></div>
 <div class="bd">
-<div class="warn">All values below are simulation outputs from the inputs in the methodology — not device measurements. No devices have been fabricated yet.</div>
+<div class="warn">Every result in this section comes from simulation. We have not fabricated a device yet.</div>
 <div class="cols" style="grid-template-columns:1fr 1fr;gap:20pt 30pt">
-<figure style="margin:0"><div class="frame"><img src="figc/fig6.png"></div><figcaption><b>Fig. 6 · Strukov model (O1).</b> Pinched loops through the origin. Loop area <span style="white-space:nowrap">4.4×10<sup>-8</sup></span> V·A at 1 Hz, <span style="white-space:nowrap">3.0×10<sup>-9</sup></span> at 5 Hz, <span style="white-space:nowrap">6.9×10<sup>-9</sup></span> at 20 Hz — smaller at higher frequency, but not monotonic from 5→20 Hz (needs re-checking).</figcaption></figure>
-<figure style="margin:0" class="key"><div class="frame"><span class="tag">KEY RESULT</span><img src="figc/fig7.png"></div><figcaption><b>Fig. 7 · Parameter map (O2).</b> ON/OFF rises from 5 (0 wt%) to 315 (14 wt%) and <b style="color:var(--coral)">1,489 at 20 wt%</b>, then collapses to 2.0 (22 wt%) and 1.7 (24 wt%). R<sub>off</sub> 25 kΩ → 0.89 MΩ; R<sub>on</sub> 5.0 → 0.60 kΩ. The peak follows from the assumed 22 wt% threshold — a design target, not an independent prediction.</figcaption></figure>
-<figure style="margin:0"><div class="frame"><img src="figc/fig8.png"></div><figcaption><b>Fig. 8 · Cross-check (O3 not met).</b> The drift-diffusion model gave ON/OFF = 1.0 at every loading: the percolation conductivity is computed but not coupled into the current, so it cannot yet confirm the map.</figcaption></figure>
-<figure style="margin:0"><div class="frame"><img src="figc/fig9.png"></div><figcaption><b>Fig. 9 · Synaptic model (O4, illustrative).</b> Potentiation 0.82 → 3.73 µS over 30 pulses, depression to 0.31 µS; PPF 169% at 1 ms decaying to 100% by 10<sup>3</sup> ms; six levels stay separate over 36 reads.</figcaption></figure>
+<figure style="margin:0"><div class="frame"><img src="figc/fig6.png"></div><figcaption><b>Fig. 6 · Strukov model.</b> The loops pinch at the origin, and the single-lobe area falls steadily with frequency (<span style="white-space:nowrap">4.2×10<sup>-5</sup></span>, <span style="white-space:nowrap">3.1×10<sup>-6</sup></span>, <span style="white-space:nowrap">6.9×10<sup>-7</sup></span> V·A at 1, 5, 20 Hz), as a memristor should.</figcaption></figure>
+<figure style="margin:0" class="key"><div class="frame"><img src="figc/fig7.png"></div><figcaption><span class="tagi">KEY RESULT</span> <b>Fig. 7 · Parameter map, 0.1 wt% grid.</b> ON/OFF rises from 5 at 0 wt% to 1,489 at 20 wt% and about 3,500 at 21.8 wt%: the <b style="color:var(--coral)">10<sup>3</sup> range just below the threshold</b>. The map has no peak of its own; the maximum sits at the assumed threshold, so the lab must measure it.</figcaption></figure>
+<figure style="margin:0"><div class="frame"><img src="figc/fig8.png"></div><figcaption><b>Fig. 8 · Drift-diffusion check.</b> ON/OFF = 1 at every loading: the percolation term does not yet enter the current, so this model cannot confirm the map yet.</figcaption></figure>
+<figure style="margin:0"><div class="frame"><img src="figc/fig9.png"></div><figcaption><b>Fig. 9 · Synaptic target behaviour.</b> Chosen inputs, not predictions: potentiation from 0.82 to 3.73 µS over 30 pulses, depression to 0.31 µS, paired-pulse facilitation 169% at 1 ms, six separate levels.</figcaption></figure>
 </div>
 </div></div>
 
@@ -150,15 +151,15 @@ tr.me td{background:var(--tint);font-weight:700}
 <div class="tbl"><table>
 <tr><th>Study</th><th>Active layer</th><th>Substrate / process</th><th>Not addressed</th></tr>
 <tr><td>Zhao [5] 2022</td><td>Chitosan–rGO</td><td>Not printed; not paper</td><td>Printing; paper</td></tr>
-<tr><td>Min &amp; Cho [6] 2021</td><td>Chitosan + CNT</td><td>TFT-gated memory</td><td>Optimal filler loading</td></tr>
-<tr><td>Chen [2] 2025</td><td>Inorganic</td><td>Inkjet on paper, 5,200 devices, &gt;90% yield</td><td>Bio-derived layer</td></tr>
+<tr><td>Min &amp; Cho [6] 2021</td><td>Chitosan + CNT</td><td>Flexible memristor on plastic</td><td>Optimal filler loading</td></tr>
+<tr><td>Chen [2] 2025</td><td>Inorganic</td><td>Inkjet on paper; 16×65 array, &gt;90% yield</td><td>Bio-derived layer</td></tr>
 <tr><td>Zhang [3] 2026</td><td>Biopolymers (review)</td><td>Various; ON/OFF ~10<sup>6</sup></td><td>Printed on paper</td></tr>
 <tr class="me"><td>This project</td><td>Chitosan–rGO</td><td>Inkjet-printed on paper, Ag electrodes</td><td>Measurements (planned)</td></tr>
 </table></div>
 <h4 style="margin-top:.9em">What is new</h4>
-<div class="num"><span class="c">1</span><div><b>Material + process.</b> Combines the chitosan–rGO chemistry of [5] with inkjet printing on paper as in [2] — using chitosan from shellfish waste and vitamin-C-reduced rGO.</div></div>
-<div class="num"><span class="c">2</span><div><b>A mechanism for the optimum.</b> [6] saw a filler widen the window ×2.3 but found no optimum. This project explains why one should exist — guided filaments below percolation, shorting above it — and tests it across loading (Fig. 2).</div></div>
-<div class="num" style="margin:0"><span class="c">3</span><div><b>Design before fabrication.</b> A parameter map chose the composition range before any device was made; the lab phase measures the real threshold. Target: synaptic weights (10<sup>3</sup>–10<sup>4</sup> ON/OFF with gradual switching [12, 18]), not non-volatile memory.</div></div>
+<div class="num"><span class="c">1</span><div><b>Material and process.</b> We combine the chitosan–rGO chemistry of [5] with inkjet printing on paper [2], using shellfish-waste chitosan and vitamin-C-reduced rGO.</div></div>
+<div class="num"><span class="c">2</span><div><b>A reason for an optimum.</b> A nanotube filler widened the chitosan window 2.3×, but no optimum was found [6]. We propose why one should exist (Fig. 2) and test it in the lab.</div></div>
+<div class="num" style="margin:0"><span class="c">3</span><div><b>Design before fabrication.</b> We modelled the composition range before making any device. We target synaptic weights, which need 10<sup>3</sup>–10<sup>4</sup> ON/OFF with gradual switching [12, 18], not non-volatile memory.</div></div>
 </div></div>
 
 <!-- ================= 05 CONCLUSION ================= -->
@@ -166,11 +167,11 @@ tr.me td{background:var(--tint);font-weight:700}
 <div class="hd"><span class="n">05</span><h2>Conclusion</h2></div>
 <div class="bd"><div class="cols" style="grid-template-columns:1fr 1fr;gap:36pt">
 <div>
-<p>Four simulation models suggest that a printed chitosan–rGO memristor on paper could reach an ON/OFF ratio of <b>~<span style="white-space:nowrap">1.5×10<sup>3</sup></span> at ~20 wt% rGO</b> — inside the 10<sup>3</sup>–10<sup>4</sup> range neuromorphic learning needs [12, 18] — while being bio-derived, biodegradable and printed near room temperature. These results set the composition range for the first experiments; <b>they do not demonstrate device performance.</b></p>
-<p class="tcap"><b>Table 3</b> Simulated value vs published devices.</p>
+<p>Our parameter map suggests a printed chitosan–rGO memristor on paper could reach ON/OFF in the <b>10<sup>3</sup> range just below the percolation threshold</b>, inside the 10<sup>3</sup>–10<sup>4</sup> range neuromorphic learning needs [12, 18], with a bio-derived active layer printed in ambient air. This tells us where to look in the lab; <b>it does not demonstrate device performance.</b></p>
+<p class="tcap"><b>Table 2</b> Simulated value vs published devices.</p>
 <div class="tbl" style="margin:0"><table>
 <tr><th>Device</th><th>ON/OFF</th><th>V<sub>switch</sub></th><th>Endurance</th></tr>
-<tr class="me"><td>CS-rGO 20 wt% (sim.)</td><td>~<span style="white-space:nowrap">1.5×10<sup>3</sup></span></td><td>n/c</td><td>n/c</td></tr>
+<tr class="me"><td>CS-rGO (sim.)</td><td>10<sup>3</sup> range</td><td>n/c</td><td>n/c</td></tr>
 <tr><td>Chitosan + CNT [6]</td><td>~15</td><td>0.8 V</td><td>~200 cyc.</td></tr>
 <tr><td>Biopolymers [3]</td><td>≤~10<sup>6</sup></td><td>–</td><td>–</td></tr>
 <tr><td>HfO<sub>2</sub> [4]</td><td>10<sup>6</sup>–10<sup>8</sup></td><td>0.3–0.8 V</td><td>10<sup>9</sup>–10<sup>11</sup></td></tr>
@@ -179,13 +180,11 @@ tr.me td{background:var(--tint);font-weight:700}
 <div>
 <h4>Limitations</h4>
 <ul>
-<li>All results are simulations; none is a measurement.</li>
-<li>Peak position depends on the assumed 22 wt% threshold; reported graphene–polymer thresholds can be ~0.1 vol% [24] and vary with flake size and dispersion [13].</li>
-<li>VTEAM switching equations not yet solved → no V<sub>set</sub> or endurance estimate.</li>
-<li>Drift-diffusion model gives no independent check yet.</li>
-<li>Model thicknesses (10 / 100 nm) ≠ planned 150 nm; coffee-ring, paper roughness and humidity not modelled.</li>
+<li>The 22 wt% threshold is assumed. Published rGO–polymer thresholds can be near 0.1 vol% [24] and depend on flake size and dispersion [13].</li>
+<li>No switching voltage or endurance yet: the switching equations are not solved and the drift-diffusion check does not work.</li>
+<li>Not modelled: the real 150 nm layer, coffee-ring drying, paper roughness and humidity.</li>
 </ul>
-<div class="callout" style="margin:0"><h4 style="margin:0 0 .25em">Impact</h4><p>Low-cost, compostable synaptic hardware for edge-AI and disposable sensors, made from shellfish waste without vacuum or cleanroom.</p></div>
+<div class="callout" style="margin:0"><h4 style="margin:0 0 .25em">Impact</h4><p>Low-cost synaptic hardware for edge AI and disposable sensors, with a bio-derived active layer on paper made from shellfish waste, without vacuum or cleanroom.</p></div>
 </div>
 </div></div></div>
 
@@ -194,13 +193,13 @@ tr.me td{background:var(--tint);font-weight:700}
 <div class="hd"><span class="n">06</span><h2>Future Work &amp; References</h2></div>
 <div class="bd">
 <div class="tbl"><table class="tl">
-<tr><td>27 Nov–7 Dec</td><td>Lab access, risk assessment, materials ($500–850); fix models (couple percolation, solve VTEAM, 1–200 Hz sweep, ±10% sensitivity)</td></tr>
-<tr><td>8–25 Dec</td><td>Formulate ink → printability go/no-go; 5-device pilot at 12 wt% (continue if ≥3/5 switch)</td></tr>
-<tr><td>26 Dec–16 Jan</td><td>Print ≥10 devices at 0, 4, 8, 12, 16, 18, 20, 22, 24 wt% (90 devices)</td></tr>
-<tr><td>17 Jan–21 Feb</td><td>I-V, synaptic, endurance &amp; retention tests; ANOVA + Tukey; measure real threshold</td></tr>
-<tr><td>22–28 Feb 2027</td><td>Replace simulated results with measured data. <b>Refuted if</b> ON/OFF rises monotonically 0–24 wt% with no collapse.</td></tr>
+<tr><td>27 Nov–7 Dec</td><td>Lab access, risk assessment, materials ($500–850). Fix the models: couple percolation into drift-diffusion, solve the switching equations, 1–200 Hz sweep, ±10% sensitivity check</td></tr>
+<tr><td>8–25 Dec</td><td>Formulate ink and check printability (go/no-go); 5-device pilot, continue if at least 3 of 5 switch</td></tr>
+<tr><td>26 Dec–16 Jan</td><td>Print at least 10 devices at each of 0, 0.1, 0.25, 0.5, 1, 2, 4, 8 and 16 wt% (90 devices)</td></tr>
+<tr><td>17 Jan–21 Feb</td><td>I-V, synaptic, endurance and retention tests; ANOVA and Tukey HSD; measure the real threshold</td></tr>
+<tr><td>22–28 Feb 2027</td><td>Replace simulated results with measured data. <b>Refuted if</b> ON/OFF rises steadily across the series with no collapse.</td></tr>
 </table></div>
-<p class="loc">Location: King Abdulaziz University, Jeddah (subject to change). Code &amp; data: github.com/Mohammed200923/cs-rgo-memristor-sim (QR code above).</p>
+<p class="loc">Location: King Abdulaziz University, Jeddah (subject to change). Code and data: github.com/Mohammed200923/cs-rgo-memristor-sim (QR code above).</p>
 <div class="refs">
 <div>[1] IEA, Energy and AI, 2025.</div>
 <div>[2] J. Chen et al., InfoMat 7, e70000, 2025.</div>
@@ -226,6 +225,7 @@ tr.me td{background:var(--tint);font-weight:700}
 <div>[22] S. Kvatinsky et al., IEEE TCAS-II 62, 786, 2015.</div>
 <div>[23] D. Stauffer, A. Aharony, Percolation Theory, 1994.</div>
 <div>[24] S. Stankovich et al., Nature 442, 282, 2006.</div>
+<div>[25] A. Boroumand et al., ASPLOS 2018, 316–331.</div>
 </div>
 </div></div>
 
