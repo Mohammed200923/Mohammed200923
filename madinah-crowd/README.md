@@ -168,6 +168,8 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v72a / v72b | 0.685 / 0.684 | missing partner weight 90% for A/E/F / 60% for others: 75% everywhere stays best |
 
+| v73h | (= v69h publicly) | v69h + 19 Sep cam_D hidden blended 30% with (D/L ratio from 18 Sep) × cam_L: a private-day hedge. Analysis: interpolating across the blank (forbidden) would give forecast only 0.949, so it does not explain 0.58 scores |
+
 `submission.csv` is v69a (0.683): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v69a + v69h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
