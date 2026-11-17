@@ -24,4 +24,8 @@ cd poster/source/sim
 python3 make_figs.py out   # writes fig6.png, fig7.png, fig8.png
 ```
 
-Port the same two fixes into `cs-rgo-memristor-sim` too, so the numbers behind the QR code match the poster.
+The same fixes are in `cs-rgo-memristor-sim` (branch `claude/amazing-bardeen-bo4e16`), and the poster's Figs. 6–8 are now built from that repo.
+
+## Cost estimate
+
+`source/cost_estimate.py` estimates materials per device for the 90-device run from catalogue prices (Nov 2026) and stated assumptions (cartridge fill, batch size, GO loss). Result: about $0.96 per device. Most of it is silver ink (~$0.51) and GO (~$0.37) lost to minimum batch sizes; the material in one device costs under 1 cent. Replace the assumptions with real quotes once materials are ordered.

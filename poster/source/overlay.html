@@ -88,7 +88,7 @@ tr.me td{background:var(--tint);font-weight:700}
   <div class="q">Can AI hardware be <em>printed on paper</em> from <em>shrimp shells</em>?</div>
   <div class="stat"><div class="v">10<sup style="font-size:.5em">3</sup> <small>range</small></div><div class="l">ON/OFF below the threshold<br><span class="t">simulated target</span></div></div>
   <div class="stat"><div class="v">~100 <small>°C</small></div><div class="l">Highest process step. Ambient air, no vacuum, no cleanroom</div></div>
-  <div class="stat"><div class="v">&lt;$1</div><div class="l">Estimated consumables per device</div></div>
+  <div class="stat"><div class="v">~$1</div><div class="l">Estimated materials per device</div></div>
   <div class="f2"><img src="figc/fig2.png"><div><b>Fig. 2</b> Our hypothesis. Too little rGO gives random filaments, the optimal window guides filament growth, and too much rGO percolates and shorts the device.</div></div>
 </div>
 
@@ -117,7 +117,7 @@ tr.me td{background:var(--tint);font-weight:700}
 <div>
 <h4>Fabrication (planned)</h4>
 <figure><div class="frame"><img src="figc/fig5.png"></div><figcaption><b>Fig. 5</b> Six-step process in ambient air. Only the cure is heated, to about 100 °C; no vacuum or cleanroom (BioRender.com).</figcaption></figure>
-<p>We check the ink before printing: particles under 300 nm, 1–30 cP, 35–70 mN/m, Z = 1–10 [8, 14, 15, 16]. Estimated consumables: under $1 per device.</p>
+<p>We check the ink before printing: particles under 300 nm, 1–30 cP, 35–70 mN/m, Z = 1–10 [8, 14, 15, 16]. Estimated materials: about $1 per device for the 90-device run (silver ink ~$0.51, GO ~$0.37, rest ~$0.08). Most of that is ink lost to minimum batch sizes; the material in one device costs under 1 cent.</p>
 <h4>Simulation models (Python)</h4>
 <ul>
 <li><b>Strukov ion drift</b> [20, 21]: 1 V sine at 1, 5 and 20 Hz.</li>
@@ -184,7 +184,7 @@ tr.me td{background:var(--tint);font-weight:700}
 <li>No switching voltage or endurance yet: the switching equations are not solved and the drift-diffusion check does not work.</li>
 <li>Not modelled: the real 150 nm layer, coffee-ring drying, paper roughness and humidity.</li>
 </ul>
-<div class="callout" style="margin:0"><h4 style="margin:0 0 .25em">Impact</h4><p>Low-cost synaptic hardware for edge AI and disposable sensors, with a bio-derived active layer on paper made from shellfish waste, without vacuum or cleanroom.</p></div>
+<div class="callout" style="margin:0"><h4 style="margin:0 0 .25em">Impact</h4><p>Low-cost synaptic hardware for edge AI and disposable sensors, printed on paper from shellfish waste without vacuum or cleanroom.</p></div>
 </div>
 </div></div></div>
 
@@ -194,7 +194,7 @@ tr.me td{background:var(--tint);font-weight:700}
 <div class="bd">
 <div class="tbl"><table class="tl">
 <tr><td>27 Nov–7 Dec</td><td>Lab access, risk assessment, materials ($500–850). Fix the models: couple percolation into drift-diffusion, solve the switching equations, 1–200 Hz sweep, ±10% sensitivity check</td></tr>
-<tr><td>8–25 Dec</td><td>Formulate ink and check printability (go/no-go); 5-device pilot, continue if at least 3 of 5 switch</td></tr>
+<tr><td>8–25 Dec</td><td>Formulate ink and check printability (go/no-go); 5-device pilot at 0.5 wt%, continue if at least 3 of 5 switch</td></tr>
 <tr><td>26 Dec–16 Jan</td><td>Print at least 10 devices at each of 0, 0.1, 0.25, 0.5, 1, 2, 4, 8 and 16 wt% (90 devices)</td></tr>
 <tr><td>17 Jan–21 Feb</td><td>I-V, synaptic, endurance and retention tests; ANOVA and Tukey HSD; measure the real threshold</td></tr>
 <tr><td>22–28 Feb 2027</td><td>Replace simulated results with measured data. <b>Refuted if</b> ON/OFF rises steadily across the series with no collapse.</td></tr>
