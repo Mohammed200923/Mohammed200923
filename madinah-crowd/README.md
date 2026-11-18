@@ -179,7 +179,10 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v77a / v77h | 0.670 / 0.670 | final pair: v75b + cam_D Saturday pattern 40% / v73h + B/G Friday pattern 40% (cam_L for cam_D) |
 
-`submission.csv` is v75b (0.670): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v77a + v77h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v78a / v78b | 0.666 / **0.665** | hidden-future B/G: Friday ratio pattern x our cam_D forecast, 20% / 35% |
+| v79 | ? | hidden-future pattern 50% / 65% (18 Sep) + cam_D 19 Sep Saturday pattern x our B/A forecasts at 35%; v79m = 35% both days; v79h hedge |
+
+`submission.csv` is v78b (0.665): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v77a + v77h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
