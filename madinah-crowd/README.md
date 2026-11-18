@@ -182,7 +182,7 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v78a / v78b | 0.666 / **0.665** | hidden-future B/G: Friday ratio pattern x our cam_D forecast, 20% / 35% |
 | v79a / v79b / v79m / v79h | 0.665 / 0.667 / **0.665** / 0.666 | hidden-future pattern 50% / 65% (18 Sep) + cam_D 19 Sep Saturday pattern x our B/A forecasts at 35%; v79m = 35% both days; v79h hedge |
 
-| v80a / v80h | ? | hidden B/G pattern estimate averaged over partners D and A (Fri-to-Fri B/A 0.95) |
+| v80a / v80h | 0.678 / 0.679 (worse: cam_D's minute counts matter, not just the pattern) | hidden B/G pattern estimate averaged over partners D and A (Fri-to-Fri B/A 0.95) |
 
 `submission.csv` is v79m (0.665): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v79m + v79h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
