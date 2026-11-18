@@ -191,9 +191,11 @@ The other test day is used where the rules allow it: the hidden model of each te
 
 | v84a / v84b | 0.666 / 0.668 (no gain) | forecast analog searching only same-weekday training days (20% / 35%) |
 
-| v85a / v85b | ? | hidden G via Friday G/B pattern (Fri-to-Fri 0.97) x our hidden B / + hidden-future G likewise |
+| v85a / v85b | **0.664** / ? | hidden G via Friday G/B pattern (Fri-to-Fri 0.97) x our hidden B / + hidden-future G likewise |
 
-`submission.csv` is v79m (0.665): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v79m + v79h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+| v86a / v86h | ? | hidden G pattern share fully via cam_B / hedge twin of v85a |
+
+`submission.csv` is v85a (0.664): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v79m + v79h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
