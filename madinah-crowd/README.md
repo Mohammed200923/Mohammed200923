@@ -202,9 +202,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v90a / v90b / v90h | 0.664 / 0.666 / 0.665 |
 | v91a / v91b | 0.663 / 0.664 (flat) | missing partner weight 70% / 80% with the model part at 1.0x |
 | v92a / v92b | 0.663 / 0.663 (flat) |
-| v93a / v93b | ? | hidden nearest-neighbour share 0% / 35% (was 20%) after the weekday patterns | forecast analog share 10% / 30% (retune after averaging and A/E/F pooling) | 0.75x / 0.5x / hedge at 1.0x |
+| v93a / v93b | 0.666 / **0.661** | hidden nearest-neighbour share 0% / 35% (was 20%) after the weekday patterns | forecast analog share 10% / 30% (retune after averaging and A/E/F pooling) | 0.75x / 0.5x / hedge at 1.0x |
 
-`submission.csv` is **v89a (public 0.663)**. Suggested finals: **v89a + v90h (0.665)**. They carry the same ideas and are nearly identical on 18 Sep; they differ mainly on 19 Sep (the private day): v89a uses the Saturday ratio pattern for hidden cam_D, v90h uses cam_L as cam_D's partner, and v90h keeps the more conservative 19 Sep forecast settings.
+`submission.csv` is **v93b (public 0.661)**. Suggested finals: **v89a + v90h (0.665)**. They carry the same ideas and are nearly identical on 18 Sep; they differ mainly on 19 Sep (the private day): v89a uses the Saturday ratio pattern for hidden cam_D, v90h uses cam_L as cam_D's partner, and v90h keeps the more conservative 19 Sep forecast settings.
 
 ## Rules check
 
