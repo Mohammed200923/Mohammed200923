@@ -199,9 +199,9 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v88a / v88b | 0.664 / 0.665 (tie / worse) | A/E/F short-horizon (h<=7) trust x1.5 / x2 |
 
 | v89a / v89b | **0.663** / 0.667 | model part inside partner-covered missing holes amplified 1.0x / 1.6x (was 1.25x) |
-| v90a / v90b / v90h | ? | 0.75x / 0.5x / hedge at 1.0x |
+| v90a / v90b / v90h | 0.664 / 0.666 / 0.665 | 0.75x / 0.5x / hedge at 1.0x |
 
-`submission.csv` is v89a (0.663): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v79m + v79h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
+`submission.csv` is v89a (0.663): v31b with forecasts averaged with v34a. Per-camera hidden blends are in the code (`HIDDEN_REF_BLEND_UNIT`). It equals v11a on 18 Sep (public 0.758 expected); it only differs on 19 Sep. Suggested finals: v89a + v90h (v35b = v35 with the conservative 19 Sep settings) (identical on 18 Sep; they differ only in how much 19 Sep forecasts trust the model). The pre-prayer rule is off (`PRE_PRAYER = None`). Note: v8 and v9 make identical 19 Sep predictions, so they would score the same on the private board.
 
 ## Rules check
 
