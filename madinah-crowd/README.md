@@ -204,7 +204,7 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v92a / v92b | 0.663 / 0.663 (flat) |
 | v93a / v93b | 0.666 / **0.661** | hidden nearest-neighbour share 0% / 35% (was 20%) after the weekday patterns | forecast analog share 10% / 30% (retune after averaging and A/E/F pooling) | 0.75x / 0.5x / hedge at 1.0x |
 
-`submission.csv` is **v93b (public 0.661)**. Suggested finals: **v89a + v90h (0.665)**. They carry the same ideas and are nearly identical on 18 Sep; they differ mainly on 19 Sep (the private day): v89a uses the Saturday ratio pattern for hidden cam_D, v90h uses cam_L as cam_D's partner, and v90h keeps the more conservative 19 Sep forecast settings.
+`submission.csv` is **v94a (public 0.661)**. Suggested finals: **v89a + v90h (0.665)**. They carry the same ideas and are nearly identical on 18 Sep; they differ mainly on 19 Sep (the private day): v89a uses the Saturday ratio pattern for hidden cam_D, v90h uses cam_L as cam_D's partner, and v90h keeps the more conservative 19 Sep forecast settings.
 
 ## Rules check
 
@@ -212,3 +212,6 @@ The other test day is used where the rules allow it: the hidden model of each te
 - The forecast and hidden-future models are trained on `train.csv` only.
 - Hidden and missing holes use the whole released table, which the rules allow.
 - The competition data is **not** committed (Kaggle rules); keep this repository private while the competition runs.
+
+| v94a / v94b / v94h | 0.661 / 0.661 / 0.663 (hedge) | hidden neighbour share 50% / 65% flat vs 35%; hedge at 35% |
+| v95a / v95b | ? | missing partner share 90% / 60% (was 75%) |
