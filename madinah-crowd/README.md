@@ -214,4 +214,5 @@ The other test day is used where the rules allow it: the hidden model of each te
 - The competition data is **not** committed (Kaggle rules); keep this repository private while the competition runs.
 
 | v94a / v94b / v94h | 0.661 / 0.661 / 0.663 (hedge) | hidden neighbour share 50% / 65% flat vs 35%; hedge at 35% |
-| v95a / v95b | ? | missing partner share 90% / 60% (was 75%) |
+| v95a / v95b | 0.664 / 0.663 | missing partner share 90% / 60% (was 75%) |
+| v96a / v96b | ? | hidden-future B/G reference share 0% / 25% (was 12%) |
