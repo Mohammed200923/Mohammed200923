@@ -204,7 +204,7 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v92a / v92b | 0.663 / 0.663 (flat) |
 | v93a / v93b | 0.666 / **0.661** | hidden nearest-neighbour share 0% / 35% (was 20%) after the weekday patterns | forecast analog share 10% / 30% (retune after averaging and A/E/F pooling) | 0.75x / 0.5x / hedge at 1.0x |
 
-`submission.csv` is **v109a (public 0.650)**. Suggested finals: **v107a (0.652) + v108h (0.652)**. They carry the same ideas and are nearly identical on 18 Sep; they differ mainly on 19 Sep (the private day): v89a uses the Saturday ratio pattern for hidden cam_D, v90h uses cam_L as cam_D's partner, and v90h keeps the more conservative 19 Sep forecast settings.
+`submission.csv` is **v110b (public 0.646)**. Suggested finals: **v110b (0.646) + v110h (0.648)** (or v111h if better). They carry the same ideas and are nearly identical on 18 Sep; they differ mainly on 19 Sep (the private day): v89a uses the Saturday ratio pattern for hidden cam_D, v90h uses cam_L as cam_D's partner, and v90h keeps the more conservative 19 Sep forecast settings.
 
 ## Rules check
 
@@ -228,4 +228,5 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v107a / v107b | **0.652** / 0.654 | hidden B x0.93 / x0.90 (G x1.08) |
 | v108a / v108h | 0.653 / **0.652** (hedge) | hidden B x0.93 with G x1.00 / hedge v98h + B x0.93, G x1.08 |
 | v109a / v109b | **0.650** / 0.654 | 18 Sep hidden-future B x0.93 + G x1.08 / B x0.93 only |
-| v110a / v110b / v110h | ? | hidden-future G x1.08 / x1.16 only (B as is); hedge v108h + HF G x1.08 |
+| v110a / v110b / v110h | 0.647 / **0.646** / 0.648 (hedge) | hidden-future G x1.08 / x1.16 only (B as is); hedge v108h + HF G x1.08 |
+| v111a / v111h | ? | hidden-future G x1.26 / hedge with HF G x1.16 |
