@@ -220,4 +220,5 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v98a / v98b / v98h | 0.663 / 0.670 / 0.662 (hedge) | 18 Sep forecast change x1.30 / x1.50; hedge v94h with x1.15 |
 | v99a / v99b | 0.660 / 0.663 | 18 Sep forecast change: h<=5 x1.30 + h>=6 x1.15 / h<=5 x1.15 + h>=6 x1.30 |
 | v100a / v100b | 0.660 / 0.661 | 18 Sep forecast: h<=5 x1.50 + long x1.15 / h<=5 x1.30 + long x1.00 |
-| v101a / v101b | ? | 18 Sep hidden-future change vs reference x1.15 / x0.85 (on v97b) |
+| v101a / v101b | 0.664 / 0.663 | 18 Sep hidden-future change vs reference x1.15 / x0.85 (on v97b) |
+| v102a / v102b | ? | 18 Sep forecast: new cams I-M x1.40 (others x1.15) / old cams x1.35 (new x1.15) |
