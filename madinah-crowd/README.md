@@ -204,7 +204,7 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v92a / v92b | 0.663 / 0.663 (flat) |
 | v93a / v93b | 0.666 / **0.661** | hidden nearest-neighbour share 0% / 35% (was 20%) after the weekday patterns | forecast analog share 10% / 30% (retune after averaging and A/E/F pooling) | 0.75x / 0.5x / hedge at 1.0x |
 
-`submission.csv` is **v105b (public 0.655)**. Suggested finals: **v97b (0.660) + v98h (0.662)**. They carry the same ideas and are nearly identical on 18 Sep; they differ mainly on 19 Sep (the private day): v89a uses the Saturday ratio pattern for hidden cam_D, v90h uses cam_L as cam_D's partner, and v90h keeps the more conservative 19 Sep forecast settings.
+`submission.csv` is **v106b (public 0.653)**. Suggested finals: **v97b (0.660) + v98h (0.662)**. They carry the same ideas and are nearly identical on 18 Sep; they differ mainly on 19 Sep (the private day): v89a uses the Saturday ratio pattern for hidden cam_D, v90h uses cam_L as cam_D's partner, and v90h keeps the more conservative 19 Sep forecast settings.
 
 ## Rules check
 
@@ -224,4 +224,5 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v102a / v102b | 0.660 / 0.665 | 18 Sep forecast: new cams I-M x1.40 (others x1.15) / old cams x1.35 (new x1.15) |
 | v103a / v103b | 0.660 / 0.660 | 18 Sep forecast: new cams x1.80 (old x1.15) / new x1.40 + old x1.00 |
 | v105a / v105b | 0.670 / **0.655** | 18 Sep hidden B/G overall level moved to the reference's level / the same step away (tests whether the reference scale is the true level; result carries to 19 Sep cam_D) |
-| v106a / v106b | ? | hidden G x1.166 (B as v97b) / hidden B x0.963 + G x1.08 |
+| v106a / v106b | 0.661 / **0.653** | hidden G x1.166 (B as v97b) / hidden B x0.963 + G x1.08 |
+| v107a / v107b | ? | hidden B x0.93 / x0.90 (G x1.08) |
