@@ -223,3 +223,4 @@ The other test day is used where the rules allow it: the hidden model of each te
 | v101a / v101b | 0.664 / 0.663 | 18 Sep hidden-future change vs reference x1.15 / x0.85 (on v97b) |
 | v102a / v102b | 0.660 / 0.665 | 18 Sep forecast: new cams I-M x1.40 (others x1.15) / old cams x1.35 (new x1.15) |
 | v103a / v103b | 0.660 / 0.660 | 18 Sep forecast: new cams x1.80 (old x1.15) / new x1.40 + old x1.00 |
+| v105a / v105b | ? | 18 Sep hidden B/G overall level moved to the reference's level / the same step away (tests whether the reference scale is the true level; result carries to 19 Sep cam_D) |
